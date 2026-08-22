@@ -268,4 +268,29 @@ async function signInWithGoogle() {
   if (result.redirected) {
     return;
   }
+
+  // Tokens received and session set; ensure profile exists and go to dashboard.
+  const navigate = useNavigate();
+  const ensureProfileFn = useServerFn(ensureProfile);
+  const assignAdminFn = useServerFn(assignAdminIfFirst);
+
+  const user = (await supabase.auth.getUser()).data.user;
+  if (user) {
+    const metadata = user.user_metadata || {};
+    const email = user.email || "";
+    const username = metadata["user_name"] || email.split("@")[0] || "usuario";
+    try {
+      await ensureProfileFn({
+        data: {
+          user_name: username,
+          full_name: metadata["full_name"] || "",
+        },
+      });
+      await assignAdminFn({ data: {} });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  navigate({ to: "/dashboard" });
 }
