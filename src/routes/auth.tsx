@@ -74,6 +74,16 @@ function AuthPage() {
   );
 }
 
+async function waitForSession(timeoutMs = 4000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) return data.session;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return null;
+}
+
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -98,7 +108,8 @@ function LoginForm() {
     }
 
     try {
-      const user = (await supabase.auth.getUser()).data.user;
+      const session = await waitForSession();
+      const user = session?.user ?? null;
       if (user) {
         const metadata = user.user_metadata || {};
         const username = metadata["user_name"] || email.split("@")[0];
@@ -181,6 +192,14 @@ function RegisterForm() {
     }
 
     if (data.user) {
+      const session = data.session ?? (await waitForSession());
+
+      if (!session) {
+        setBusy(false);
+        toast.success("Cuenta creada. Revisa tu correo para confirmarla.");
+        return;
+      }
+
       try {
         await ensureProfileFn({
           data: {
@@ -271,7 +290,8 @@ function GoogleSignInButton() {
       return;
     }
 
-    const user = (await supabase.auth.getUser()).data.user;
+    const session = await waitForSession();
+    const user = session?.user ?? null;
     if (user) {
       const metadata = user.user_metadata || {};
       const email = user.email || "";
