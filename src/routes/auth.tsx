@@ -108,7 +108,8 @@ function LoginForm() {
     }
 
     try {
-      const user = (await supabase.auth.getUser()).data.user;
+      const session = await waitForSession();
+      const user = session?.user ?? null;
       if (user) {
         const metadata = user.user_metadata || {};
         const username = metadata["user_name"] || email.split("@")[0];
