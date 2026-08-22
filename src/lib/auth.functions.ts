@@ -132,7 +132,6 @@ export const assignAdminIfFirst = createServerFn({ method: "POST" })
 
     // Privileged insert bypasses RLS so the first user can become admin.
     const { createClient } = await import("@supabase/supabase-js");
-    const { default: typeDefs } = await import("@/integrations/supabase/types");
     const SUPABASE_URL = process.env["SUPABASE_URL"];
     const SUPABASE_SERVICE_ROLE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"];
 
@@ -140,7 +139,7 @@ export const assignAdminIfFirst = createServerFn({ method: "POST" })
       throw new Error("Missing service role configuration");
     }
 
-    const supabaseAdmin = createClient<typeDefs>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    const supabaseAdmin = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
