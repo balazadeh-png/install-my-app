@@ -85,6 +85,8 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const ensureProfileFn = useServerFn(ensureProfile);
+  const assignAdminFn = useServerFn(assignAdminIfFirst);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,13 +97,29 @@ function LoginForm() {
       password,
     });
 
-    setBusy(false);
-
     if (error) {
+      setBusy(false);
       toast.error(error.message);
       return;
     }
 
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        const username = user.user_metadata?.user_name || email.split("@")[0];
+        await ensureProfileFn({
+          data: {
+            user_name: username,
+            full_name: user.user_metadata?.full_name || "",
+          },
+        });
+        await assignAdminFn({ data: {} });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    setBusy(false);
     navigate({ to: "/dashboard" });
   }
 
