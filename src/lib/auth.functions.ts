@@ -116,6 +116,7 @@ export const getModules = createServerFn({ method: "GET" })
 
 export const assignAdminIfFirst = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({}).parse(data))
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
 
