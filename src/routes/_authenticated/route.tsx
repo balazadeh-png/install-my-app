@@ -1,6 +1,7 @@
 import { createFileRoute, Navigate, Outlet } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
+import { AppHeader } from "@/components/layout/AppHeader";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -11,8 +12,11 @@ function AuthenticatedLayout() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Cargando sesión...</p>
+        </div>
       </div>
     );
   }
@@ -21,5 +25,12 @@ function AuthenticatedLayout() {
     return <Navigate to="/auth" />;
   }
 
-  return <Outlet />;
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <AppHeader />
+      <div className="flex-1">
+        <Outlet />
+      </div>
+    </div>
+  );
 }
