@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
+import { ensureProfile, assignAdminIfFirst } from "@/lib/auth.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
