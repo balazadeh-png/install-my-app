@@ -106,11 +106,12 @@ function LoginForm() {
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (user) {
-        const username = user.user_metadata?.user_name || email.split("@")[0];
+        const metadata = user.user_metadata || {};
+        const username = metadata["user_name"] || email.split("@")[0];
         await ensureProfileFn({
           data: {
             user_name: username,
-            full_name: user.user_metadata?.full_name || "",
+            full_name: metadata["full_name"] || "",
           },
         });
         await assignAdminFn({ data: {} });
