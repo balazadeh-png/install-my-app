@@ -249,42 +249,54 @@ function RegisterForm() {
   );
 }
 
-async function signInWithGoogle() {
-  const result = await lovable.auth.signInWithOAuth("google", {
-    redirect_uri: window.location.origin,
-  });
-
-  if (result.error) {
-    toast.error(result.error.message);
-    return;
-  }
-
-  if (result.redirected) {
-    return;
-  }
-
-  // Tokens received and session set; ensure profile exists and go to dashboard.
+function GoogleSignInButton() {
   const navigate = useNavigate();
   const ensureProfileFn = useServerFn(ensureProfile);
   const assignAdminFn = useServerFn(assignAdminIfFirst);
+  const [busy, setBusy] = useState(false);
 
-  const user = (await supabase.auth.getUser()).data.user;
-  if (user) {
-    const metadata = user.user_metadata || {};
-    const email = user.email || "";
-    const username = metadata["user_name"] || email.split("@")[0] || "usuario";
-    try {
-      await ensureProfileFn({
-        data: {
-          user_name: username,
-          full_name: metadata["full_name"] || "",
-        },
-      });
-      await assignAdminFn({ data: {} });
-    } catch (err) {
-      console.error(err);
+  async function handleClick() {
+    setBusy(true);
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+
+    if (result.error) {
+      setBusy(false);
+      toast.error(result.error.message);
+      return;
     }
+
+    if (result.redirected) {
+      return;
+    }
+
+    const user = (await supabase.auth.getUser()).data.user;
+    if (user) {
+      const metadata = user.user_metadata || {};
+      const email = user.email || "";
+      const username = metadata["user_name"] || email.split("@")[0] || "usuario";
+      try {
+        await ensureProfileFn({
+          data: {
+            user_name: username,
+            full_name: metadata["full_name"] || "",
+          },
+        });
+        await assignAdminFn({ data: {} });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    setBusy(false);
+    navigate({ to: "/dashboard" });
   }
 
-  navigate({ to: "/dashboard" });
+  return (
+    <Button variant="outline" className="w-full" onClick={handleClick} disabled={busy}>
+      {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+      Google
+    </Button>
+  );
 }
