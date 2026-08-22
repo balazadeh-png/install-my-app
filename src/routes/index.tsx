@@ -18,6 +18,14 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const { isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
+
+  if (!loading && isAuthenticated) {
+    navigate({ to: "/dashboard" });
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card/50">
