@@ -192,6 +192,14 @@ function RegisterForm() {
     }
 
     if (data.user) {
+      const session = data.session ?? (await waitForSession());
+
+      if (!session) {
+        setBusy(false);
+        toast.success("Cuenta creada. Revisa tu correo para confirmarla.");
+        return;
+      }
+
       try {
         await ensureProfileFn({
           data: {
