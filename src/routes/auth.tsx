@@ -161,6 +161,8 @@ function RegisterForm() {
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const ensureProfileFn = useServerFn(ensureProfile);
+  const assignAdminFn = useServerFn(assignAdminIfFirst);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -177,16 +179,30 @@ function RegisterForm() {
       },
     });
 
-    setBusy(false);
-
     if (error) {
+      setBusy(false);
       toast.error(error.message);
       return;
     }
 
     if (data.user) {
+      try {
+        await ensureProfileFn({
+          data: {
+            user_name: userName,
+            full_name: fullName,
+          },
+        });
+        await assignAdminFn({ data: {} });
+      } catch (err) {
+        console.error(err);
+      }
+
       toast.success("Cuenta creada. Bienvenido a Cacao Accounting.");
+      setBusy(false);
       navigate({ to: "/dashboard" });
+    } else {
+      setBusy(false);
     }
   }
 
