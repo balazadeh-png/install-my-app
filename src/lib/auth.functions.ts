@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { AppRole } from "@/integrations/supabase/types";
 
 export const getCurrentProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
