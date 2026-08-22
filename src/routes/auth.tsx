@@ -74,6 +74,16 @@ function AuthPage() {
   );
 }
 
+async function waitForSession(timeoutMs = 4000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) return data.session;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return null;
+}
+
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
