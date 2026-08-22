@@ -67,13 +67,7 @@ function AuthPage() {
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => signInWithGoogle()}
-          >
-            Google
-          </Button>
+          <GoogleSignInButton />
         </CardContent>
       </Card>
     </div>
