@@ -290,7 +290,8 @@ function GoogleSignInButton() {
       return;
     }
 
-    const user = (await supabase.auth.getUser()).data.user;
+    const session = await waitForSession();
+    const user = session?.user ?? null;
     if (user) {
       const metadata = user.user_metadata || {};
       const email = user.email || "";
