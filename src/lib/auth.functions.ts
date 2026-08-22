@@ -45,7 +45,7 @@ export const ensureProfile = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
 
-    const email = user.email;
+    const email = user.email ?? null;
 
     const { data: existing } = await supabase
       .from("profiles")
