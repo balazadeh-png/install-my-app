@@ -112,3 +112,41 @@ export const getModules = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return data ?? [];
   });
+
+export const assignAdminIfFirst = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+
+    // Verify the caller is authenticated and can read user_roles via RLS.
+    const { data: existingRoles, error: readError } = await supabase
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userId);
+
+    if (readError) throw new Error(readError.message);
+    if ((existingRoles ?? []).length > 0) {
+      return { assigned: false };
+    }
+
+    // Privileged insert bypasses RLS so the first user can become admin.
+    const { createClient } = await import("@supabase/supabase-js");
+    const { default: typeDefs } = await import("@/integrations/supabase/types");
+    const SUPABASE_URL = process.env["SUPABASE_URL"];
+    const SUPABASE_SERVICE_ROLE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Missing service role configuration");
+    }
+
+    const supabaseAdmin = createClient<typeDefs>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { error } = await supabaseAdmin
+      .from("user_roles")
+      .insert({ user_id: userId, role: "admin" as AppRole });
+
+    if (error) throw new Error(error.message);
+    return { assigned: true };
+  });
