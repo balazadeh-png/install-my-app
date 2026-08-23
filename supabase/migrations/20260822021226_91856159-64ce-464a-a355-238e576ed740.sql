@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     full_name text,
     email text UNIQUE,
     language text DEFAULT 'es',
-    timezone text DEFAULT 'America/Managua',
+    timezone text DEFAULT 'America/Santiago',
     active boolean DEFAULT true,
     company_id uuid,
     created_at timestamptz DEFAULT now() NOT NULL,
@@ -618,7 +618,7 @@ INSERT INTO public.roles (name, note) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO public.currencies (code, name, decimals, is_default) VALUES
-    ('NIO', 'Córdoba Nicaragüense', 2, true),
+    ('CLP', 'Peso Chileno', 0, true),
     ('USD', 'Dólar Estadounidense', 2, false)
 ON CONFLICT (code) DO NOTHING;
 

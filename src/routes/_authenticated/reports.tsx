@@ -119,7 +119,7 @@ function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-mono text-foreground">
-              C$ {totalAssets.toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+              $ {totalAssets.toLocaleString("es-CL")}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Bienes y derechos</p>
           </CardContent>
@@ -133,7 +133,7 @@ function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-mono text-foreground">
-              C$ {totalLiabilities.toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+              $ {totalLiabilities.toLocaleString("es-CL")}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Obligaciones y deudas</p>
           </CardContent>
@@ -147,7 +147,7 @@ function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-              C$ {totalIncome.toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+              $ {totalIncome.toLocaleString("es-CL")}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Ventas y otros ingresos</p>
           </CardContent>
@@ -161,7 +161,7 @@ function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold font-mono ${netIncome >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
-              C$ {netIncome.toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+              $ {netIncome.toLocaleString("es-CL")}
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
               {netIncome >= 0 ? (
@@ -216,7 +216,7 @@ function ReportsPage() {
                       <TableHead>Tipo</TableHead>
                       <TableHead className="text-right">Total Débito</TableHead>
                       <TableHead className="text-right">Total Crédito</TableHead>
-                      <TableHead className="text-right">Saldo Neto (C$)</TableHead>
+                      <TableHead className="text-right">Saldo Neto ($)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -235,13 +235,13 @@ function ReportsPage() {
                             <TableCell className="text-xs font-semibold">{a.name}</TableCell>
                             <TableCell className="text-xs text-muted-foreground">{a.account_type}</TableCell>
                             <TableCell className="text-right font-mono text-xs">
-                              {b.debit > 0 ? b.debit.toLocaleString("es-NI", { minimumFractionDigits: 2 }) : "-"}
+                              {b.debit > 0 ? b.debit.toLocaleString("es-CL") : "-"}
                             </TableCell>
                             <TableCell className="text-right font-mono text-xs">
-                              {b.credit > 0 ? b.credit.toLocaleString("es-NI", { minimumFractionDigits: 2 }) : "-"}
+                              {b.credit > 0 ? b.credit.toLocaleString("es-CL") : "-"}
                             </TableCell>
                             <TableCell className="text-right font-mono text-xs font-bold">
-                              C$ {b.net.toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                              $ {b.net.toLocaleString("es-CL")}
                             </TableCell>
                           </TableRow>
                         );
@@ -270,13 +270,13 @@ function ReportsPage() {
                       <div key={a.id} className="flex justify-between items-center text-xs py-1 border-b border-muted">
                         <span className="font-medium">{a.code} - {a.name}</span>
                         <span className="font-mono font-semibold">
-                          C$ {(balances[a.id]?.net || 0).toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                          $ {(balances[a.id]?.net || 0).toLocaleString("es-CL")}
                         </span>
                       </div>
                     ))}
                   <div className="flex justify-between items-center text-sm font-bold pt-2">
                     <span>Total Activos</span>
-                    <span className="font-mono">C$ {totalAssets.toLocaleString("es-NI", { minimumFractionDigits: 2 })}</span>
+                    <span className="font-mono">$ {totalAssets.toLocaleString("es-CL")}</span>
                   </div>
                 </div>
               </CardContent>
@@ -296,7 +296,7 @@ function ReportsPage() {
                       <div key={a.id} className="flex justify-between items-center text-xs py-1 border-b border-muted">
                         <span className="font-medium">{a.code} - {a.name}</span>
                         <span className="font-mono font-semibold">
-                          C$ {(balances[a.id]?.net || 0).toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                          $ {(balances[a.id]?.net || 0).toLocaleString("es-CL")}
                         </span>
                       </div>
                     ))}
@@ -307,20 +307,20 @@ function ReportsPage() {
                       <div key={a.id} className="flex justify-between items-center text-xs py-1 border-b border-muted">
                         <span className="font-medium">{a.code} - {a.name}</span>
                         <span className="font-mono font-semibold">
-                          C$ {(balances[a.id]?.net || 0).toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                          $ {(balances[a.id]?.net || 0).toLocaleString("es-CL")}
                         </span>
                       </div>
                     ))}
                   <div className="flex justify-between items-center text-xs py-1 border-b border-muted text-emerald-600 dark:text-emerald-400">
                     <span className="font-medium">Utilidad del Período</span>
                     <span className="font-mono font-semibold">
-                      C$ {netIncome.toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                      $ {netIncome.toLocaleString("es-CL")}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm font-bold pt-2">
                     <span>Total Pasivo + Patrimonio</span>
                     <span className="font-mono">
-                      C$ {(totalLiabilities + totalEquity + netIncome).toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                      $ {(totalLiabilities + totalEquity + netIncome).toLocaleString("es-CL")}
                     </span>
                   </div>
                 </div>
@@ -347,13 +347,13 @@ function ReportsPage() {
                     <div key={a.id} className="flex justify-between">
                       <span>{a.code} - {a.name}</span>
                       <span className="font-mono font-semibold">
-                        C$ {(balances[a.id]?.net || 0).toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                        $ {(balances[a.id]?.net || 0).toLocaleString("es-CL")}
                       </span>
                     </div>
                   ))}
                   <div className="flex justify-between font-bold pt-1 border-t">
                     <span>Total Ingresos</span>
-                    <span className="font-mono">C$ {totalIncome.toLocaleString("es-NI", { minimumFractionDigits: 2 })}</span>
+                    <span className="font-mono">$ {totalIncome.toLocaleString("es-CL")}</span>
                   </div>
                 </div>
 
@@ -364,14 +364,14 @@ function ReportsPage() {
                     <div key={a.id} className="flex justify-between">
                       <span>{a.code} - {a.name}</span>
                       <span className="font-mono font-semibold text-destructive">
-                        (C$ {(balances[a.id]?.net || 0).toLocaleString("es-NI", { minimumFractionDigits: 2 })})
+                        ($ {(balances[a.id]?.net || 0).toLocaleString("es-CL")})
                       </span>
                     </div>
                   ))}
                   <div className="flex justify-between font-bold pt-1 border-t">
                     <span>Total Costos y Gastos</span>
                     <span className="font-mono text-destructive">
-                      (C$ {totalExpenses.toLocaleString("es-NI", { minimumFractionDigits: 2 })})
+                      ($ {totalExpenses.toLocaleString("es-CL")})
                     </span>
                   </div>
                 </div>
@@ -380,7 +380,7 @@ function ReportsPage() {
                 <div className="p-4 rounded-lg bg-muted/60 flex justify-between items-center text-sm font-bold mt-4">
                   <span>UTILIDAD / PÉRDIDA NETA:</span>
                   <span className={`font-mono text-base ${netIncome >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
-                    C$ {netIncome.toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                    $ {netIncome.toLocaleString("es-CL")}
                   </span>
                 </div>
               </div>

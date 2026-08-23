@@ -163,10 +163,10 @@ function SalesPage() {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="taxId" className="text-right">RUC / Cédula</Label>
+                <Label htmlFor="taxId" className="text-right">RUT</Label>
                 <Input
                   id="taxId"
-                  placeholder="ej. J0310000001234"
+                  placeholder="ej. 76.123.456-K"
                   value={taxId}
                   onChange={(e) => setTaxId(e.target.value)}
                   className="col-span-3 font-mono"
@@ -192,7 +192,7 @@ function SalesPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="cliente@empresa.com"
+                  placeholder="cliente@empresa.cl"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
                   className="col-span-3"
@@ -202,7 +202,7 @@ function SalesPage() {
                 <Label htmlFor="phone" className="text-right">Teléfono</Label>
                 <Input
                   id="phone"
-                  placeholder="+505 8888-8888"
+                  placeholder="+56 9 1234 5678"
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
                   className="col-span-3"
@@ -250,7 +250,7 @@ function SalesPage() {
                   <TableRow>
                     <TableHead>Razón Social / Cliente</TableHead>
                     <TableHead>Nombre Comercial</TableHead>
-                    <TableHead>RUC / Identificación</TableHead>
+                    <TableHead>RUT</TableHead>
                     <TableHead>Contacto Principal</TableHead>
                     <TableHead className="text-center">Estado</TableHead>
                   </TableRow>

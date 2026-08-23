@@ -87,7 +87,7 @@ function SetupPage() {
         code: entityCode.trim(),
         name: entityName.trim(),
         tax_id: entityTaxId.trim() || null,
-        currency: "NIO",
+        currency: "CLP",
         active: true,
       });
       if (error) throw error;
@@ -256,10 +256,10 @@ function SetupPage() {
                       />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="eTax" className="text-right">RUC</Label>
+                      <Label htmlFor="eTax" className="text-right">RUT</Label>
                       <Input
                         id="eTax"
-                        placeholder="ej. J0310000009999"
+                        placeholder="ej. 76.123.456-K"
                         value={entityTaxId}
                         onChange={(e) => setEntityTaxId(e.target.value)}
                         className="col-span-3 font-mono"
@@ -289,7 +289,7 @@ function SetupPage() {
                       <TableRow>
                         <TableHead className="w-[140px]">Código</TableHead>
                         <TableHead>Razón Social</TableHead>
-                        <TableHead>RUC</TableHead>
+                        <TableHead>RUT</TableHead>
                         <TableHead>Moneda Base</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
                       </TableRow>

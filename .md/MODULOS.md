@@ -1,6 +1,6 @@
-# Especificación y Funcionalidad de Módulos - Cacao Accounting
+# Especificación y Funcionalidad de Módulos - Cacao Accounting (Norma Chilena / CLP)
 
-Este documento describe en detalle cada uno de los módulos operativos integrados en el sistema ERP Cacao Accounting.
+Este documento describe en detalle cada uno de los módulos operativos integrados en el sistema ERP Cacao Accounting adaptado para Chile.
 
 ---
 
@@ -10,14 +10,14 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Distinción entre cuentas de grupo (agrupadoras) y cuentas de detalle (asentables).
   * Diálogo modal para la creación de nuevas cuentas contables.
 * **Libro Diario & Libro Mayor (`gl_entries`)**:
-  * Registro de transacciones con trazabilidad de fecha, cuenta, concepto/memo, débito, crédito y tipo de comprobante.
-  * Resumen automático de sumas totales de débitos y créditos.
+  * Registro de transacciones con trazabilidad de fecha, cuenta, concepto/memo, débito, crédito y tipo de comprobante en Pesos Chilenos (**CLP / $**).
+  * Resumen automático de sumas totales de débitos y créditos con formateo `es-CL`.
 
 ---
 
 ## 2. Ventas & Clientes ([`/sales`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sales.tsx))
 * **Directorio de Clientes (`parties`)**:
-  * Gestión de clientes con razón social, nombre comercial y RUC/identificación.
+  * Gestión de clientes con razón social, nombre comercial y **RUT** chileno (ej. `76.123.456-K`).
   * Relación con personas de contacto (`contacts`) incluyendo correo y teléfono.
   * Modal para el registro rápido de nuevos clientes con su contacto principal.
 
@@ -25,7 +25,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ## 3. Compras & Proveedores ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
 * **Directorio de Suplidores (`parties`)**:
-  * Registro de proveedores de materias primas, productos y servicios con RUC.
+  * Registro de proveedores de materias primas, productos y servicios con **RUT**.
   * Contactos asociados para cotizaciones y pedidos.
   * Modal de alta rápida de proveedores.
 
@@ -43,23 +43,23 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 ---
 
 ## 5. Bancos & Tesorería ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
-* **Tasas de Cambio Oficiales (`exchange_rates`)**:
-  * Registro y consulta del tipo de cambio oficial diario USD $\rightarrow$ NIO.
-  * Indicador en tiempo real de la tasa vigente.
+* **Tasas de Cambio Oficiales / Dólar Observado (`exchange_rates`)**:
+  * Registro y consulta del tipo de cambio oficial diario USD $\rightarrow$ CLP.
+  * Indicador en tiempo real del Dólar Observado vigente.
 * **Libros de Caja & Bancos (`books`)**:
-  * Control de cajas chicas y cuentas corrientes bancarias.
+  * Control de cajas chicas y cuentas corrientes bancarias en pesos chilenos y moneda extranjera.
 
 ---
 
 ## 6. Reportes Financieros ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
-* **Balanza de Comprobación**: Sumas de débitos y créditos y saldo neto para cada cuenta del catálogo.
+* **Balanza de Comprobación**: Sumas de débitos y créditos y saldo neto para cada cuenta del catálogo expresado en `$ CLP`.
 * **Balance General**: Desglose clasificado de Activos, Pasivos, Patrimonio y verificación de la ecuación contable.
 * **Estado de Resultados (P&L)**: Resumen de ingresos operacionales, costos de venta, gastos y cálculo de la utilidad/pérdida neta del ejercicio.
 
 ---
 
 ## 7. Configuración General ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
-* **Empresas / Entidades (`entities`)**: Registro de razones sociales y sucursales.
+* **Empresas / Entidades (`entities`)**: Registro de razones sociales y sucursales con RUT y moneda base CLP.
 * **Años Fiscales (`fiscal_years`)**: Gestión de ejercicios contables anuales.
-* **Correlativos y Series (`naming_series`)**: Prefijos y numeraciones automáticas para documentos.
+* **Correlativos y Series (`naming_series`)**: Prefijos y numeraciones automáticas para facturas y comprobantes.
 * **Roles del Sistema (`roles`)**: Catálogo de roles de seguridad y permisos.

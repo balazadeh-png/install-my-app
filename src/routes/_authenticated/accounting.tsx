@@ -106,7 +106,7 @@ function AccountingPage() {
         account_id: entryAccount,
         debit: deb,
         credit: cred,
-        currency: "NIO",
+        currency: "CLP",
         memo: entryMemo,
         voucher_type: "Manual",
       });
@@ -294,24 +294,24 @@ function AccountingPage() {
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="debit" className="text-right">Débito (C$)</Label>
+                  <Label htmlFor="debit" className="text-right">Débito ($)</Label>
                   <Input
                     id="debit"
                     type="number"
-                    step="0.01"
-                    placeholder="0.00"
+                    step="1"
+                    placeholder="0"
                     value={entryDebit}
                     onChange={(e) => setEntryDebit(e.target.value)}
                     className="col-span-3"
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="credit" className="text-right">Crédito (C$)</Label>
+                  <Label htmlFor="credit" className="text-right">Crédito ($)</Label>
                   <Input
                     id="credit"
                     type="number"
-                    step="0.01"
-                    placeholder="0.00"
+                    step="1"
+                    placeholder="0"
                     value={entryCredit}
                     onChange={(e) => setEntryCredit(e.target.value)}
                     className="col-span-3"
@@ -433,10 +433,10 @@ function AccountingPage() {
               </div>
               <div className="flex items-center gap-4 text-xs font-mono">
                 <div className="bg-muted px-2.5 py-1 rounded">
-                  Débitos: <span className="font-bold text-foreground">C$ {totalDebit.toLocaleString("es-NI", { minimumFractionDigits: 2 })}</span>
+                  Débitos: <span className="font-bold text-foreground">$ {totalDebit.toLocaleString("es-CL")}</span>
                 </div>
                 <div className="bg-muted px-2.5 py-1 rounded">
-                  Créditos: <span className="font-bold text-foreground">C$ {totalCredit.toLocaleString("es-NI", { minimumFractionDigits: 2 })}</span>
+                  Créditos: <span className="font-bold text-foreground">$ {totalCredit.toLocaleString("es-CL")}</span>
                 </div>
               </div>
             </CardHeader>
@@ -463,8 +463,8 @@ function AccountingPage() {
                         <TableHead>Cuenta</TableHead>
                         <TableHead>Concepto / Memo</TableHead>
                         <TableHead>Comprobante</TableHead>
-                        <TableHead className="text-right">Débito (NIO)</TableHead>
-                        <TableHead className="text-right">Crédito (NIO)</TableHead>
+                        <TableHead className="text-right">Débito (CLP)</TableHead>
+                        <TableHead className="text-right">Crédito (CLP)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -481,10 +481,10 @@ function AccountingPage() {
                               <Badge variant="outline">{entry.voucher_type || "General"}</Badge>
                             </TableCell>
                             <TableCell className="text-right font-mono text-xs font-medium">
-                              {Number(entry.debit) > 0 ? `C$ ${Number(entry.debit).toLocaleString("es-NI", { minimumFractionDigits: 2 })}` : "-"}
+                              {Number(entry.debit) > 0 ? `$ ${Number(entry.debit).toLocaleString("es-CL")}` : "-"}
                             </TableCell>
                             <TableCell className="text-right font-mono text-xs font-medium">
-                              {Number(entry.credit) > 0 ? `C$ ${Number(entry.credit).toLocaleString("es-NI", { minimumFractionDigits: 2 })}` : "-"}
+                              {Number(entry.credit) > 0 ? `$ ${Number(entry.credit).toLocaleString("es-CL")}` : "-"}
                             </TableCell>
                           </TableRow>
                         );

@@ -55,7 +55,7 @@ function Index() {
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
             Contabilidad, compras, ventas, inventario y bancos en un solo lugar.
-            Diseñado para empresas nicaragüenses.
+            Diseñado para empresas en Chile bajo norma contable IFRS.
           </p>
           <div className="mt-8 flex justify-center gap-4">
             <Button asChild size="lg">

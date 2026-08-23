@@ -206,7 +206,7 @@ function InventoryPage() {
                   <Label htmlFor="wName" className="text-right">Nombre</Label>
                   <Input
                     id="wName"
-                    placeholder="ej. Bodega Principal Managua"
+                    placeholder="ej. Bodega Central Santiago"
                     value={warehouseName}
                     onChange={(e) => setWarehouseName(e.target.value)}
                     className="col-span-3"

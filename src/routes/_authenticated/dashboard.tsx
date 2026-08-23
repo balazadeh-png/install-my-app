@@ -132,9 +132,9 @@ function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">NIO</div>
+            <div className="text-2xl font-bold">CLP</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Córdoba Nicaragüense (C$)
+              Peso Chileno ($)
             </p>
           </CardContent>
         </Card>

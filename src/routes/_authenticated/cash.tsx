@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/cash")({
   head: () => ({
     meta: [
       { title: "Bancos & Tesorería | Cacao Accounting" },
-      { name: "description", content: "Tasas de cambio oficiales NIO/USD y libros de tesorería." },
+      { name: "description", content: "Tasas de cambio oficiales USD/CLP y libros de tesorería." },
     ],
   }),
 });
@@ -69,7 +69,7 @@ function CashPage() {
 
       const { error } = await supabase.from("exchange_rates").insert({
         origin: "USD",
-        destination: "NIO",
+        destination: "CLP",
         date: rateDate,
         rate: numRate,
       });
@@ -145,7 +145,7 @@ function CashPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Módulo de Bancos & Tesorería</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestión de tipos de cambio multimoneda (USD / NIO) y libros de caja y bancos.
+            Gestión de tipos de cambio multimoneda (USD / CLP) y libros de caja y bancos.
           </p>
         </div>
 
@@ -162,7 +162,7 @@ function CashPage() {
               <DialogHeader>
                 <DialogTitle>Nueva Tasa de Cambio Oficial</DialogTitle>
                 <DialogDescription>
-                  Registra el tipo de cambio oficial USD a NIO para una fecha determinada.
+                  Registra el tipo de cambio oficial USD a CLP (Dólar Observado) para una fecha determinada.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-3">
@@ -177,12 +177,12 @@ function CashPage() {
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="rValue" className="text-right">Tasa (NIO)</Label>
+                  <Label htmlFor="rValue" className="text-right">Tasa (CLP $)</Label>
                   <Input
                     id="rValue"
                     type="number"
-                    step="0.0001"
-                    placeholder="ej. 36.6241"
+                    step="0.01"
+                    placeholder="ej. 945.50"
                     value={rateValue}
                     onChange={(e) => setRateValue(e.target.value)}
                     className="col-span-3 font-mono"
@@ -220,7 +220,7 @@ function CashPage() {
                   <Label htmlFor="bCode" className="text-right">Código</Label>
                   <Input
                     id="bCode"
-                    placeholder="ej. BANCO-BAC-NIO"
+                    placeholder="ej. BANCO-CHILE-CLP"
                     value={bookCode}
                     onChange={(e) => setBookCode(e.target.value)}
                     className="col-span-3 font-mono"
@@ -230,7 +230,7 @@ function CashPage() {
                   <Label htmlFor="bName" className="text-right">Nombre</Label>
                   <Input
                     id="bName"
-                    placeholder="ej. BAC Cta Cte Córdobas"
+                    placeholder="ej. Banco de Chile Cta Cte Pesos"
                     value={bookName}
                     onChange={(e) => setBookName(e.target.value)}
                     className="col-span-3"
@@ -255,14 +255,14 @@ function CashPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
-              Tasa de Cambio Vigente (USD a NIO)
+              Dólar Observado Vigente (USD a CLP)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
               <TrendingUp className="h-6 w-6 text-primary" />
               <div className="text-2xl font-bold font-mono">
-                {latestRate ? `C$ ${Number(latestRate).toFixed(4)}` : "No registrada"}
+                {latestRate ? `$ ${Number(latestRate).toLocaleString("es-CL", { minimumFractionDigits: 2 })}` : "No registrada"}
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -317,7 +317,7 @@ function CashPage() {
                         <TableCell className="font-mono text-xs">{r.date}</TableCell>
                         <TableCell className="text-xs font-semibold">{r.origin} / {r.destination}</TableCell>
                         <TableCell className="text-right font-mono text-xs font-bold text-foreground">
-                          C$ {Number(r.rate).toFixed(4)}
+                          $ {Number(r.rate).toLocaleString("es-CL", { minimumFractionDigits: 2 })}
                         </TableCell>
                       </TableRow>
                     ))}

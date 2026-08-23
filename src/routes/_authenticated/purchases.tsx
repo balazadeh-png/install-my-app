@@ -163,10 +163,10 @@ function PurchasesPage() {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="sTaxId" className="text-right">RUC</Label>
+                <Label htmlFor="sTaxId" className="text-right">RUT</Label>
                 <Input
                   id="sTaxId"
-                  placeholder="ej. J0310000005678"
+                  placeholder="ej. 77.456.789-0"
                   value={taxId}
                   onChange={(e) => setTaxId(e.target.value)}
                   className="col-span-3 font-mono"
@@ -192,7 +192,7 @@ function PurchasesPage() {
                 <Input
                   id="sEmail"
                   type="email"
-                  placeholder="ventas@proveedor.com"
+                  placeholder="ventas@proveedor.cl"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
                   className="col-span-3"
@@ -202,7 +202,7 @@ function PurchasesPage() {
                 <Label htmlFor="sPhone" className="text-right">Teléfono</Label>
                 <Input
                   id="sPhone"
-                  placeholder="+505 2222-2222"
+                  placeholder="+56 2 2222 2222"
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
                   className="col-span-3"
@@ -250,7 +250,7 @@ function PurchasesPage() {
                   <TableRow>
                     <TableHead>Razón Social / Proveedor</TableHead>
                     <TableHead>Nombre Comercial</TableHead>
-                    <TableHead>RUC</TableHead>
+                    <TableHead>RUT</TableHead>
                     <TableHead>Contacto</TableHead>
                     <TableHead className="text-center">Estado</TableHead>
                   </TableRow>
