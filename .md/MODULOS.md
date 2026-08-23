@@ -1,6 +1,6 @@
-# Especificación y Funcionalidad de Módulos - Cacao Accounting (Norma Chilena / CLP)
+# Especificación y Funcionalidad de Módulos - EasyERP (Norma Chilena / CLP)
 
-Este documento describe en detalle cada uno de los módulos operativos integrados en el sistema ERP Cacao Accounting adaptado para Chile.
+Este documento describe en detalle cada uno de los módulos operativos integrados en el sistema ERP **EasyERP** adaptado para Chile.
 
 ---
 

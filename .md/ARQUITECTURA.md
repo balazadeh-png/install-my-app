@@ -1,4 +1,4 @@
-# Arquitectura del Sistema - Cacao Accounting
+# Arquitectura del Sistema - EasyERP
 
 ## 1. Visión y Alcance
 Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en Chile bajo normativa contable IFRS / IFRS Pymes. Soporta operación en moneda base **Peso Chileno (CLP)** y multimoneda (USD / Dólar Observado), catálogo de cuentas jerárquico, libros contables, asientos por partida doble, identificación tributaria mediante **RUT** y control de inventario con método FIFO.

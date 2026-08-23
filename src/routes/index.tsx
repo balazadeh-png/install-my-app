@@ -8,9 +8,9 @@ export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
     meta: [
-      { title: "Cacao Accounting" },
+      { title: "EasyERP" },
       { name: "description", content: "Sistema contable y administrativo para empresas." },
-      { property: "og:title", content: "Cacao Accounting" },
+      { property: "og:title", content: "EasyERP" },
       { property: "og:description", content: "Sistema contable y administrativo para empresas." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -35,7 +35,7 @@ function Index() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <BookOpen className="h-5 w-5" />
             </div>
-            <span className="text-lg font-semibold tracking-tight">Cacao Accounting</span>
+            <span className="text-lg font-semibold tracking-tight">EasyERP</span>
           </div>
           <div className="flex items-center gap-3">
             <Button asChild variant="ghost">

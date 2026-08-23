@@ -58,10 +58,10 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
   head: () => ({
     meta: [
-      { title: "Dashboard | Cacao Accounting" },
-      { name: "description", content: "Panel de control de Cacao Accounting." },
-      { property: "og:title", content: "Dashboard | Cacao Accounting" },
-      { property: "og:description", content: "Panel de control de Cacao Accounting." },
+      { title: "Dashboard | EasyERP" },
+      { name: "description", content: "Panel de control de EasyERP." },
+      { property: "og:title", content: "Dashboard | EasyERP" },
+      { property: "og:description", content: "Panel de control de EasyERP." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

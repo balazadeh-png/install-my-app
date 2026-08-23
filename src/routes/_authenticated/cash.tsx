@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/cash")({
   component: CashPage,
   head: () => ({
     meta: [
-      { title: "Bancos & Tesorería | Cacao Accounting" },
+      { title: "Bancos & Tesorería | EasyERP" },
       { name: "description", content: "Tasas de cambio oficiales USD/CLP y libros de tesorería." },
     ],
   }),

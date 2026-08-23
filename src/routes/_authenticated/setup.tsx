@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/setup")({
   component: SetupPage,
   head: () => ({
     meta: [
-      { title: "Configuración | Cacao Accounting" },
+      { title: "Configuración | EasyERP" },
       { name: "description", content: "Empresa, años fiscales, períodos contables y correlativos." },
     ],
   }),
@@ -249,7 +249,7 @@ function SetupPage() {
                       <Label htmlFor="eName" className="text-right">Razón Social</Label>
                       <Input
                         id="eName"
-                        placeholder="ej. Cacao Corporation S.A."
+                        placeholder="ej. Inversiones y Servicios SpA"
                         value={entityName}
                         onChange={(e) => setEntityName(e.target.value)}
                         className="col-span-3"

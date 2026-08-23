@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/reports")({
   component: ReportsPage,
   head: () => ({
     meta: [
-      { title: "Reportes Financieros | Cacao Accounting" },
+      { title: "Reportes Financieros | EasyERP" },
       { name: "description", content: "Balanza de comprobación, balance general y estado de resultados." },
     ],
   }),

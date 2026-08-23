@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/sales")({
   component: SalesPage,
   head: () => ({
     meta: [
-      { title: "Ventas & Clientes | Cacao Accounting" },
+      { title: "Ventas & Clientes | EasyERP" },
       { name: "description", content: "Gestión de clientes, contactos y operaciones comerciales." },
     ],
   }),

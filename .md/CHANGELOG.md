@@ -1,6 +1,16 @@
-# Registro de Cambios y Mejoras (Changelog)
+# Registro de Cambios y Mejoras (Changelog) - EasyERP
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
+
+---
+
+## [Renombramiento a EasyERP] - 2026-08-23
+
+### Modificado
+* Se actualizó el nombre de la plataforma de "Cacao Accounting" a **EasyERP** en toda la aplicación:
+  * Rutas, metadatos SEO y títulos de páginas (`__root.tsx`, `index.tsx`, `auth.tsx`, `dashboard.tsx`, `accounting.tsx`, `sales.tsx`, `purchases.tsx`, `inventory.tsx`, `cash.tsx`, `reports.tsx`, `setup.tsx`).
+  * Cabecera global ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)).
+  * Documentación técnica y funcional en `/.md/`.
 
 ---
 

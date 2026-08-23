@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/inventory")({
   component: InventoryPage,
   head: () => ({
     meta: [
-      { title: "Inventario & Bodegas | Cacao Accounting" },
+      { title: "Inventario & Bodegas | EasyERP" },
       { name: "description", content: "Catálogo de artículos, bodegas, valoración FIFO y existencias." },
     ],
   }),
@@ -254,7 +254,7 @@ function InventoryPage() {
                   <Label htmlFor="iName" className="text-right">Descripción</Label>
                   <Input
                     id="iName"
-                    placeholder="ej. Cacao en Grano Grado A (Saco 50kg)"
+                    placeholder="ej. Café Grano Tostado Premium (Saco 25kg)"
                     value={itemName}
                     onChange={(e) => setItemName(e.target.value)}
                     className="col-span-3"

@@ -17,10 +17,10 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
   head: () => ({
     meta: [
-      { title: "Iniciar sesión | Cacao Accounting" },
-      { name: "description", content: "Inicia sesión o crea una cuenta en Cacao Accounting." },
-      { property: "og:title", content: "Iniciar sesión | Cacao Accounting" },
-      { property: "og:description", content: "Inicia sesión o crea una cuenta en Cacao Accounting." },
+      { title: "Iniciar sesión | EasyERP" },
+      { name: "description", content: "Inicia sesión o crea una cuenta en EasyERP." },
+      { property: "og:title", content: "Iniciar sesión | EasyERP" },
+      { property: "og:description", content: "Inicia sesión o crea una cuenta en EasyERP." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -39,7 +39,7 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Cacao Accounting</CardTitle>
+          <CardTitle className="text-2xl">EasyERP</CardTitle>
           <CardDescription>
             Sistema contable y administrativo
           </CardDescription>
@@ -212,7 +212,7 @@ function RegisterForm() {
         console.error(err);
       }
 
-      toast.success("Cuenta creada. Bienvenido a Cacao Accounting.");
+      toast.success("Cuenta creada. Bienvenido a EasyERP.");
       setBusy(false);
       navigate({ to: "/dashboard" });
     } else {

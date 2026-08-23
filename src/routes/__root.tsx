@@ -78,10 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Cacao Accounting" },
+      { title: "EasyERP" },
       { name: "description", content: "Sistema contable y administrativo para empresas." },
-      { name: "author", content: "Cacao Accounting" },
-      { property: "og:title", content: "Cacao Accounting" },
+      { name: "author", content: "EasyERP" },
+      { property: "og:title", content: "EasyERP" },
       { property: "og:description", content: "Sistema contable y administrativo para empresas." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

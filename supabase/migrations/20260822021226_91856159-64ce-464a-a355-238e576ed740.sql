@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migración Principal Idempotente - Cacao Accounting
+-- Migración Principal Idempotente - EasyERP
 -- ============================================================================
 
 -- 1. Tipos / Enums

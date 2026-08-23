@@ -64,7 +64,7 @@ export function AppHeader() {
               <BookOpen className="h-5 w-5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-base font-bold tracking-tight text-foreground">Cacao Accounting</span>
+              <span className="text-base font-bold tracking-tight text-foreground">EasyERP</span>
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">ERP Financiero</span>
             </div>
           </Link>

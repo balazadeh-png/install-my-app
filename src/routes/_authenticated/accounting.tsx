@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/accounting")({
   component: AccountingPage,
   head: () => ({
     meta: [
-      { title: "Contabilidad | Cacao Accounting" },
+      { title: "Contabilidad | EasyERP" },
       { name: "description", content: "Plan de cuentas, libro mayor y asientos contables." },
     ],
   }),

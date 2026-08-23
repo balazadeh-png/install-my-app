@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_authenticated/purchases")({
   component: PurchasesPage,
   head: () => ({
     meta: [
-      { title: "Compras & Proveedores | Cacao Accounting" },
+      { title: "Compras & Proveedores | EasyERP" },
       { name: "description", content: "Directorio de proveedores y control de compras y gastos." },
     ],
   }),
