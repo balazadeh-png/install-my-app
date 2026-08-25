@@ -8,71 +8,66 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 * **Catálogo Multimoneda & Reglas Analíticas**:
   * Estructura jerárquica con código numérico (ej. `1.1.01.001`), nombre y tipo de cuenta (`Asset`, `Liability`, `Equity`, `Income`, `Expense`, `Cost of Goods Sold`).
   * Asignación de moneda propia por cuenta (`currency_code`), permitiendo cuentas en USD o divisas extranjeras conviviendo con la moneda base CLP.
-  * Reglas de obligatoriedad de imputación analítica: `requires_cost_center` y `requires_business_unit` para forzar la selección de Centro de Costo y Sucursal en cuentas de resultado (gastos e ingresos).
+  * Reglas de obligatoriedad de imputación analítica: `requires_cost_center` y `requires_business_unit` para forzar la selección de Centro de Costo y Sucursal en cuentas de resultado.
 * **Motor de Comprobantes por Partida Doble & Conversión Automática**:
-  * Formulario de comprobantes contables con cabecera (fecha, tipo de comprobante, libro opcional, glosa) y tabla de $N$ líneas contables.
+  * Formulario de comprobantes contables con cabecera y tabla de $N$ líneas contables.
   * Imputación analítica por línea: selector de **Centro de Costo** (`cost_center_id`) y **Sucursal / Unidad** (`business_unit_id`).
-  * Validación de existencia de tasa de cambio oficial para la fecha exacta del comprobante con modal de alta rápida integrado.
-  * Validación en tiempo real del cuadre de partida doble ($\sum \text{Débitos} = \sum \text{Créditos}$) y bloqueo de guardado en caso de descuadre o falta de dimensiones requeridas.
-  * Asignación atómica de número correlativo oficial (`ASI-000001`) mediante `get_next_entry_number` y `naming_series`.
-  * **Inmutabilidad estricta**: Los comprobantes en estado `posted` no admiten modificación ni eliminación (`trg_journal_entries_immutability`).
-  * **Mecanismo de Reversión**: Acción de anulación/reversión que genera automáticamente un contra-asiento invertido (`reversal_of`).
+  * Validación en tiempo real del cuadre de partida doble ($\sum \text{Débitos} = \sum \text{Créditos}$) y asignación de correlativo atómico (`ASI-000001`).
+  * **Inmutabilidad estricta y Reversión**: Los comprobantes posteados no admiten modificación directa; se anulan mediante contra-asientos invertidos (`reversal_of`).
 
 ---
 
-## 2. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
+## 2. Ventas, Facturación & Cuentas por Cobrar ([`/sales`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sales.tsx))
+* **Ciclo de Facturación Transaccional (`sales_invoices`, `sales_invoice_lines`)**:
+  * Emisión de facturas de venta con cálculo automático de **IVA Débito Fiscal (19%)** e importes totales.
+  * Selector de cliente, bodega de despacho, centro de costo, sucursal, moneda (CLP, USD) y tasa de cambio.
+* **Posteo Automático Integral (`post_sales_invoice`)**:
+  * Genera el asiento contable balanceado: Débito a CxC Clientes (`receivable_account_id`), Crédito a Ingresos (`sales_income_account_id`) y Crédito a IVA Débito Fiscal (`output_tax_account_id`).
+  * Descuenta de forma automática las existencias de la bodega seleccionada en `stock_ledger_entries` y postea el costo de venta FIFO real (`cogs_account_id` vs `inventory_account_id`).
+* **Cobranzas y Antigüedad de Saldos (`invoice_payments`, `sales_invoice_balances`)**:
+  * Registro de cobranzas parciales o totales asociadas a la factura y a la cuenta de tesorería/banco correspondiente.
+  * Reporte de saldos de clientes y cuentas por cobrar en tiempo real.
+
+---
+
+## 3. Compras, Facturas de Proveedores & Cuentas por Pagar ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
+* **Ciclo Transaccional de Compras (`purchase_invoices`, `purchase_invoice_lines`)**:
+  * Registro de facturas de proveedores con discriminación de **IVA Crédito Fiscal (19%)**.
+  * Soporte para compra de mercaderías (con SKU e ingreso a bodega) y gastos generales directos.
+* **Posteo Automático Integral (`post_purchase_invoice`)**:
+  * Genera el asiento contable: Crédito a Proveedores (`payable_account_id`), Débito a IVA Crédito Fiscal (`input_tax_account_id`) y Débito a Inventario (`inventory_account_id`) o Gasto (`purchase_expense_account_id`).
+  * Para ítems de stock, ingresa el movimiento en `stock_ledger_entries` y crea la nueva capa de valorización FIFO en `stock_valuation_layers`.
+* **Pagos a Proveedores (`invoice_payments`, `purchase_invoice_balances`)**:
+  * Control de pagos y saldos adeudados por proveedor en tiempo real.
+
+---
+
+## 4. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
 * **Motor de Movimientos de Inventario (`stock_ledger_entries`)**:
-  * Registro de transacciones inmutables de entrada (`receipt`), salida (`issue`), ajuste (`adjustment`), salida por traslado (`transfer_out`) y entrada por traslado (`transfer_in`).
-  * Control de cantidades con signo y fecha contable de valorización.
+  * Registro de entradas (`receipt`), salidas (`issue`), ajustes (`adjustment`) y traslados interbodega.
 * **Capas de Valorización FIFO (`stock_valuation_layers`)**:
-  * Creación automática de capas de costo unitario tras cada entrada de mercadería (`trg_create_fifo_layer`).
-  * Consumo de capas más antiguas primero ante cada salida (`trg_consume_fifo_layers`) con bloqueo preventivo ante falta de stock suficiente (no permite inventario negativo).
-  * Recálculo automático del costo unitario ponderado real de la salida.
-* **Traslados Atómicos entre Bodegas (`create_warehouse_transfer`)**:
-  * Función que realiza la salida en la bodega origen consumiendo capas FIFO y replica la entrada en la bodega destino preservando exactamente el costo unitario de origen sin alterar el costo del producto por el simple hecho de moverse de almacén.
+  * Creación y consumo de capas FIFO con bloqueo estricto de stocks negativos.
+* **Traslados Atómicos (`create_warehouse_transfer`)**:
+  * Traslado entre bodegas preservando el costo unitario de origen.
 * **Saldos en Tiempo Real (`stock_balances`) & Kardex**:
-  * Vista que calcula la cantidad disponible (`qty_on_hand`), el valor total del inventario (`value_on_hand`) y el costo promedio unitario actual.
-  * Kardex histórico detallado con trazabilidad de costos por bodega y por ítem.
-
----
-
-## 3. Ventas & Clientes ([`/sales`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sales.tsx))
-* **Directorio de Clientes (`parties`)**:
-  * Gestión de clientes con razón social, nombre comercial y **RUT** chileno (ej. `76.123.456-K`).
-  * Relación con personas de contacto (`contacts`) incluyendo correo y teléfono.
-  * Modal para el registro rápido de nuevos clientes con su contacto principal.
-
----
-
-## 4. Compras & Proveedores ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
-* **Directorio de Suplidores (`parties`)**:
-  * Registro de proveedores de materias primas, productos y servicios con **RUT**.
-  * Contactos asociados para cotizaciones y pedidos.
-  * Modal de alta rápida de proveedores.
+  * Existencias físicas y valorización total por bodega e ítem.
 
 ---
 
 ## 5. Bancos & Tesorería ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
 * **Tasas de Cambio Oficiales / Dólar Observado (`exchange_rates`)**:
-  * Registro y consulta del tipo de cambio oficial diario USD $\rightarrow$ CLP.
-  * Indicador en tiempo real del Dólar Observado vigente.
+  * Registro diario del tipo de cambio oficial USD $\rightarrow$ CLP.
 * **Libros de Caja & Bancos (`books`)**:
-  * Control de cajas chicas y cuentas corrientes bancarias en pesos chilenos y moneda extranjera.
+  * Cajas chicas y cuentas bancarias.
 
 ---
 
 ## 6. Reportes Financieros & Analíticos ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
-* **Filtros Analíticos**: Selector para segmentar estados financieros por **Centro de Costo** específico o por **Sucursal / Unidad**.
-* **Balanza de Comprobación**: Sumas de débitos y créditos y saldo neto para cada cuenta del catálogo calculados directamente desde comprobantes posteados en `$ CLP`.
-* **Balance General**: Desglose clasificado de Activos, Pasivos, Patrimonio y verificación de la ecuación contable.
-* **Estado de Resultados (P&L)**: Resumen de ingresos operacionales, costos de venta, gastos y cálculo de la utilidad/pérdida neta del ejercicio, con capacidad de ver el P&L de una sucursal o centro de costo particular.
+* **Filtros Analíticos**: Segmentación de reportes por Centro de Costo o Sucursal.
+* **Balanza de Comprobación, Balance General y Estado de Resultados (P&L)**: Generados en tiempo real desde asientos y facturas.
 
 ---
 
 ## 7. Configuración General ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
-* **Empresas / Entidades (`entities`)**: Registro de razones sociales y sucursales con RUT y moneda base CLP.
-* **Centros de Costo (`cost_centers`)**: Estructura analítica jerárquica para distribución de gastos e ingresos.
-* **Unidades de Negocio & Sucursales (`business_units`)**: Gestión de sedes y filiales.
-* **Años Fiscales (`fiscal_years`)**: Gestión de ejercicios contables anuales.
-* **Correlativos y Series (`naming_series`)**: Prefijos y numeraciones automáticas para facturas y comprobantes.
-* **Roles del Sistema (`roles`)**: Catálogo de roles de seguridad y permisos.
+* **Cuentas Contables Predeterminadas (`company_default_accounts`)**: Mapeo obligatorio de cuentas contables para CxC, CxP, Ventas, Compras, IVA (19%), COGS e Inventario.
+* **Empresas (`entities`)**, **Centros de Costo (`cost_centers`)**, **Sucursales (`business_units`)**, **Años Fiscales (`fiscal_years`)**, **Series (`naming_series`)** y **Roles (`roles`)**.

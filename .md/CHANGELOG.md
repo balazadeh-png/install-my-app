@@ -4,85 +4,62 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 6: Ciclo Transaccional de Ventas y Compras] - 2026-08-25
+
+### Añadido
+* **Migración SQL Transaccional** ([`supabase/migrations/20260825000005_sprint06_ventas_compras_transaccional.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000005_sprint06_ventas_compras_transaccional.sql)):
+  * Tabla `company_default_accounts` para asociar las cuentas contables maestras por empresa (CxC, CxP, Ventas, Compras, IVA Débito 19%, IVA Crédito 19%, Costo de Ventas, Inventario).
+  * Tablas `sales_invoices` y `sales_invoice_lines` para la emisión de facturas de venta.
+  * Tablas `purchase_invoices` y `purchase_invoice_lines` para el registro de facturas de proveedores.
+  * Tabla `invoice_payments` para registrar cobros y desembolsos aplicados a facturas.
+  * Vistas `sales_invoice_balances` y `purchase_invoice_balances` para el control de saldos adeudados y carteras de cobranza/pagos.
+  * Función `public.post_sales_invoice()`: Postea automáticamente el comprobante contable oficial balanceado (CxC, Ingresos, IVA Débito), rebaja el inventario de la bodega y genera las líneas de Costo de Venta contra Inventario valorizadas con capas FIFO reales.
+  * Función `public.post_purchase_invoice()`: Postea el comprobante (CxP, IVA Crédito, Gastos/Inventario) e ingresa existencias creando las nuevas capas FIFO.
+* **Interfaz de Usuario (UI)**:
+  * Pestaña "Cuentas Predeterminadas" en [`setup.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx).
+  * Módulo de Facturación de Ventas en [`sales.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sales.tsx) con emisión de facturas, cálculo de IVA (19%), confirmación/posteo y registro de cobranzas.
+  * Módulo de Facturación de Compras en [`purchases.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx) con registro de compras, discriminación de IVA Crédito Fiscal, ingreso de existencias y pagos a proveedores.
+
+---
+
 ## [Sprint 5: Multibodega Real, Movimientos de Stock y Kardex FIFO] - 2026-08-25
 
 ### Añadido
 * **Migración SQL del Motor de Inventario** ([`supabase/migrations/20260825000004_sprint05_multibodega_kardex_fifo.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000004_sprint05_multibodega_kardex_fifo.sql)):
   * Enum `stock_movement_type` (`receipt`, `issue`, `transfer_out`, `transfer_in`, `adjustment`).
-  * Tabla `stock_ledger_entries` para registrar todos los movimientos de stock inmutables con trazabilidad de costos.
-  * Tabla `stock_valuation_layers` para el seguimiento de capas FIFO activas (`qty_remaining`, `rate`).
-  * Vista `stock_balances` que consolida cantidad física disponible (`qty_on_hand`), valorización monetaria total (`value_on_hand`) y costo unitario promedio ponderado por bodega y producto.
-  * Trigger `trg_consume_fifo_layers` (`BEFORE INSERT` en salidas) que consume capas cronológicamente con `FOR UPDATE`, calcula el costo ponderado real de la salida y bloquea stocks negativos.
-  * Trigger `trg_create_fifo_layer` (`AFTER INSERT` en entradas) para registrar nuevas capas valorizadas.
-  * Función `public.create_warehouse_transfer()` para traslados atómicos entre bodegas manteniendo intacto el costo unitario de origen en la bodega de destino.
-  * Políticas de Row Level Security (RLS) multiempresa para inventario.
+  * Tablas `stock_ledger_entries` y `stock_valuation_layers`.
+  * Vista reactiva `stock_balances` (saldos y valorización promedio por bodega).
+  * Triggers `trg_consume_fifo_layers` y `trg_create_fifo_layer`.
+  * Función `public.create_warehouse_transfer()` para traslados interbodega atómicos.
 * **Interfaz de Usuario (UI) en [`inventory.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx)**:
-  * Pestaña "Saldos por Bodega": Vista de existencias y valorización total en `$ CLP` filtrable por bodega.
-  * Pestaña "Kardex / Movimientos": Historial cronológico con badges por tipo de movimiento, cantidades y costo unitario FIFO.
-  * Modal "Registrar Movimiento": Soporte para entradas por compra, salidas a consumo y ajustes.
-  * Modal "Traslado entre Bodegas": Ejecución de traslados interbodega conservando el valor FIFO.
+  * Pestañas de Saldos por Bodega, Kardex FIFO, Catálogo de Artículos y Bodegas.
+  * Modales para registrar movimientos y traslados.
 
 ---
 
 ## [Sprint 4: Centros de Costo y Unidades/Sucursales] - 2026-08-25
 
 ### Añadido
-* **Migración SQL de Dimensiones Analíticas** ([`supabase/migrations/20260825000003_sprint04_centros_costo_unidades.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000003_sprint04_centros_costo_unidades.sql)):
-  * Tabla `cost_centers` para centros de costo jerárquicos (`parent_id`, `is_group`, `active`) por empresa con RLS.
-  * Tabla `business_units` para unidades de negocio y sucursales jerárquicas (`parent_id`, `is_group`, `active`) por empresa con RLS.
-  * Columnas `cost_center_id` y `business_unit_id` en `journal_entry_lines`.
-  * Columnas `requires_cost_center` y `requires_business_unit` en `accounts`.
-  * Trigger `trg_validate_line_dimensions` que valida a nivel de base de datos la obligatoriedad de centros de costo o sucursales antes de permitir el asiento y rechaza imputaciones a nodos agrupadores.
-* **Interfaz de Usuario (UI)**:
-  * Pestañas dedicadas en [`setup.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx) para crear, jerarquizar y administrar Centros de Costo y Sucursales.
-  * Opciones en "Nueva Cuenta" de [`accounting.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx) para exigir Centro de Costo o Sucursal en cuentas de resultado.
-  * Formulario de comprobantes contables con selectores dinámicos de Centro de Costo y Sucursal por línea y validación visual preventiva.
-  * Filtros analíticos interactivos en [`reports.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx) para recalcular en tiempo real el Balance General y el Estado de Resultados (P&L) por Centro de Costo o Sucursal.
+* **Migración SQL de Dimensiones Analíticas** ([`supabase/migrations/20260825000003_sprint04_centros_costo_unidades.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000003_sprint04_centros_costo_unidades.sql)).
+* Pestañas dedicadas en `setup.tsx`, `accounting.tsx` y filtros analíticos en `reports.tsx`.
 
 ---
 
 ## [Sprint 3: Multimoneda a Nivel de Cuenta y Comprobantes] - 2026-08-25
 
 ### Añadido
-* **Migración SQL Multimoneda** ([`supabase/migrations/20260825000002_sprint03_multimoneda_cuentas.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000002_sprint03_multimoneda_cuentas.sql)):
-  * Columna `currency_code` en `accounts` (FK a `currencies.code`) permitiendo que cuentas específicas operen en su propia moneda.
-  * Columnas `currency_code`, `exchange_rate`, `debit_account_currency`, `credit_account_currency` en `journal_entry_lines`.
-  * Función `public.get_exchange_rate(_origin, _destination, _date)` con validación de fecha exacta en `exchange_rates`.
-  * Trigger `trg_resolve_line_currency` que resuelve la moneda de la cuenta y calcula automáticamente los montos funcionales en `debit` y `credit`.
+* **Migración SQL Multimoneda** ([`supabase/migrations/20260825000002_sprint03_multimoneda_cuentas.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000002_sprint03_multimoneda_cuentas.sql)).
 
 ---
 
 ## [Sprint 2: Motor Contable de Partida Doble e Inmutabilidad] - 2026-08-25
 
 ### Añadido
-* **Migración SQL del Motor Contable** ([`supabase/migrations/20260825000001_sprint02_motor_partida_doble.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000001_sprint02_motor_partida_doble.sql)):
-  * Enum `journal_entry_status` (`draft`, `posted`, `reversed`).
-  * Tablas `journal_entries` y `journal_entry_lines`.
-  * Función `public.get_next_entry_number()`, `public.post_journal_entry()` y `public.reverse_journal_entry()`.
-  * Trigger de inmutabilidad `trg_journal_entries_immutability`.
+* **Migración SQL del Motor Contable** ([`supabase/migrations/20260825000001_sprint02_motor_partida_doble.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000001_sprint02_motor_partida_doble.sql)).
 
 ---
 
 ## [Sprint 1: Multiempresa Real y Seguridad RLS] - 2026-08-25
 
 ### Añadido
-* **Migración SQL Multiempresa** ([`supabase/migrations/20260825000000_sprint01_multiempresa_rls.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000000_sprint01_multiempresa_rls.sql)):
-  * Tabla `company_users`, función `public.user_has_company_access(_user_id, _entity_id)`.
-  * `base_currency_code` en `entities` y `active_entity_id` en `profiles`.
-  * Políticas RLS reescritas para aislamiento estricto por `entity_id`.
-
----
-
-## [Renombramiento a EasyERP] - 2026-08-23
-
-### Modificado
-* Se actualizó el nombre de la plataforma a **EasyERP** en toda la aplicación y documentación técnica.
-
----
-
-## [Adaptación Contable a Chile - Moneda CLP y RUT] - 2026-08-23
-
-### Añadido / Modificado
-* **Moneda Base CLP** y zona horaria `America/Santiago`.
-* Formateo monetario en `$ CLP` y soporte de identificación por **RUT**.
-* Mapeo de Dólar Observado (USD $\rightarrow$ CLP).
+* **Migración SQL Multiempresa** ([`supabase/migrations/20260825000000_sprint01_multiempresa_rls.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000000_sprint01_multiempresa_rls.sql)).

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,7 @@ import {
   Building2,
   PieChart,
   Network,
+  BookmarkCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -54,7 +55,7 @@ export const Route = createFileRoute("/_authenticated/setup")({
   head: () => ({
     meta: [
       { title: "Configuración | EasyERP" },
-      { name: "description", content: "Empresa, centros de costo, sucursales, años fiscales y correlativos." },
+      { name: "description", content: "Empresa, centros de costo, sucursales, años fiscales, correlativos y cuentas predeterminadas." },
     ],
   }),
 });
@@ -97,6 +98,18 @@ function SetupPage() {
   const [buParentId, setBuParentId] = useState<string>("NONE");
   const [buIsGroup, setBuIsGroup] = useState(false);
 
+  // Form Default Accounts
+  const [defReceivable, setDefReceivable] = useState<string>("NONE");
+  const [defPayable, setDefPayable] = useState<string>("NONE");
+  const [defSalesIncome, setDefSalesIncome] = useState<string>("NONE");
+  const [defPurchaseExpense, setDefPurchaseExpense] = useState<string>("NONE");
+  const [defCogs, setDefCogs] = useState<string>("NONE");
+  const [defInventory, setDefInventory] = useState<string>("NONE");
+  const [defOutputTax, setDefOutputTax] = useState<string>("NONE");
+  const [defInputTax, setDefInputTax] = useState<string>("NONE");
+  const [defGain, setDefGain] = useState<string>("NONE");
+  const [defLoss, setDefLoss] = useState<string>("NONE");
+
   // Queries
   const currenciesQuery = useQuery({
     queryKey: ["currencies"],
@@ -115,6 +128,63 @@ function SetupPage() {
       return data ?? [];
     },
   });
+
+  const accountsQuery = useQuery({
+    queryKey: ["accounts", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .order("code");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  const defaultAccountsQuery = useQuery({
+    queryKey: ["company_default_accounts", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return null;
+      const { data, error } = await supabase
+        .from("company_default_accounts" as any)
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!activeEntityId,
+  });
+
+  useEffect(() => {
+    if (defaultAccountsQuery.data) {
+      const d = defaultAccountsQuery.data;
+      setDefReceivable(d.receivable_account_id || "NONE");
+      setDefPayable(d.payable_account_id || "NONE");
+      setDefSalesIncome(d.sales_income_account_id || "NONE");
+      setDefPurchaseExpense(d.purchase_expense_account_id || "NONE");
+      setDefCogs(d.cogs_account_id || "NONE");
+      setDefInventory(d.inventory_account_id || "NONE");
+      setDefOutputTax(d.output_tax_account_id || "NONE");
+      setDefInputTax(d.input_tax_account_id || "NONE");
+      setDefGain(d.realized_exchange_gain_account_id || "NONE");
+      setDefLoss(d.realized_exchange_loss_account_id || "NONE");
+    } else {
+      setDefReceivable("NONE");
+      setDefPayable("NONE");
+      setDefSalesIncome("NONE");
+      setDefPurchaseExpense("NONE");
+      setDefCogs("NONE");
+      setDefInventory("NONE");
+      setDefOutputTax("NONE");
+      setDefInputTax("NONE");
+      setDefGain("NONE");
+      setDefLoss("NONE");
+    }
+  }, [defaultAccountsQuery.data]);
 
   const fiscalYearsQuery = useQuery({
     queryKey: ["fiscal_years", activeEntityId],
@@ -233,6 +303,40 @@ function SetupPage() {
     },
   });
 
+  const saveDefaultAccountsMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+
+      const payload = {
+        entity_id: activeEntityId,
+        receivable_account_id: defReceivable === "NONE" ? null : defReceivable,
+        payable_account_id: defPayable === "NONE" ? null : defPayable,
+        sales_income_account_id: defSalesIncome === "NONE" ? null : defSalesIncome,
+        purchase_expense_account_id: defPurchaseExpense === "NONE" ? null : defPurchaseExpense,
+        cogs_account_id: defCogs === "NONE" ? null : defCogs,
+        inventory_account_id: defInventory === "NONE" ? null : defInventory,
+        output_tax_account_id: defOutputTax === "NONE" ? null : defOutputTax,
+        input_tax_account_id: defInputTax === "NONE" ? null : defInputTax,
+        realized_exchange_gain_account_id: defGain === "NONE" ? null : defGain,
+        realized_exchange_loss_account_id: defLoss === "NONE" ? null : defLoss,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from("company_default_accounts" as any)
+        .upsert(payload, { onConflict: "entity_id" });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company_default_accounts", activeEntityId] });
+      toast.success("Cuentas contables predeterminadas guardadas exitosamente");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al guardar cuentas predeterminadas");
+    },
+  });
+
   const createYearMutation = useMutation({
     mutationFn: async () => {
       if (!activeEntityId) throw new Error("Selecciona una empresa primero");
@@ -333,6 +437,7 @@ function SetupPage() {
   });
 
   const entities = entitiesQuery.data ?? [];
+  const accounts = accountsQuery.data ?? [];
   const fiscalYears = fiscalYearsQuery.data ?? [];
   const series = seriesQuery.data ?? [];
   const costCenters = costCentersQuery.data ?? [];
@@ -355,6 +460,8 @@ function SetupPage() {
           size="sm"
           onClick={() => {
             entitiesQuery.refetch();
+            accountsQuery.refetch();
+            defaultAccountsQuery.refetch();
             fiscalYearsQuery.refetch();
             seriesQuery.refetch();
             costCentersQuery.refetch();
@@ -376,17 +483,21 @@ function SetupPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Configuración del Sistema</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestión de empresas, centros de costo, unidades/sucursales, ejercicios contables y series.
+            Gestión de empresas, cuentas contables predeterminadas, centros de costo, sucursales y series.
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="entities" className="space-y-4">
+      <Tabs defaultValue="defaults" className="space-y-4">
         <TabsList className="flex flex-wrap h-auto p-1">
           <TabsTrigger value="entities" className="flex items-center gap-1.5">
             <Building className="h-4 w-4" />
             <span>Empresas ({entities.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="defaults" className="flex items-center gap-1.5">
+            <BookmarkCheck className="h-4 w-4" />
+            <span>Cuentas Predeterminadas</span>
           </TabsTrigger>
           <TabsTrigger value="cost_centers" className="flex items-center gap-1.5">
             <PieChart className="h-4 w-4" />
@@ -394,7 +505,7 @@ function SetupPage() {
           </TabsTrigger>
           <TabsTrigger value="business_units" className="flex items-center gap-1.5">
             <Network className="h-4 w-4" />
-            <span>Sucursales / Unidades ({businessUnits.length})</span>
+            <span>Sucursales ({businessUnits.length})</span>
           </TabsTrigger>
           <TabsTrigger value="fiscal" className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
@@ -409,6 +520,183 @@ function SetupPage() {
             <span>Roles ({roles.length})</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Tab Cuentas Predeterminadas */}
+        <TabsContent value="defaults">
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <div className="p-6 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b">
+              <div>
+                <h3 className="text-base font-semibold">Cuentas Contables Predeterminadas para Facturación e IVA</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Asigna las cuentas automáticas para el posteo de Ventas, Compras, IVA (19%) e Inventarios en {activeEntity?.name || "la empresa"}.
+                </p>
+              </div>
+              <Button
+                onClick={() => saveDefaultAccountsMutation.mutate()}
+                disabled={saveDefaultAccountsMutation.isPending || !activeEntityId}
+              >
+                {saveDefaultAccountsMutation.isPending ? "Guardando..." : "Guardar Cuentas Predeterminadas"}
+              </Button>
+            </div>
+            <div className="p-6">
+              {!activeEntityId ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  Selecciona una empresa activa para configurar sus cuentas contables.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Ventas & Clientes */}
+                  <div className="space-y-4 rounded-lg border p-4 bg-muted/20">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary border-b pb-1">
+                      Ciclo de Ventas (Clientes & Facturación)
+                    </h4>
+                    <div>
+                      <Label className="text-xs font-semibold">Cuentas por Cobrar (CxC Clientes) *</Label>
+                      <Select value={defReceivable} onValueChange={setDefReceivable}>
+                        <SelectTrigger className="mt-1 font-mono text-xs">
+                          <SelectValue placeholder="Seleccione cuenta de activo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Sin seleccionar --</SelectItem>
+                          {accounts.filter((a) => !a.is_group).map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.code} - {a.name} ({a.account_type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold">Ingresos por Ventas (Income) *</Label>
+                      <Select value={defSalesIncome} onValueChange={setDefSalesIncome}>
+                        <SelectTrigger className="mt-1 font-mono text-xs">
+                          <SelectValue placeholder="Seleccione cuenta de ingresos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Sin seleccionar --</SelectItem>
+                          {accounts.filter((a) => !a.is_group).map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.code} - {a.name} ({a.account_type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold">IVA Débito Fiscal (19%) *</Label>
+                      <Select value={defOutputTax} onValueChange={setDefOutputTax}>
+                        <SelectTrigger className="mt-1 font-mono text-xs">
+                          <SelectValue placeholder="Seleccione cuenta de pasivo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Sin seleccionar --</SelectItem>
+                          {accounts.filter((a) => !a.is_group).map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.code} - {a.name} ({a.account_type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold">Costo de Ventas (COGS) *</Label>
+                      <Select value={defCogs} onValueChange={setDefCogs}>
+                        <SelectTrigger className="mt-1 font-mono text-xs">
+                          <SelectValue placeholder="Seleccione cuenta de costo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Sin seleccionar --</SelectItem>
+                          {accounts.filter((a) => !a.is_group).map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.code} - {a.name} ({a.account_type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Compras & Proveedores */}
+                  <div className="space-y-4 rounded-lg border p-4 bg-muted/20">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary border-b pb-1">
+                      Ciclo de Compras & Existencias
+                    </h4>
+                    <div>
+                      <Label className="text-xs font-semibold">Cuentas por Pagar (CxP Proveedores) *</Label>
+                      <Select value={defPayable} onValueChange={setDefPayable}>
+                        <SelectTrigger className="mt-1 font-mono text-xs">
+                          <SelectValue placeholder="Seleccione cuenta de pasivo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Sin seleccionar --</SelectItem>
+                          {accounts.filter((a) => !a.is_group).map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.code} - {a.name} ({a.account_type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold">Gastos Generales de Compras (Expense) *</Label>
+                      <Select value={defPurchaseExpense} onValueChange={setDefPurchaseExpense}>
+                        <SelectTrigger className="mt-1 font-mono text-xs">
+                          <SelectValue placeholder="Seleccione cuenta de gasto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Sin seleccionar --</SelectItem>
+                          {accounts.filter((a) => !a.is_group).map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.code} - {a.name} ({a.account_type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold">IVA Crédito Fiscal (19%) *</Label>
+                      <Select value={defInputTax} onValueChange={setDefInputTax}>
+                        <SelectTrigger className="mt-1 font-mono text-xs">
+                          <SelectValue placeholder="Seleccione cuenta de activo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Sin seleccionar --</SelectItem>
+                          {accounts.filter((a) => !a.is_group).map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.code} - {a.name} ({a.account_type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-semibold">Inventario / Existencias (Asset) *</Label>
+                      <Select value={defInventory} onValueChange={setDefInventory}>
+                        <SelectTrigger className="mt-1 font-mono text-xs">
+                          <SelectValue placeholder="Seleccione cuenta de existencias" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">-- Sin seleccionar --</SelectItem>
+                          {accounts.filter((a) => !a.is_group).map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.code} - {a.name} ({a.account_type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
 
         {/* Tab Entities */}
         <TabsContent value="entities">
