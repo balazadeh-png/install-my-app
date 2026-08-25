@@ -101,10 +101,11 @@ export function ActiveEntityProvider({ children }: { children: React.ReactNode }
       // Determinar empresa activa
       let currentActiveId = profile?.active_entity_id;
       let matchedEntity = companiesList.find((c) => c.id === currentActiveId);
+      const firstCompany = companiesList[0];
 
-      if (!matchedEntity && companiesList.length > 0) {
-        matchedEntity = companiesList[0];
-        currentActiveId = matchedEntity.id;
+      if (!matchedEntity && firstCompany) {
+        matchedEntity = firstCompany;
+        currentActiveId = firstCompany.id;
 
         // Auto-actualizar active_entity_id en el perfil si no tenía o no coincidía
         await supabase
