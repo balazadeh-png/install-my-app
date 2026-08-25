@@ -4,24 +4,28 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 11: Libros Legales SII y Conciliación RCV] - 2026-08-25
+
+### Añadido
+* **Migración SQL de Libros Legales SII** ([`supabase/migrations/20260825000010_sprint11_libros_sii.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000010_sprint11_libros_sii.sql)):
+  * Enum `sii_book_type` (`libro_diario`, `libro_mayor`, `balance_tributario_8_columnas`, `libro_compras`, `libro_ventas`).
+  * Tabla `sii_book_exports` para registrar y auditar exportaciones oficiales de libros contables.
+  * Tablas `rcv_reconciliation_runs` y `rcv_reconciliation_items` para almacenar corridas de cruce contra el Registro de Compras y Ventas (RCV) del SII.
+  * Función `public.get_sii_book_data()`: Genera dinámicamente las estructuras oficiales con sumas y saldos para el Balance Tributario de 8 Columnas, Libro Diario, Libro Mayor, Libro de Ventas y Libro de Compras.
+  * Función `public.reconcile_rcv_batch()`: Procesa y contrasta documentos del RCV contra las facturas de EasyERP por N° folio y RUT, reportando calces exactos, diferencias de monto o faltantes.
+  * Registro del módulo `sii_books` en la tabla `modules`.
+* **Interfaz de Usuario (UI) en [`sii-books.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sii-books.tsx)**:
+  * Pestaña "Libros Contables Oficiales" con selector de libros, selector de fechas, visualización tabular formateada (incluyendo el Balance Tributario de 8 Columnas) y exportación a **CSV / Excel**.
+  * Pestaña "Conciliación RCV": Herramienta de cruce con KPIs en vivo y tabla de auditoría con badges de estado (Coincide, Monto Discrepante, No Registrado).
+  * Integración en el menú superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+
+---
+
 ## [Sprint 10: Ventas POS, Boletas y Arqueo de Caja] - 2026-08-25
 
 ### Añadido
-* **Migración SQL del Punto de Venta POS** ([`supabase/migrations/20260825000009_sprint10_ventas_pos.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000009_sprint10_ventas_pos.sql)):
-  * Enums `pos_session_status` (`open`, `closed`) y `pos_payment_method` (`efectivo`, `tarjeta_debito`, `tarjeta_credito`, `transferencia`, `otro`).
-  * Tabla `pos_sessions` para la apertura, cierre y arqueo de turnos de caja con control de diferencias de efectivo.
-  * Columna `pos_session_id` en `sales_invoices` para vincular boletas y facturas emitidas en el mostrador a la sesión del cajero.
-  * Tabla `pos_sale_payment_lines` para soportar pagos mixtos por venta (ej. parte en efectivo y parte en tarjeta).
-  * Función `public.create_pos_sale()`: Emite la boleta, genera el desglose de pagos y dispara el posteo contable e inventario en tiempo real.
-  * Función `public.close_pos_session()`: Realiza el arqueo comparando el efectivo contado físicamente contra el esperado ($ \text{Apertura} + \text{Ventas Efectivo} $).
-  * Registro del módulo `pos` en la tabla `modules`.
-* **Interfaz de Usuario (UI) en [`pos.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/pos.tsx)**:
-  * Pantalla de **Apertura de Caja** con selector de bodega asignada y fondo inicial en gaveta.
-  * Terminal de **Venta Rápida POS**: Búsqueda ágil de productos, carrito dinámico con cálculo de IVA (19%) y selector de cliente.
-  * Modal de **Cobro & Medios de Pago Mixtos** con cálculo automático de vuelto en efectivo y validación de cuadre total.
-  * Modal de **Arqueo y Cierre de Caja** con visualización instantánea de diferencias.
-  * Pestaña de **Historial de Turnos de Caja**.
-  * Integración en el menú superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+* **Migración SQL del Punto de Venta POS** ([`supabase/migrations/20260825000009_sprint10_ventas_pos.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000009_sprint10_ventas_pos.sql)).
+* Módulo en `pos.tsx`.
 
 ---
 

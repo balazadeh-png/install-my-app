@@ -1,13 +1,13 @@
 # Arquitectura del Sistema - EasyERP
 
 ## 1. Visión y Alcance
-Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en Chile bajo normativa contable IFRS / IFRS Pymes. Soporta operación multiempresa con aislamiento estricto de datos (RLS), motor de comprobantes contables con partida doble estricta e inmutabilidad, soporte **multimoneda a nivel de cuenta** (cuentas en USD, EUR, etc. coexistiendo con la moneda funcional base CLP), **dimensiones analíticas jerárquicas (Centros de Costo y Sucursales/Unidades)**, **inventario multibodega con valorización por capas FIFO reales**, **ciclo transaccional de facturación de ventas y compras con posteo automático a contabilidad e inventario**, **terminal de Punto de Venta (POS) con boletas y arqueo de caja**, **cierre formal de períodos mensuales y revalorización cambiaria automática**, **módulo de activos fijos con depreciación mensual automática y bajas**, **módulo de producción simple con recetas BOM y costeo real de materiales**, libros contables, identificación tributaria mediante **RUT** y control de cuentas por cobrar y pagar.
+Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en Chile bajo normativa contable IFRS / IFRS Pymes. Soporta operación multiempresa con aislamiento estricto de datos (RLS), motor de comprobantes contables con partida doble estricta e inmutabilidad, soporte **multimoneda a nivel de cuenta** (cuentas en USD, EUR, etc. coexistiendo con la moneda funcional base CLP), **dimensiones analíticas jerárquicas (Centros de Costo y Sucursales/Unidades)**, **inventario multibodega con valorización por capas FIFO reales**, **ciclo transaccional de facturación de ventas y compras con posteo automático a contabilidad e inventario**, **terminal de Punto de Venta (POS) con boletas y arqueo de caja**, **generación de libros contables oficiales para el SII (Diario, Mayor, Balance 8 Columnas) y conciliación contra el Registro de Compras y Ventas (RCV)**, **cierre formal de períodos mensuales y revalorización cambiaria automática**, **módulo de activos fijos con depreciación mensual automática y bajas**, **módulo de producción simple con recetas BOM y costeo real de materiales**, identificación tributaria mediante **RUT** y control de cuentas por cobrar y pagar.
 
 ## 2. Stack Tecnológico
 * **Frontend & SSR**: React 19, TanStack Start, TanStack Router (file-based routing), TanStack Query.
 * **Estilos**: Tailwind CSS v4 con variables semánticas en OKLCH, shadcn/ui y Lucide Icons.
 * **Backend**: Server Functions en TanStack Start, middleware de validación y autenticación.
-* **Base de Datos & Auth**: Supabase (PostgreSQL), políticas de Row Level Security (RLS), funciones `SECURITY DEFINER` (`public.has_role()`, `public.user_has_company_access()`, `public.post_journal_entry()`, `public.reverse_journal_entry()`, `public.get_exchange_rate()`, `public.create_warehouse_transfer()`, `public.post_sales_invoice()`, `public.post_purchase_invoice()`, `public.run_exchange_revaluation()`, `public.close_accounting_period()`, `public.run_monthly_depreciation()`, `public.dispose_fixed_asset()`, `public.complete_production_order()`, `public.create_pos_sale()`, `public.close_pos_session()`).
+* **Base de Datos & Auth**: Supabase (PostgreSQL), políticas de Row Level Security (RLS), funciones `SECURITY DEFINER` (`public.has_role()`, `public.user_has_company_access()`, `public.post_journal_entry()`, `public.reverse_journal_entry()`, `public.get_exchange_rate()`, `public.create_warehouse_transfer()`, `public.post_sales_invoice()`, `public.post_purchase_invoice()`, `public.run_exchange_revaluation()`, `public.close_accounting_period()`, `public.run_monthly_depreciation()`, `public.dispose_fixed_asset()`, `public.complete_production_order()`, `public.create_pos_sale()`, `public.close_pos_session()`, `public.get_sii_book_data()`, `public.reconcile_rcv_batch()`).
 
 ## 3. Modelo de Datos
 * **Seguridad & Roles Multiempresa**:
@@ -19,7 +19,7 @@ Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en 
   * `entities`: Empresas con `base_currency_code` (FK a `currencies.code`), RUT y razón social.
   * `company_default_accounts`: Mapeo de cuentas contables predeterminadas por empresa.
   * `cost_centers`: Centros de costo jerárquicos (`parent_id`, `is_group`) aislados por `entity_id`.
-  * `business_units`: Unidades de negocio / sucursales jerárquicas (`parent_id`, `is_group`) aisladas por `entity_id`.
+  * `business_units`: Unidades de negocio / sucursales jerárquicas (`parent_id`, `is_group`) aislados por `entity_id`.
   * `currencies`: Monedas disponibles (`CLP`, `USD`, etc.).
   * `exchange_rates`: Tasas oficiales (USD/CLP - Dólar Observado) con búsqueda y validación estricta por fecha.
 * **Motor Contable de Partida Doble & Multimoneda**:
@@ -27,14 +27,14 @@ Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en 
   * `journal_entries`: Cabecera de comprobante con inmutabilidad y soporte de reversión.
   * `journal_entry_lines`: Detalle de partidas con moneda, tipo de cambio, CC, Sucursal, `skip_currency_resolution` y montos funcionales.
   * `post_journal_entry()`: Valida partida doble, valida que la fecha no pertenezca a un período cerrado y postea.
+* **Libros Legales SII & Conciliación RCV**:
+  * `sii_book_exports`: Registro de exportaciones de Libro Diario, Libro Mayor, Balance de 8 Columnas, Libro de Ventas y Compras.
+  * `rcv_reconciliation_runs` y `rcv_reconciliation_items`: Trazabilidad de conciliaciones contra el portal del SII.
+  * `get_sii_book_data()` y `reconcile_rcv_batch()`.
 * **Punto de Venta (POS) & Medios de Pago Mixtos**:
-  * `pos_sessions`: Turnos de caja con fondo inicial, efectivo esperado, contado y diferencias de arqueo.
-  * `pos_sale_payment_lines`: Desglose de medios de pago (efectivo, tarjetas, transferencias) por venta.
-  * `create_pos_sale()`: Emite la boleta, genera el comprobante al mayor y descuenta stock FIFO.
-  * `close_pos_session()`: Cierra el turno calculando automáticamente el arqueo de caja.
+  * `pos_sessions`, `pos_sale_payment_lines`, `create_pos_sale()`, `close_pos_session()`.
 * **Producción Simple & Fórmulas (BOM)**:
-  * `bill_of_materials` y `bom_lines`: Fórmulas de fabricación.
-  * `production_orders` y `complete_production_order()`.
+  * `bill_of_materials` y `bom_lines`, `production_orders` y `complete_production_order()`.
 * **Activos Fijos & Depreciación**:
   * `fixed_assets`, `fixed_asset_depreciation_entries`, `run_monthly_depreciation()`, `dispose_fixed_asset()`.
 * **Cierre de Período & Revalorización Cambiaria**:

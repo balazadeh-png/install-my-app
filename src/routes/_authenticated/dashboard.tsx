@@ -18,6 +18,7 @@ import {
   Building2,
   Factory,
   Store,
+  FileSpreadsheet,
 } from "lucide-react";
 
 const moduleConfig: Record<string, { icon: React.ReactNode; path: string; description: string }> = {
@@ -60,6 +61,11 @@ const moduleConfig: Record<string, { icon: React.ReactNode; path: string; descri
     icon: <Building2 className="h-5 w-5" />,
     path: "/assets",
     description: "Catálogo de bienes de uso, depreciación mensual y bajas.",
+  },
+  "sii-books": {
+    icon: <FileSpreadsheet className="h-5 w-5" />,
+    path: "/sii-books",
+    description: "Libros Diario, Mayor, Balance 8 Columnas y RCV.",
   },
   reports: {
     icon: <BarChart3 className="h-5 w-5" />,
