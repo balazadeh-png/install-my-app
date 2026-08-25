@@ -4,20 +4,31 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 12: Declaración de Impuestos SII - F29 y F22] - 2026-08-25
+
+### Añadido
+* **Migración SQL de Declaraciones de Impuestos** ([`supabase/migrations/20260825000011_sprint12_impuestos_f29_f22.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000011_sprint12_impuestos_f29_f22.sql)):
+  * Enums `tax_form_type` (`f29`, `f22`), `tax_calculation_status` (`draft`, `reviewed`, `filed`) y `tax_regime_type` (`14A_general`, `14D3_pro_pyme_general`, `14D8_pro_pyme_transparente`, `renta_presunta`).
+  * Columnas `ppm_rate` y `tax_regime` en `entities`.
+  * Tabla `tax_calculation_runs` para registrar corridas de cálculo con desglose estructurado en `calculated_values` jsonb.
+  * Tabla `tax_adjustments` para trazabilidad de agregados y deducciones de RLI en el F22.
+  * Función `public.calculate_f29()`: Calcula automáticamente IVA Débito Fiscal, IVA Crédito Fiscal, arrastra el Remanente del mes anterior, determina el PPM obligatorio sobre ingresos netos y la liquidación total a pagar.
+  * Función `public.calculate_f22()`: Genera el borrador del Formulario 22 anual con RLI, tasa de 1ra categoría y rebaja de PPMs acumulados.
+  * Función `public.update_tax_run_status()`: Flujo de aprobación contable (`draft` $\rightarrow$ `reviewed` $\rightarrow$ `filed`).
+  * Registro del módulo `taxes` en la tabla `modules`.
+* **Interfaz de Usuario (UI) en [`taxes.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/taxes.tsx)**:
+  * Pestaña "Formulario 29 (F29 Mensual)" con visualización de casillas de IVA, PPM y total a pagar.
+  * Pestaña "Formulario 22 (F22 Anual Renta)" con cálculo de RLI y saldo líquido.
+  * Pestaña "Historial de Declaraciones" con control de estados y auditoría.
+  * Integración en el menú superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+
+---
+
 ## [Sprint 11: Libros Legales SII y Conciliación RCV] - 2026-08-25
 
 ### Añadido
-* **Migración SQL de Libros Legales SII** ([`supabase/migrations/20260825000010_sprint11_libros_sii.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000010_sprint11_libros_sii.sql)):
-  * Enum `sii_book_type` (`libro_diario`, `libro_mayor`, `balance_tributario_8_columnas`, `libro_compras`, `libro_ventas`).
-  * Tabla `sii_book_exports` para registrar y auditar exportaciones oficiales de libros contables.
-  * Tablas `rcv_reconciliation_runs` y `rcv_reconciliation_items` para almacenar corridas de cruce contra el Registro de Compras y Ventas (RCV) del SII.
-  * Función `public.get_sii_book_data()`: Genera dinámicamente las estructuras oficiales con sumas y saldos para el Balance Tributario de 8 Columnas, Libro Diario, Libro Mayor, Libro de Ventas y Libro de Compras.
-  * Función `public.reconcile_rcv_batch()`: Procesa y contrasta documentos del RCV contra las facturas de EasyERP por N° folio y RUT, reportando calces exactos, diferencias de monto o faltantes.
-  * Registro del módulo `sii_books` en la tabla `modules`.
-* **Interfaz de Usuario (UI) en [`sii-books.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sii-books.tsx)**:
-  * Pestaña "Libros Contables Oficiales" con selector de libros, selector de fechas, visualización tabular formateada (incluyendo el Balance Tributario de 8 Columnas) y exportación a **CSV / Excel**.
-  * Pestaña "Conciliación RCV": Herramienta de cruce con KPIs en vivo y tabla de auditoría con badges de estado (Coincide, Monto Discrepante, No Registrado).
-  * Integración en el menú superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+* **Migración SQL de Libros Legales SII** ([`supabase/migrations/20260825000010_sprint11_libros_sii.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000010_sprint11_libros_sii.sql)).
+* Módulo en `sii-books.tsx`.
 
 ---
 

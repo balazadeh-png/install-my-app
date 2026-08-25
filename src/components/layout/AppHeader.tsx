@@ -29,6 +29,7 @@ import {
   Factory,
   Store,
   FileSpreadsheet,
+  Landmark,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -42,6 +43,7 @@ export const moduleNavItems = [
   { name: "assets", label: "Activos Fijos", path: "/assets", icon: Building2 },
   { name: "cash", label: "Bancos / Tesorería", path: "/cash", icon: DollarSign },
   { name: "sii-books", label: "Libros Legales SII", path: "/sii-books", icon: FileSpreadsheet },
+  { name: "taxes", label: "Impuestos (F29/F22)", path: "/taxes", icon: Landmark },
   { name: "reports", label: "Reportes", path: "/reports", icon: BarChart3 },
   { name: "setup", label: "Configuración", path: "/setup", icon: Settings },
 ];

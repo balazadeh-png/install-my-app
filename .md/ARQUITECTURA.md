@@ -1,13 +1,13 @@
 # Arquitectura del Sistema - EasyERP
 
 ## 1. Visión y Alcance
-Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en Chile bajo normativa contable IFRS / IFRS Pymes. Soporta operación multiempresa con aislamiento estricto de datos (RLS), motor de comprobantes contables con partida doble estricta e inmutabilidad, soporte **multimoneda a nivel de cuenta** (cuentas en USD, EUR, etc. coexistiendo con la moneda funcional base CLP), **dimensiones analíticas jerárquicas (Centros de Costo y Sucursales/Unidades)**, **inventario multibodega con valorización por capas FIFO reales**, **ciclo transaccional de facturación de ventas y compras con posteo automático a contabilidad e inventario**, **terminal de Punto de Venta (POS) con boletas y arqueo de caja**, **generación de libros contables oficiales para el SII (Diario, Mayor, Balance 8 Columnas) y conciliación contra el Registro de Compras y Ventas (RCV)**, **cierre formal de períodos mensuales y revalorización cambiaria automática**, **módulo de activos fijos con depreciación mensual automática y bajas**, **módulo de producción simple con recetas BOM y costeo real de materiales**, identificación tributaria mediante **RUT** y control de cuentas por cobrar y pagar.
+Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en Chile bajo normativa contable IFRS / IFRS Pymes. Soporta operación multiempresa con aislamiento estricto de datos (RLS), motor de comprobantes contables con partida doble estricta e inmutabilidad, soporte **multimoneda a nivel de cuenta** (cuentas en USD, EUR, etc. coexistiendo con la moneda funcional base CLP), **dimensiones analíticas jerárquicas (Centros de Costo y Sucursales/Unidades)**, **inventario multibodega con valorización por capas FIFO reales**, **ciclo transaccional de facturación de ventas y compras con posteo automático a contabilidad e inventario**, **terminal de Punto de Venta (POS) con boletas y arqueo de caja**, **motor tributario para Formulario 29 (IVA/PPM mensual) y Formulario 22 (Renta anual)**, **generación de libros contables oficiales para el SII (Diario, Mayor, Balance 8 Columnas) y conciliación contra el Registro de Compras y Ventas (RCV)**, **cierre formal de períodos mensuales y revalorización cambiaria automática**, **módulo de activos fijos con depreciación mensual automática y bajas**, **módulo de producción simple con recetas BOM y costeo real de materiales**, identificación tributaria mediante **RUT** y control de cuentas por cobrar y pagar.
 
 ## 2. Stack Tecnológico
 * **Frontend & SSR**: React 19, TanStack Start, TanStack Router (file-based routing), TanStack Query.
 * **Estilos**: Tailwind CSS v4 con variables semánticas en OKLCH, shadcn/ui y Lucide Icons.
 * **Backend**: Server Functions en TanStack Start, middleware de validación y autenticación.
-* **Base de Datos & Auth**: Supabase (PostgreSQL), políticas de Row Level Security (RLS), funciones `SECURITY DEFINER` (`public.has_role()`, `public.user_has_company_access()`, `public.post_journal_entry()`, `public.reverse_journal_entry()`, `public.get_exchange_rate()`, `public.create_warehouse_transfer()`, `public.post_sales_invoice()`, `public.post_purchase_invoice()`, `public.run_exchange_revaluation()`, `public.close_accounting_period()`, `public.run_monthly_depreciation()`, `public.dispose_fixed_asset()`, `public.complete_production_order()`, `public.create_pos_sale()`, `public.close_pos_session()`, `public.get_sii_book_data()`, `public.reconcile_rcv_batch()`).
+* **Base de Datos & Auth**: Supabase (PostgreSQL), políticas de Row Level Security (RLS), funciones `SECURITY DEFINER` (`public.has_role()`, `public.user_has_company_access()`, `public.post_journal_entry()`, `public.reverse_journal_entry()`, `public.get_exchange_rate()`, `public.create_warehouse_transfer()`, `public.post_sales_invoice()`, `public.post_purchase_invoice()`, `public.run_exchange_revaluation()`, `public.close_accounting_period()`, `public.run_monthly_depreciation()`, `public.dispose_fixed_asset()`, `public.complete_production_order()`, `public.create_pos_sale()`, `public.close_pos_session()`, `public.get_sii_book_data()`, `public.reconcile_rcv_batch()`, `public.calculate_f29()`, `public.calculate_f22()`, `public.update_tax_run_status()`).
 
 ## 3. Modelo de Datos
 * **Seguridad & Roles Multiempresa**:
@@ -16,7 +16,7 @@ Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en 
   * `user_has_company_access(_user_id, _entity_id)`: Función de seguridad para evaluar pertenencia y permisos en RLS.
   * `app_role` (`admin`, `accountant`, `sales`, `purchasing`, `inventory`, `viewer`).
 * **Configuración Contable & Dimensiones Analíticas**:
-  * `entities`: Empresas con `base_currency_code` (FK a `currencies.code`), RUT y razón social.
+  * `entities`: Empresas con `base_currency_code`, `ppm_rate`, `tax_regime`, RUT y razón social.
   * `company_default_accounts`: Mapeo de cuentas contables predeterminadas por empresa.
   * `cost_centers`: Centros de costo jerárquicos (`parent_id`, `is_group`) aislados por `entity_id`.
   * `business_units`: Unidades de negocio / sucursales jerárquicas (`parent_id`, `is_group`) aislados por `entity_id`.
@@ -27,9 +27,12 @@ Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en 
   * `journal_entries`: Cabecera de comprobante con inmutabilidad y soporte de reversión.
   * `journal_entry_lines`: Detalle de partidas con moneda, tipo de cambio, CC, Sucursal, `skip_currency_resolution` y montos funcionales.
   * `post_journal_entry()`: Valida partida doble, valida que la fecha no pertenezca a un período cerrado y postea.
+* **Declaración de Impuestos SII (F29 / F22)**:
+  * `tax_calculation_runs`: Liquidaciones estructuradas con estados `draft` $\rightarrow$ `reviewed` $\rightarrow$ `filed`.
+  * `tax_adjustments`: Agregados y deducciones para la RLI del F22.
+  * `calculate_f29()` y `calculate_f22()`.
 * **Libros Legales SII & Conciliación RCV**:
-  * `sii_book_exports`: Registro de exportaciones de Libro Diario, Libro Mayor, Balance de 8 Columnas, Libro de Ventas y Compras.
-  * `rcv_reconciliation_runs` y `rcv_reconciliation_items`: Trazabilidad de conciliaciones contra el portal del SII.
+  * `sii_book_exports`, `rcv_reconciliation_runs` y `rcv_reconciliation_items`.
   * `get_sii_book_data()` y `reconcile_rcv_batch()`.
 * **Punto de Venta (POS) & Medios de Pago Mixtos**:
   * `pos_sessions`, `pos_sale_payment_lines`, `create_pos_sale()`, `close_pos_session()`.
