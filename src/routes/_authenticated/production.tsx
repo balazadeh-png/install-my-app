@@ -437,7 +437,9 @@ function ProductionPage() {
                             value={comp.qty_required}
                             onChange={(e) => {
                               const updated = [...bomComponents];
-                              updated[idx].qty_required = e.target.value;
+                              const current = updated[idx];
+                              if (!current) return;
+                              updated[idx] = { ...current, qty_required: e.target.value };
                               setBomComponents(updated);
                             }}
                             className="text-xs font-mono"

@@ -279,14 +279,17 @@ function PurchasesPage() {
 
   const handleLineChange = (index: number, field: keyof PurchaseLineForm, value: string) => {
     const updated = [...lines];
-    updated[index] = { ...updated[index], [field]: value };
+    const currentLine = updated[index];
+    if (!currentLine) return;
+    const next: PurchaseLineForm = { ...currentLine, [field]: value };
 
     if (field === "item_id") {
       const it = items.find((i) => i.id === value);
       if (it) {
-        updated[index].description = it.name;
+        next.description = it.name;
       }
     }
+    updated[index] = next;
 
     setLines(updated);
   };
