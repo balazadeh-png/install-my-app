@@ -60,7 +60,7 @@ function ProductionPage() {
   const [orderQty, setOrderQty] = useState("1");
   const [orderSourceWarehouseId, setOrderSourceWarehouseId] = useState("");
   const [orderTargetWarehouseId, setOrderTargetWarehouseId] = useState("");
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
+  const [orderDate, setOrderDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [orderCostCenterId, setOrderCostCenterId] = useState("");
   const [orderBusinessUnitId, setOrderBusinessUnitId] = useState("");
 
@@ -135,7 +135,7 @@ function ProductionPage() {
     queryFn: async () => {
       if (!activeEntityId) return [];
       const { data, error } = await supabase
-        .from("bill_of_materials" as any)
+        .from("bill_of_materials")
         .select(`
           *,
           finished_item:item_id(sku, name),
@@ -191,7 +191,7 @@ function ProductionPage() {
 
       // 1. Crear cabecera BOM
       const { data: newBom, error: bomErr } = await supabase
-        .from("bill_of_materials" as any)
+        .from("bill_of_materials")
         .insert({
           entity_id: activeEntityId,
           name: bomName.trim(),
@@ -411,7 +411,9 @@ function ProductionPage() {
                             value={comp.component_item_id}
                             onValueChange={(val) => {
                               const updated = [...bomComponents];
-                              updated[idx].component_item_id = val;
+                              const current = updated[idx];
+                              if (!current) return;
+                              updated[idx] = { ...current, component_item_id: val };
                               setBomComponents(updated);
                             }}
                           >
@@ -435,7 +437,9 @@ function ProductionPage() {
                             value={comp.qty_required}
                             onChange={(e) => {
                               const updated = [...bomComponents];
-                              updated[idx].qty_required = e.target.value;
+                              const current = updated[idx];
+                              if (!current) return;
+                              updated[idx] = { ...current, qty_required: e.target.value };
                               setBomComponents(updated);
                             }}
                             className="text-xs font-mono"

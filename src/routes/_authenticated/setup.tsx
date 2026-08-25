@@ -94,7 +94,7 @@ function SetupPage() {
   const [periodYearId, setPeriodYearId] = useState("");
 
   // Form Revalorización
-  const [revalDate, setRevalDate] = useState(new Date().toISOString().split("T")[0]);
+  const [revalDate, setRevalDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
   // Form Series
   const [seriesName, setSeriesName] = useState("");
