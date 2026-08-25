@@ -312,12 +312,15 @@ function AccountingPage() {
 
   const handleLineChange = (index: number, field: keyof JournalLineForm, value: string) => {
     const updated = [...lines];
-    updated[index] = { ...updated[index], [field]: value };
+    const currentLine = updated[index];
+    if (!currentLine) return;
+    const next: JournalLineForm = { ...currentLine, [field]: value };
     if (field === "debit" && parseFloat(value || "0") > 0) {
-      updated[index].credit = "";
+      next.credit = "";
     } else if (field === "credit" && parseFloat(value || "0") > 0) {
-      updated[index].debit = "";
+      next.debit = "";
     }
+    updated[index] = next;
     setLines(updated);
   };
 
