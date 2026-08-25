@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveEntity } from "@/context/ActiveEntityContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_authenticated/purchases")({
 
 function PurchasesPage() {
   const queryClient = useQueryClient();
+  const { activeEntityId } = useActiveEntity();
   const [newSupplierOpen, setNewSupplierOpen] = useState(false);
 
   // Form State
@@ -36,25 +38,30 @@ function PurchasesPage() {
 
   // Query: Proveedores
   const suppliersQuery = useQuery({
-    queryKey: ["suppliers"],
+    queryKey: ["suppliers", activeEntityId],
     queryFn: async () => {
+      if (!activeEntityId) return [];
       const { data, error } = await supabase
         .from("parties")
         .select("*, contacts(*)")
         .eq("classification", "supplier")
+        .eq("entity_id", activeEntityId)
         .order("name", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!activeEntityId,
   });
 
   // Mutation: Crear Proveedor
   const createSupplierMutation = useMutation({
     mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
       // 1. Insert Party
       const { data: party, error: partyError } = await supabase
         .from("parties")
         .insert({
+          entity_id: activeEntityId,
           name: supplierName.trim(),
           commercial_name: commercialName.trim() || null,
           tax_id: taxId.trim() || null,
@@ -69,6 +76,7 @@ function PurchasesPage() {
       // 2. Insert Contact if provided
       if (contactName || contactEmail || contactPhone) {
         const { error: contactError } = await supabase.from("contacts").insert({
+          entity_id: activeEntityId,
           party_id: party.id,
           first_name: contactName.trim(),
           email: contactEmail.trim() || null,
@@ -79,7 +87,7 @@ function PurchasesPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["suppliers", activeEntityId] });
       toast.success("Proveedor registrado exitosamente");
       setNewSupplierOpen(false);
       setSupplierName("");

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveEntity } from "@/context/ActiveEntityContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/_authenticated/accounting")({
 
 function AccountingPage() {
   const queryClient = useQueryClient();
+  const { activeEntity, activeEntityId } = useActiveEntity();
   const [newAccountOpen, setNewAccountOpen] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
 
@@ -44,35 +46,43 @@ function AccountingPage() {
 
   // Query: Cuentas Contables
   const accountsQuery = useQuery({
-    queryKey: ["accounts"],
+    queryKey: ["accounts", activeEntityId],
     queryFn: async () => {
+      if (!activeEntityId) return [];
       const { data, error } = await supabase
         .from("accounts")
         .select("*")
+        .eq("entity_id", activeEntityId)
         .order("code", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!activeEntityId,
   });
 
   // Query: Asientos Contables (gl_entries)
   const glEntriesQuery = useQuery({
-    queryKey: ["gl_entries"],
+    queryKey: ["gl_entries", activeEntityId],
     queryFn: async () => {
+      if (!activeEntityId) return [];
       const { data, error } = await supabase
         .from("gl_entries")
         .select("*, accounts(code, name)")
+        .eq("entity_id", activeEntityId)
         .order("posting_date", { ascending: false })
         .limit(100);
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!activeEntityId,
   });
 
   // Mutation: Crear Cuenta
   const createAccountMutation = useMutation({
     mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
       const { error } = await supabase.from("accounts").insert({
+        entity_id: activeEntityId,
         code: accountCode.trim(),
         name: accountName.trim(),
         account_type: accountType,
@@ -82,7 +92,7 @@ function AccountingPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts", activeEntityId] });
       toast.success("Cuenta contable creada correctamente");
       setNewAccountOpen(false);
       setAccountCode("");
@@ -96,24 +106,26 @@ function AccountingPage() {
   // Mutation: Crear Asiento
   const createEntryMutation = useMutation({
     mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
       if (!entryAccount) throw new Error("Debe seleccionar una cuenta contable");
       const deb = parseFloat(entryDebit || "0");
       const cred = parseFloat(entryCredit || "0");
       if (deb === 0 && cred === 0) throw new Error("Debe ingresar un monto en Débito o Crédito");
 
       const { error } = await supabase.from("gl_entries").insert({
+        entity_id: activeEntityId,
         posting_date: entryDate,
         account_id: entryAccount,
         debit: deb,
         credit: cred,
-        currency: "CLP",
+        currency: activeEntity?.base_currency_code || "CLP",
         memo: entryMemo,
         voucher_type: "Manual",
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["gl_entries"] });
+      queryClient.invalidateQueries({ queryKey: ["gl_entries", activeEntityId] });
       toast.success("Asiento contable registrado");
       setNewEntryOpen(false);
       setEntryDebit("");

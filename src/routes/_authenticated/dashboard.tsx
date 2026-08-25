@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getModules, getUserRoles } from "@/lib/auth.functions";
 import { useServerFn } from "@tanstack/react-start";
+import { useActiveEntity } from "@/context/ActiveEntityContext";
 import {
   LayoutDashboard,
   BookOpen,
@@ -14,6 +15,7 @@ import {
   Settings,
   BarChart3,
   ArrowRight,
+  Building2,
 } from "lucide-react";
 
 const moduleConfig: Record<string, { icon: React.ReactNode; path: string; description: string }> = {
@@ -71,6 +73,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function Dashboard() {
   const fetchModules = useServerFn(getModules);
   const fetchRoles = useServerFn(getUserRoles);
+  const { activeEntity } = useActiveEntity();
 
   const modulesQuery = useQuery({
     queryKey: ["modules"],
@@ -88,11 +91,22 @@ function Dashboard() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Welcome Banner */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Bienvenido al panel financiero y administrativo. Selecciona un módulo para comenzar.
-        </p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Bienvenido al panel financiero y administrativo. Selecciona un módulo para comenzar.
+          </p>
+        </div>
+        {activeEntity && (
+          <div className="flex items-center gap-2 rounded-lg border bg-card px-3.5 py-2 text-xs shadow-sm">
+            <Building2 className="h-4 w-4 text-primary" />
+            <div>
+              <div className="font-semibold text-foreground">{activeEntity.name}</div>
+              <div className="text-muted-foreground font-mono text-[11px]">{activeEntity.code} • RUT: {activeEntity.tax_id || "No registrado"}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* KPI Overview Cards */}
@@ -132,9 +146,9 @@ function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">CLP</div>
+            <div className="text-2xl font-bold">{activeEntity?.base_currency_code || "CLP"}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Peso Chileno ($)
+              {activeEntity?.name || "Empresa activa"}
             </p>
           </CardContent>
         </Card>

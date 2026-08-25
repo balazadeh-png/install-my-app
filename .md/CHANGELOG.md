@@ -4,6 +4,24 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 1: Multiempresa Real y Seguridad RLS] - 2026-08-25
+
+### Añadido
+* **Migración SQL Multiempresa** ([`supabase/migrations/20260825000000_sprint01_multiempresa_rls.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000000_sprint01_multiempresa_rls.sql)):
+  * Tabla `company_users` para asociar usuarios a empresas con roles específicos e índices optimizados.
+  * Función de seguridad `public.user_has_company_access(_user_id, _entity_id)` (`SECURITY DEFINER`).
+  * Columna `base_currency_code` en `entities` con clave foránea a `currencies.code`.
+  * Columna `active_entity_id` en `profiles`.
+  * Backfill de empresa por defecto y asignación de usuarios y registros huérfanos.
+  * Reescritura de políticas RLS para aislamiento estricto por `entity_id` en todas las tablas de negocio (`accounts`, `gl_entries`, `books`, `fiscal_years`, `accounting_periods`, `parties`, `contacts`, `addresses`, `items`, `warehouses`, `naming_series`).
+* **Capa de Estado y UI**:
+  * `ActiveEntityContext` y hook `useActiveEntity` para gestión global de empresa activa.
+  * Selector dinámico de empresa en [`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx) con información de código, RUT y moneda base.
+  * Selector de moneda base dinámica en diálogo "Nueva Empresa" y auto-vinculación en `company_users`.
+  * Filtrado estricto por `entity_id` en todas las queries y mutaciones de [`accounting.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx), [`sales.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sales.tsx), [`purchases.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx), [`inventory.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx), [`cash.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx), [`reports.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx) y [`setup.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx).
+
+---
+
 ## [Renombramiento a EasyERP] - 2026-08-23
 
 ### Modificado

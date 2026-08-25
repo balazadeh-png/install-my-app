@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getCurrentProfile } from "@/lib/auth.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveEntity } from "@/context/ActiveEntityContext";
 import {
   BookOpen,
   DollarSign,
@@ -24,7 +25,10 @@ import {
   LogOut,
   ChevronDown,
   Building2,
+  Check,
+  Plus,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export const moduleNavItems = [
   { name: "accounting", label: "Contabilidad", path: "/accounting", icon: BookOpen },
@@ -41,6 +45,7 @@ export function AppHeader() {
   const fetchProfile = useServerFn(getCurrentProfile);
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
+  const { activeEntity, userCompanies, setActiveEntityId } = useActiveEntity();
 
   const profileQuery = useQuery({
     queryKey: ["profile"],
@@ -111,18 +116,81 @@ export function AppHeader() {
 
         {/* Right Info & Actions */}
         <div className="flex items-center gap-3">
-          {/* Currency Badge */}
-          <div className="hidden sm:flex items-center gap-1.5 rounded-md border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground font-mono">
-            <Building2 className="h-3.5 w-3.5" />
-            <span>CLP ($)</span>
-          </div>
+          {/* Active Company Selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={activeEntity ? "outline" : "destructive"}
+                size="sm"
+                className="gap-2 text-xs font-medium max-w-[200px] sm:max-w-[260px]"
+              >
+                <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="truncate">
+                  {activeEntity ? `${activeEntity.code} - ${activeEntity.name}` : "Seleccionar Empresa"}
+                </span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel className="text-xs text-muted-foreground flex justify-between items-center">
+                <span>Empresa Activa</span>
+                <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                  {activeEntity?.base_currency_code || "CLP"}
+                </Badge>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {userCompanies.length === 0 ? (
+                <div className="p-3 text-xs text-center text-muted-foreground">
+                  <p>No tienes empresas asignadas.</p>
+                  <Button asChild size="sm" variant="outline" className="mt-2 text-xs w-full">
+                    <Link to="/setup">
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                      Crear Empresa
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                userCompanies.map((company) => {
+                  const isSelected = activeEntity?.id === company.id;
+                  return (
+                    <DropdownMenuItem
+                      key={company.id}
+                      onClick={() => setActiveEntityId(company.id)}
+                      className={`flex items-center justify-between cursor-pointer py-2 ${
+                        isSelected ? "bg-accent font-semibold" : ""
+                      }`}
+                    >
+                      <div className="flex flex-col gap-0.5 truncate pr-2">
+                        <span className="text-xs text-foreground truncate">{company.name}</span>
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
+                          <span>{company.code}</span>
+                          <span>•</span>
+                          <span>{company.tax_id || "Sin RUT"}</span>
+                          <span>•</span>
+                          <span className="font-semibold text-foreground/80">{company.base_currency_code || "CLP"}</span>
+                        </div>
+                      </div>
+                      {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                    </DropdownMenuItem>
+                  );
+                })
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/setup" className="flex items-center gap-2 cursor-pointer text-xs text-primary font-medium">
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Gestionar Empresas</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 text-xs">
+              <Button variant="ghost" size="sm" className="gap-2 text-xs">
                 <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
-                <span className="max-w-[120px] truncate">
+                <span className="max-w-[100px] truncate hidden sm:inline">
                   {profile?.full_name || profile?.user_name || "Usuario"}
                 </span>
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />

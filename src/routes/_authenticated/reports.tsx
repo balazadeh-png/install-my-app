@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveEntity } from "@/context/ActiveEntityContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,13 +19,17 @@ export const Route = createFileRoute("/_authenticated/reports")({
 });
 
 function ReportsPage() {
+  const { activeEntity, activeEntityId } = useActiveEntity();
+
   // Query: Accounts & GL Entries
   const dataQuery = useQuery({
-    queryKey: ["financial_reports_data"],
+    queryKey: ["financial_reports_data", activeEntityId],
     queryFn: async () => {
+      if (!activeEntityId) return { accounts: [], entries: [], balances: {} };
+
       const [accRes, glRes] = await Promise.all([
-        supabase.from("accounts").select("*").order("code"),
-        supabase.from("gl_entries").select("*"),
+        supabase.from("accounts").select("*").eq("entity_id", activeEntityId).order("code"),
+        supabase.from("gl_entries").select("*").eq("entity_id", activeEntityId),
       ]);
 
       if (accRes.error) throw accRes.error;
@@ -58,6 +63,7 @@ function ReportsPage() {
 
       return { accounts, entries, balances };
     },
+    enabled: !!activeEntityId,
   });
 
   const { accounts = [], balances = {} } = dataQuery.data ?? {};

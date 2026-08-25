@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveEntity } from "@/context/ActiveEntityContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_authenticated/cash")({
 
 function CashPage() {
   const queryClient = useQueryClient();
+  const { activeEntityId } = useActiveEntity();
   const [newRateOpen, setNewRateOpen] = useState(false);
   const [newBookOpen, setNewBookOpen] = useState(false);
 
@@ -50,15 +52,18 @@ function CashPage() {
 
   // Query: Books (Cajas y Bancos)
   const booksQuery = useQuery({
-    queryKey: ["books"],
+    queryKey: ["books", activeEntityId],
     queryFn: async () => {
+      if (!activeEntityId) return [];
       const { data, error } = await supabase
         .from("books")
         .select("*")
+        .eq("entity_id", activeEntityId)
         .order("code", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!activeEntityId,
   });
 
   // Mutation: Crear Tasa de Cambio
@@ -89,7 +94,9 @@ function CashPage() {
   // Mutation: Crear Libro
   const createBookMutation = useMutation({
     mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
       const { error } = await supabase.from("books").insert({
+        entity_id: activeEntityId,
         code: bookCode.trim(),
         name: bookName.trim(),
         active: true,
@@ -97,7 +104,7 @@ function CashPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["books"] });
+      queryClient.invalidateQueries({ queryKey: ["books", activeEntityId] });
       toast.success("Libro / Caja registrada");
       setNewBookOpen(false);
       setBookCode("");

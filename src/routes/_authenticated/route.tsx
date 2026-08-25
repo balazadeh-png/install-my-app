@@ -2,6 +2,7 @@ import { createFileRoute, Navigate, Outlet } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { ActiveEntityProvider } from "@/context/ActiveEntityContext";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -26,11 +27,13 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <AppHeader />
-      <div className="flex-1">
-        <Outlet />
+    <ActiveEntityProvider>
+      <div className="min-h-screen bg-background flex flex-col">
+        <AppHeader />
+        <div className="flex-1">
+          <Outlet />
+        </div>
       </div>
-    </div>
+    </ActiveEntityProvider>
   );
 }

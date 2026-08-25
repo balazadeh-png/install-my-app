@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveEntity } from "@/context/ActiveEntityContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/_authenticated/inventory")({
 
 function InventoryPage() {
   const queryClient = useQueryClient();
+  const { activeEntityId } = useActiveEntity();
   const [newItemOpen, setNewItemOpen] = useState(false);
   const [newWarehouseOpen, setNewWarehouseOpen] = useState(false);
 
@@ -42,15 +44,18 @@ function InventoryPage() {
 
   // Query: Items
   const itemsQuery = useQuery({
-    queryKey: ["items"],
+    queryKey: ["items", activeEntityId],
     queryFn: async () => {
+      if (!activeEntityId) return [];
       const { data, error } = await supabase
         .from("items")
         .select("*, item_categories(name), uom(code, name)")
+        .eq("entity_id", activeEntityId)
         .order("name", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!activeEntityId,
   });
 
   // Query: Categories
@@ -75,18 +80,26 @@ function InventoryPage() {
 
   // Query: Warehouses
   const warehousesQuery = useQuery({
-    queryKey: ["warehouses"],
+    queryKey: ["warehouses", activeEntityId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("warehouses").select("*").order("name");
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("warehouses")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .order("name");
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!activeEntityId,
   });
 
   // Mutation: Crear Item
   const createItemMutation = useMutation({
     mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
       const { error } = await supabase.from("items").insert({
+        entity_id: activeEntityId,
         code: itemCode.trim(),
         name: itemName.trim(),
         category_id: itemCategory || null,
@@ -98,7 +111,7 @@ function InventoryPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["items", activeEntityId] });
       toast.success("Artículo creado correctamente");
       setNewItemOpen(false);
       setItemCode("");
@@ -114,7 +127,9 @@ function InventoryPage() {
   // Mutation: Crear Bodega
   const createWarehouseMutation = useMutation({
     mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
       const { error } = await supabase.from("warehouses").insert({
+        entity_id: activeEntityId,
         code: warehouseCode.trim(),
         name: warehouseName.trim(),
         active: true,
@@ -122,7 +137,7 @@ function InventoryPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["warehouses"] });
+      queryClient.invalidateQueries({ queryKey: ["warehouses", activeEntityId] });
       toast.success("Bodega registrada exitosamente");
       setNewWarehouseOpen(false);
       setWarehouseCode("");
