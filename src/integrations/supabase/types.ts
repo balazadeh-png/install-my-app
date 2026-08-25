@@ -663,6 +663,7 @@ export type Database = {
           id: string
           is_default: boolean | null
           name: string
+          symbol: string | null
           updated_at: string
         }
         Insert: {
@@ -673,6 +674,7 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           name: string
+          symbol?: string | null
           updated_at?: string
         }
         Update: {
@@ -683,6 +685,7 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           name?: string
+          symbol?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1454,6 +1457,7 @@ export type Database = {
           id: string
           is_stock_item: boolean | null
           name: string
+          sku: string | null
           uom_id: string | null
           updated_at: string
           valuation_method: string | null
@@ -1468,6 +1472,7 @@ export type Database = {
           id?: string
           is_stock_item?: boolean | null
           name: string
+          sku?: string | null
           uom_id?: string | null
           updated_at?: string
           valuation_method?: string | null
@@ -1482,6 +1487,7 @@ export type Database = {
           id?: string
           is_stock_item?: boolean | null
           name?: string
+          sku?: string | null
           uom_id?: string | null
           updated_at?: string
           valuation_method?: string | null
@@ -1776,6 +1782,7 @@ export type Database = {
           group_id: string | null
           id: string
           name: string
+          party_type: string | null
           tax_id: string | null
           updated_at: string
         }
@@ -1788,6 +1795,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           name: string
+          party_type?: string | null
           tax_id?: string | null
           updated_at?: string
         }
@@ -1800,6 +1808,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           name?: string
+          party_type?: string | null
           tax_id?: string | null
           updated_at?: string
         }
@@ -2510,6 +2519,7 @@ export type Database = {
       roles: {
         Row: {
           created_at: string
+          description: string | null
           id: string
           name: string
           note: string | null
@@ -2517,6 +2527,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description?: string | null
           id?: string
           name: string
           note?: string | null
@@ -2524,6 +2535,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description?: string | null
           id?: string
           name?: string
           note?: string | null
@@ -3053,6 +3065,7 @@ export type Database = {
           created_at: string
           entity_id: string | null
           id: string
+          is_active: boolean
           name: string
           updated_at: string
         }
@@ -3062,6 +3075,7 @@ export type Database = {
           created_at?: string
           entity_id?: string | null
           id?: string
+          is_active?: boolean
           name: string
           updated_at?: string
         }
@@ -3071,6 +3085,7 @@ export type Database = {
           created_at?: string
           entity_id?: string | null
           id?: string
+          is_active?: boolean
           name?: string
           updated_at?: string
         }
