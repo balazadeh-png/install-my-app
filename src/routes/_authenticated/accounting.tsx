@@ -13,23 +13,44 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { BookOpen, Plus, ArrowLeft, RefreshCw, FileText, ListTree } from "lucide-react";
+import {
+  BookOpen,
+  Plus,
+  ArrowLeft,
+  RefreshCw,
+  FileText,
+  ListTree,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  RotateCcw,
+  Building2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/accounting")({
   component: AccountingPage,
   head: () => ({
     meta: [
-      { title: "Contabilidad | EasyERP" },
-      { name: "description", content: "Plan de cuentas, libro mayor y asientos contables." },
+      { title: "Contabilidad & Partida Doble | EasyERP" },
+      { name: "description", content: "Plan de cuentas, comprobantes contables por partida doble y libro mayor." },
     ],
   }),
 });
+
+interface JournalLineForm {
+  account_id: string;
+  party_id?: string;
+  debit: string;
+  credit: string;
+  memo: string;
+}
 
 function AccountingPage() {
   const queryClient = useQueryClient();
   const { activeEntity, activeEntityId } = useActiveEntity();
   const [newAccountOpen, setNewAccountOpen] = useState(false);
-  const [newEntryOpen, setNewEntryOpen] = useState(false);
+  const [newVoucherOpen, setNewVoucherOpen] = useState(false);
+  const [reversingId, setReversingId] = useState<string | null>(null);
 
   // Form State para Nueva Cuenta
   const [accountCode, setAccountCode] = useState("");
@@ -37,12 +58,15 @@ function AccountingPage() {
   const [accountType, setAccountType] = useState("Asset");
   const [isGroup, setIsGroup] = useState(false);
 
-  // Form State para Nuevo Asiento Simple
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
-  const [entryAccount, setEntryAccount] = useState("");
-  const [entryDebit, setEntryDebit] = useState("");
-  const [entryCredit, setEntryCredit] = useState("");
-  const [entryMemo, setEntryMemo] = useState("");
+  // Form State para Nuevo Comprobante Contable
+  const [voucherDate, setVoucherDate] = useState(new Date().toISOString().split("T")[0]);
+  const [voucherType, setVoucherType] = useState("Manual");
+  const [voucherBookId, setVoucherBookId] = useState<string>("");
+  const [voucherMemo, setVoucherMemo] = useState("");
+  const [lines, setLines] = useState<JournalLineForm[]>([
+    { account_id: "", debit: "", credit: "", memo: "" },
+    { account_id: "", debit: "", credit: "", memo: "" },
+  ]);
 
   // Query: Cuentas Contables
   const accountsQuery = useQuery({
@@ -60,17 +84,63 @@ function AccountingPage() {
     enabled: !!activeEntityId,
   });
 
-  // Query: Asientos Contables (gl_entries)
-  const glEntriesQuery = useQuery({
-    queryKey: ["gl_entries", activeEntityId],
+  // Query: Libros de Tesorería
+  const booksQuery = useQuery({
+    queryKey: ["books", activeEntityId],
     queryFn: async () => {
       if (!activeEntityId) return [];
       const { data, error } = await supabase
-        .from("gl_entries")
-        .select("*, accounts(code, name)")
+        .from("books")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  // Query: Terceros (Parties)
+  const partiesQuery = useQuery({
+    queryKey: ["parties", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("parties")
+        .select("id, name, tax_id")
+        .eq("entity_id", activeEntityId)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  // Query: Comprobantes Contables (journal_entries con detalle)
+  const journalEntriesQuery = useQuery({
+    queryKey: ["journal_entries", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("journal_entries")
+        .select(`
+          *,
+          books(name),
+          journal_entry_lines(
+            id,
+            line_no,
+            account_id,
+            party_id,
+            debit,
+            credit,
+            memo,
+            accounts(code, name),
+            parties(name, tax_id)
+          )
+        `)
         .eq("entity_id", activeEntityId)
         .order("posting_date", { ascending: false })
-        .limit(100);
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -103,45 +173,135 @@ function AccountingPage() {
     },
   });
 
-  // Mutation: Crear Asiento
-  const createEntryMutation = useMutation({
+  // Helper para modificar líneas
+  const handleAddLine = () => {
+    setLines([...lines, { account_id: "", debit: "", credit: "", memo: "" }]);
+  };
+
+  const handleRemoveLine = (index: number) => {
+    if (lines.length <= 2) {
+      toast.error("Un comprobante contable requiere mínimo 2 líneas.");
+      return;
+    }
+    setLines(lines.filter((_, i) => i !== index));
+  };
+
+  const handleLineChange = (index: number, field: keyof JournalLineForm, value: string) => {
+    const updated = [...lines];
+    updated[index] = { ...updated[index], [field]: value };
+    // Si escribe débito, limpiar crédito y viceversa
+    if (field === "debit" && parseFloat(value || "0") > 0) {
+      updated[index].credit = "";
+    } else if (field === "credit" && parseFloat(value || "0") > 0) {
+      updated[index].debit = "";
+    }
+    setLines(updated);
+  };
+
+  // Cálculos de Totales y Cuadre de Partida Doble
+  const totalDebitCalc = lines.reduce((sum, l) => sum + (parseFloat(l.debit || "0") || 0), 0);
+  const totalCreditCalc = lines.reduce((sum, l) => sum + (parseFloat(l.credit || "0") || 0), 0);
+  const difference = Math.abs(totalDebitCalc - totalCreditCalc);
+  const isBalanced = totalDebitCalc > 0 && Math.abs(totalDebitCalc - totalCreditCalc) < 0.001;
+
+  // Mutation: Crear y Postear Comprobante Contable
+  const createVoucherMutation = useMutation({
     mutationFn: async () => {
       if (!activeEntityId) throw new Error("Selecciona una empresa primero");
-      if (!entryAccount) throw new Error("Debe seleccionar una cuenta contable");
-      const deb = parseFloat(entryDebit || "0");
-      const cred = parseFloat(entryCredit || "0");
-      if (deb === 0 && cred === 0) throw new Error("Debe ingresar un monto en Débito o Crédito");
+      if (!isBalanced) throw new Error("El comprobante no cuadra: Total Débito debe ser igual a Total Crédito");
+      if (lines.length < 2) throw new Error("Se requieren al menos dos líneas contables");
 
-      const { error } = await supabase.from("gl_entries").insert({
-        entity_id: activeEntityId,
-        posting_date: entryDate,
-        account_id: entryAccount,
-        debit: deb,
-        credit: cred,
-        currency: activeEntity?.base_currency_code || "CLP",
-        memo: entryMemo,
-        voucher_type: "Manual",
+      // 1. Crear cabecera en estado draft
+      const { data: header, error: headerError } = await supabase
+        .from("journal_entries")
+        .insert({
+          entity_id: activeEntityId,
+          book_id: voucherBookId || null,
+          posting_date: voucherDate,
+          voucher_type: voucherType,
+          memo: voucherMemo.trim() || "Comprobante de Diario",
+          status: "draft",
+        })
+        .select()
+        .single();
+
+      if (headerError) throw headerError;
+
+      // 2. Insertar líneas de comprobante
+      const linesToInsert = lines.map((line, idx) => ({
+        journal_entry_id: header.id,
+        line_no: idx + 1,
+        account_id: line.account_id,
+        party_id: line.party_id || null,
+        debit: parseFloat(line.debit || "0") || 0,
+        credit: parseFloat(line.credit || "0") || 0,
+        memo: line.memo.trim() || null,
+      }));
+
+      const { error: linesError } = await supabase
+        .from("journal_entry_lines")
+        .insert(linesToInsert);
+
+      if (linesError) throw linesError;
+
+      // 3. Postear mediante función SQL atómica de verificación
+      const { data: postRes, error: postError } = await supabase.rpc("post_journal_entry", {
+        _journal_entry_id: header.id,
       });
-      if (error) throw error;
+
+      if (postError) throw postError;
+      return postRes;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["gl_entries", activeEntityId] });
-      toast.success("Asiento contable registrado");
-      setNewEntryOpen(false);
-      setEntryDebit("");
-      setEntryCredit("");
-      setEntryMemo("");
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["journal_entries", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["financial_reports_data", activeEntityId] });
+      toast.success(`Comprobante ${res?.entry_number || ""} posteado con éxito`);
+      setNewVoucherOpen(false);
+      setVoucherMemo("");
+      setLines([
+        { account_id: "", debit: "", credit: "", memo: "" },
+        { account_id: "", debit: "", credit: "", memo: "" },
+      ]);
     },
     onError: (err: any) => {
-      toast.error(err.message || "Error al registrar asiento");
+      toast.error(err.message || "Error al crear comprobante");
+    },
+  });
+
+  // Mutation: Reversar Comprobante
+  const reverseVoucherMutation = useMutation({
+    mutationFn: async (journalEntryId: string) => {
+      const { data, error } = await supabase.rpc("reverse_journal_entry", {
+        _journal_entry_id: journalEntryId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["journal_entries", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["financial_reports_data", activeEntityId] });
+      toast.success("Comprobante contable reversado correctamente con asiento inverso");
+      setReversingId(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al reversar comprobante");
     },
   });
 
   const accounts = accountsQuery.data ?? [];
-  const glEntries = glEntriesQuery.data ?? [];
+  const books = booksQuery.data ?? [];
+  const parties = partiesQuery.data ?? [];
+  const journalEntries = journalEntriesQuery.data ?? [];
 
-  const totalDebit = glEntries.reduce((acc, curr) => acc + Number(curr.debit || 0), 0);
-  const totalCredit = glEntries.reduce((acc, curr) => acc + Number(curr.credit || 0), 0);
+  const totalGlobalDebit = journalEntries.reduce((acc, curr: any) => {
+    const linesArr = curr.journal_entry_lines || [];
+    return acc + linesArr.reduce((lsum: number, line: any) => lsum + Number(line.debit || 0), 0);
+  }, 0);
+
+  const totalGlobalCredit = journalEntries.reduce((acc, curr: any) => {
+    const linesArr = curr.journal_entry_lines || [];
+    return acc + linesArr.reduce((lsum: number, line: any) => lsum + Number(line.credit || 0), 0);
+  }, 0);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -161,7 +321,7 @@ function AccountingPage() {
             size="sm"
             onClick={() => {
               accountsQuery.refetch();
-              glEntriesQuery.refetch();
+              journalEntriesQuery.refetch();
             }}
           >
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -180,7 +340,7 @@ function AccountingPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Módulo de Contabilidad</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestión del catálogo de cuentas, libro diario, partidas por partida doble y libro mayor.
+            Motor de partida doble, catálogo jerárquico de cuentas, comprobantes inmutables y libro diario.
           </p>
         </div>
 
@@ -215,7 +375,7 @@ function AccountingPage() {
                   <Label htmlFor="name" className="text-right">Nombre</Label>
                   <Input
                     id="name"
-                    placeholder="ej. Caja General"
+                    placeholder="ej. Banco de Chile"
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value)}
                     className="col-span-3"
@@ -264,88 +424,213 @@ function AccountingPage() {
             </DialogContent>
           </Dialog>
 
-          {/* Dialog Registrar Asiento */}
-          <Dialog open={newEntryOpen} onOpenChange={setNewEntryOpen}>
+          {/* Dialog Registrar Comprobante (Partida Doble N Líneas) */}
+          <Dialog open={newVoucherOpen} onOpenChange={setNewVoucherOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Registrar Asiento
+                Nuevo Comprobante
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Registrar Partida Contable</DialogTitle>
+                <DialogTitle>Nuevo Comprobante Contable</DialogTitle>
                 <DialogDescription>
-                  Ingresa un movimiento al Libro Mayor para una cuenta contable.
+                  Ingresa la cabecera y las partidas contables. Debe cumplirse estrictamente la partida doble (Débitos = Créditos).
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-3">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="date" className="text-right">Fecha</Label>
+
+              {/* Cabecera del Comprobante */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-3 border-b">
+                <div>
+                  <Label htmlFor="voucherDate" className="text-xs font-semibold">Fecha Contable</Label>
                   <Input
-                    id="date"
+                    id="voucherDate"
                     type="date"
-                    value={entryDate}
-                    onChange={(e) => setEntryDate(e.target.value)}
-                    className="col-span-3"
+                    value={voucherDate}
+                    onChange={(e) => setVoucherDate(e.target.value)}
+                    className="mt-1"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="account" className="text-right">Cuenta</Label>
-                  <Select value={entryAccount} onValueChange={setEntryAccount}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Seleccione cuenta" />
+                <div>
+                  <Label htmlFor="voucherType" className="text-xs font-semibold">Tipo de Comprobante</Label>
+                  <Select value={voucherType} onValueChange={setVoucherType}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {accounts.map((acc) => (
-                        <SelectItem key={acc.id} value={acc.id}>
-                          {acc.code} - {acc.name}
+                      <SelectItem value="Manual">Diario / Manual</SelectItem>
+                      <SelectItem value="Ingreso">Comprobante de Ingreso</SelectItem>
+                      <SelectItem value="Egreso">Comprobante de Egreso</SelectItem>
+                      <SelectItem value="Traspaso">Comprobante de Traspaso</SelectItem>
+                      <SelectItem value="Apertura">Asiento de Apertura</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="voucherBook" className="text-xs font-semibold">Libro / Caja (Opcional)</Label>
+                  <Select value={voucherBookId} onValueChange={setVoucherBookId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Seleccionar libro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Ninguno / General</SelectItem>
+                      {books.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="debit" className="text-right">Débito ($)</Label>
+                <div className="md:col-span-3">
+                  <Label htmlFor="voucherMemo" className="text-xs font-semibold">Glosa / Concepto General</Label>
                   <Input
-                    id="debit"
-                    type="number"
-                    step="1"
-                    placeholder="0"
-                    value={entryDebit}
-                    onChange={(e) => setEntryDebit(e.target.value)}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="credit" className="text-right">Crédito ($)</Label>
-                  <Input
-                    id="credit"
-                    type="number"
-                    step="1"
-                    placeholder="0"
-                    value={entryCredit}
-                    onChange={(e) => setEntryCredit(e.target.value)}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="memo" className="text-right">Concepto</Label>
-                  <Input
-                    id="memo"
-                    placeholder="Descripción de la transacción"
-                    value={entryMemo}
-                    onChange={(e) => setEntryMemo(e.target.value)}
-                    className="col-span-3"
+                    id="voucherMemo"
+                    placeholder="Descripción detallada de la operación contable"
+                    value={voucherMemo}
+                    onChange={(e) => setVoucherMemo(e.target.value)}
+                    className="mt-1"
                   />
                 </div>
               </div>
-              <DialogFooter>
+
+              {/* Tabla de Líneas Contables */}
+              <div className="py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Partidas Contables (Mínimo 2 líneas)
+                  </span>
+                  <Button type="button" variant="outline" size="sm" onClick={handleAddLine}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Agregar Línea
+                  </Button>
+                </div>
+
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[30%]">Cuenta Contable</TableHead>
+                        <TableHead className="w-[20%]">Tercero / RUT</TableHead>
+                        <TableHead className="w-[18%] text-right">Débito ($)</TableHead>
+                        <TableHead className="w-[18%] text-right">Crédito ($)</TableHead>
+                        <TableHead className="w-[14%] text-center">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lines.map((line, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="p-2">
+                            <Select
+                              value={line.account_id}
+                              onValueChange={(val) => handleLineChange(idx, "account_id", val)}
+                            >
+                              <SelectTrigger className="h-8 text-xs font-mono">
+                                <SelectValue placeholder="Seleccionar cuenta" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {accounts
+                                  .filter((a) => !a.is_group)
+                                  .map((acc) => (
+                                    <SelectItem key={acc.id} value={acc.id}>
+                                      {acc.code} - {acc.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Select
+                              value={line.party_id || ""}
+                              onValueChange={(val) => handleLineChange(idx, "party_id", val)}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Sin tercero" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Sin tercero</SelectItem>
+                                {parties.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name} ({p.tax_id || "Sin RUT"})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Input
+                              type="number"
+                              step="1"
+                              placeholder="0"
+                              value={line.debit}
+                              onChange={(e) => handleLineChange(idx, "debit", e.target.value)}
+                              className="h-8 text-right font-mono text-xs"
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Input
+                              type="number"
+                              step="1"
+                              placeholder="0"
+                              value={line.credit}
+                              onChange={(e) => handleLineChange(idx, "credit", e.target.value)}
+                              className="h-8 text-right font-mono text-xs"
+                            />
+                          </TableCell>
+                          <TableCell className="p-2 text-center">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveLine(idx)}
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Barra de Totales y Validación de Partida Doble */}
+                <div className="mt-3 flex flex-col sm:flex-row items-center justify-between p-3 rounded-lg bg-muted/60 border text-xs gap-3">
+                  <div className="flex items-center gap-2">
+                    {isBalanced ? (
+                      <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Partida Doble Cuadrada
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive" className="flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        Descuadre de $ {difference.toLocaleString("es-CL")}
+                      </Badge>
+                    )}
+                    <span className="text-muted-foreground">
+                      {lines.length} {lines.length === 1 ? "línea" : "líneas"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 font-mono">
+                    <div>
+                      Débitos: <span className="font-bold text-foreground">$ {totalDebitCalc.toLocaleString("es-CL")}</span>
+                    </div>
+                    <div>
+                      Créditos: <span className="font-bold text-foreground">$ {totalCreditCalc.toLocaleString("es-CL")}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-2">
                 <Button
-                  onClick={() => createEntryMutation.mutate()}
-                  disabled={createEntryMutation.isPending || !entryAccount}
+                  onClick={() => createVoucherMutation.mutate()}
+                  disabled={createVoucherMutation.isPending || !isBalanced || lines.some((l) => !l.account_id)}
                 >
-                  Registrar Asiento
+                  {createVoucherMutation.isPending ? "Posteando..." : "Guardar y Postear Comprobante"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -354,17 +639,168 @@ function AccountingPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="chart" className="space-y-4">
+      <Tabs defaultValue="vouchers" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="vouchers" className="flex items-center gap-1.5">
+            <FileText className="h-4 w-4" />
+            <span>Libro Diario / Comprobantes ({journalEntries.length})</span>
+          </TabsTrigger>
           <TabsTrigger value="chart" className="flex items-center gap-1.5">
             <ListTree className="h-4 w-4" />
             <span>Plan de Cuentas ({accounts.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="entries" className="flex items-center gap-1.5">
-            <FileText className="h-4 w-4" />
-            <span>Libro Diario / Partidas ({glEntries.length})</span>
-          </TabsTrigger>
         </TabsList>
+
+        {/* Tab Libro Diario / Comprobantes */}
+        <TabsContent value="vouchers">
+          <Card>
+            <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-semibold">Comprobantes de Diario (Partida Doble)</CardTitle>
+                <CardDescription>
+                  Asientos contables agrupados por comprobante correlativo e inmutables con historial de reversión.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-4 text-xs font-mono">
+                <div className="bg-muted px-2.5 py-1 rounded">
+                  Total Débitos: <span className="font-bold text-foreground">$ {totalGlobalDebit.toLocaleString("es-CL")}</span>
+                </div>
+                <div className="bg-muted px-2.5 py-1 rounded">
+                  Total Créditos: <span className="font-bold text-foreground">$ {totalGlobalCredit.toLocaleString("es-CL")}</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {journalEntries.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <FileText className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">No hay comprobantes contables registrados aún.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setNewVoucherOpen(true)}
+                  >
+                    Crear primer comprobante
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {journalEntries.map((voucher: any) => {
+                    const linesArr = voucher.journal_entry_lines || [];
+                    const vDebit = linesArr.reduce((s: number, l: any) => s + Number(l.debit || 0), 0);
+                    const isReversed = voucher.status === "reversed";
+                    const isPosted = voucher.status === "posted";
+
+                    return (
+                      <div key={voucher.id} className="rounded-lg border bg-card p-4 shadow-sm">
+                        {/* Cabecera del comprobante */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-bold text-sm text-primary">
+                              {voucher.entry_number || "ASI-BORRADOR"}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {voucher.voucher_type}
+                            </Badge>
+                            {voucher.books?.name && (
+                              <Badge variant="secondary" className="text-xs">
+                                {voucher.books.name}
+                              </Badge>
+                            )}
+                            {isPosted && (
+                              <Badge className="bg-emerald-600 text-white text-xs">Posteado</Badge>
+                            )}
+                            {isReversed && (
+                              <Badge variant="destructive" className="text-xs">Reversado</Badge>
+                            )}
+                            {voucher.reversal_of && (
+                              <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
+                                Asiento de Reversión
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground font-mono">
+                              Fecha: <strong className="text-foreground">{voucher.posting_date}</strong>
+                            </span>
+                            {isPosted && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950"
+                                onClick={() => {
+                                  if (confirm(`¿Deseas reversar el comprobante ${voucher.entry_number}? Se creará un asiento inverso automáticamente.`)) {
+                                    reverseVoucherMutation.mutate(voucher.id);
+                                  }
+                                }}
+                                disabled={reverseVoucherMutation.isPending}
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                Reversar
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Glosa */}
+                        {voucher.memo && (
+                          <div className="py-2 text-xs text-muted-foreground italic">
+                            Glosa: {voucher.memo}
+                          </div>
+                        )}
+
+                        {/* Líneas */}
+                        <div className="mt-2 rounded border overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/40">
+                                <TableHead className="w-[10%] text-xs py-1.5">Línea</TableHead>
+                                <TableHead className="w-[35%] text-xs py-1.5">Cuenta Contable</TableHead>
+                                <TableHead className="w-[25%] text-xs py-1.5">Tercero / RUT</TableHead>
+                                <TableHead className="w-[15%] text-right text-xs py-1.5">Débito ({activeEntity?.base_currency_code || "CLP"})</TableHead>
+                                <TableHead className="w-[15%] text-right text-xs py-1.5">Crédito ({activeEntity?.base_currency_code || "CLP"})</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {linesArr.map((line: any, idx: number) => {
+                                const acc = line.accounts;
+                                const prt = line.parties;
+                                return (
+                                  <TableRow key={line.id || idx}>
+                                    <TableCell className="text-xs font-mono py-1.5 text-muted-foreground">{idx + 1}</TableCell>
+                                    <TableCell className="text-xs font-medium py-1.5">
+                                      {acc ? `${acc.code} - ${acc.name}` : line.account_id}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-muted-foreground py-1.5">
+                                      {prt ? `${prt.name} (${prt.tax_id || "Sin RUT"})` : "-"}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono text-xs font-medium py-1.5">
+                                      {Number(line.debit) > 0 ? `$ ${Number(line.debit).toLocaleString("es-CL")}` : "-"}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono text-xs font-medium py-1.5">
+                                      {Number(line.credit) > 0 ? `$ ${Number(line.credit).toLocaleString("es-CL")}` : "-"}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {/* Total Comprobante */}
+                        <div className="mt-2 text-right text-xs font-mono text-muted-foreground">
+                          Total Comprobante: <span className="font-bold text-foreground">$ {vDebit.toLocaleString("es-CL")}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Tab Plan de Cuentas */}
         <TabsContent value="chart">
@@ -425,82 +861,6 @@ function AccountingPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab Libro Diario */}
-        <TabsContent value="entries">
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-semibold">Movimientos del Libro Mayor (GL Entries)</CardTitle>
-                <CardDescription>
-                  Partidas contables registradas con trazabilidad de débitos y créditos.
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-4 text-xs font-mono">
-                <div className="bg-muted px-2.5 py-1 rounded">
-                  Débitos: <span className="font-bold text-foreground">$ {totalDebit.toLocaleString("es-CL")}</span>
-                </div>
-                <div className="bg-muted px-2.5 py-1 rounded">
-                  Créditos: <span className="font-bold text-foreground">$ {totalCredit.toLocaleString("es-CL")}</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {glEntries.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground">
-                  <FileText className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">No hay asientos contables registrados aún.</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => setNewEntryOpen(true)}
-                  >
-                    Registrar primer asiento
-                  </Button>
-                </div>
-              ) : (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[120px]">Fecha</TableHead>
-                        <TableHead>Cuenta</TableHead>
-                        <TableHead>Concepto / Memo</TableHead>
-                        <TableHead>Comprobante</TableHead>
-                        <TableHead className="text-right">Débito (CLP)</TableHead>
-                        <TableHead className="text-right">Crédito (CLP)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {glEntries.map((entry) => {
-                        const acc = (entry as any).accounts;
-                        return (
-                          <TableRow key={entry.id}>
-                            <TableCell className="font-mono text-xs">{entry.posting_date}</TableCell>
-                            <TableCell className="font-medium text-xs">
-                              {acc ? `${acc.code} - ${acc.name}` : entry.account_id}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{entry.memo || "-"}</TableCell>
-                            <TableCell className="text-xs">
-                              <Badge variant="outline">{entry.voucher_type || "General"}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-xs font-medium">
-                              {Number(entry.debit) > 0 ? `$ ${Number(entry.debit).toLocaleString("es-CL")}` : "-"}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-xs font-medium">
-                              {Number(entry.credit) > 0 ? `$ ${Number(entry.credit).toLocaleString("es-CL")}` : "-"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
                     </TableBody>
                   </Table>
                 </div>

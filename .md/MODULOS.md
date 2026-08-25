@@ -4,14 +4,17 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 1. Contabilidad ([`/accounting`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx))
+## 1. Contabilidad & Partida Doble ([`/accounting`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx))
 * **Catálogo / Plan de Cuentas**:
   * Estructura jerárquica con código numérico (ej. `1.1.01.001`), nombre y tipo de cuenta (`Asset`, `Liability`, `Equity`, `Income`, `Expense`, `Cost of Goods Sold`).
   * Distinción entre cuentas de grupo (agrupadoras) y cuentas de detalle (asentables).
   * Diálogo modal para la creación de nuevas cuentas contables.
-* **Libro Diario & Libro Mayor (`gl_entries`)**:
-  * Registro de transacciones con trazabilidad de fecha, cuenta, concepto/memo, débito, crédito y tipo de comprobante en Pesos Chilenos (**CLP / $**).
-  * Resumen automático de sumas totales de débitos y créditos con formateo `es-CL`.
+* **Motor de Comprobantes por Partida Doble (`journal_entries` & `journal_entry_lines`)**:
+  * Formulario de comprobantes contables con cabecera (fecha, tipo de comprobante, libro opcional, glosa) y tabla de $N$ líneas contables.
+  * Validación en tiempo real del cuadre de partida doble ($\sum \text{Débitos} = \sum \text{Créditos}$) y bloqueo de guardado en caso de descuadre.
+  * Asignación atómica de número correlativo oficial (`ASI-000001`) mediante la función `get_next_entry_number` y `naming_series`.
+  * **Inmutabilidad estricta**: Los comprobantes en estado `posted` no admiten modificación ni eliminación por trigger de base de datos (`trg_journal_entries_immutability`).
+  * **Mecanismo de Reversión**: Acción de anulación/reversión que genera automáticamente un contra-asiento invertido (`reversal_of`) manteniendo la integridad y la trazabilidad de auditoría.
 
 ---
 
@@ -52,7 +55,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 ---
 
 ## 6. Reportes Financieros ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
-* **Balanza de Comprobación**: Sumas de débitos y créditos y saldo neto para cada cuenta del catálogo expresado en `$ CLP`.
+* **Balanza de Comprobación**: Sumas de débitos y créditos y saldo neto para cada cuenta del catálogo calculados directamente desde comprobantes posteados en `$ CLP`.
 * **Balance General**: Desglose clasificado de Activos, Pasivos, Patrimonio y verificación de la ecuación contable.
 * **Estado de Resultados (P&L)**: Resumen de ingresos operacionales, costos de venta, gastos y cálculo de la utilidad/pérdida neta del ejercicio.
 

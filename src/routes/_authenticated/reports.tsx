@@ -27,20 +27,48 @@ function ReportsPage() {
     queryFn: async () => {
       if (!activeEntityId) return { accounts: [], entries: [], balances: {} };
 
-      const [accRes, glRes] = await Promise.all([
-        supabase.from("accounts").select("*").eq("entity_id", activeEntityId).order("code"),
-        supabase.from("gl_entries").select("*").eq("entity_id", activeEntityId),
-      ]);
+      // 1. Cuentas
+      const { data: accounts, error: accError } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .order("code");
 
-      if (accRes.error) throw accRes.error;
-      if (glRes.error) throw glRes.error;
+      if (accError) throw accError;
 
-      const accounts = accRes.data ?? [];
-      const entries = glRes.data ?? [];
+      // 2. Líneas de comprobantes posteados
+      const { data: journalLines, error: jlError } = await supabase
+        .from("journal_entry_lines")
+        .select("account_id, debit, credit, journal_entries!inner(status, entity_id)")
+        .eq("journal_entries.entity_id", activeEntityId)
+        .eq("journal_entries.status", "posted");
+
+      let entries: { account_id: string; debit: number; credit: number }[] = [];
+
+      if (!jlError && journalLines && journalLines.length > 0) {
+        entries = journalLines.map((jl: any) => ({
+          account_id: jl.account_id,
+          debit: Number(jl.debit || 0),
+          credit: Number(jl.credit || 0),
+        }));
+      } else {
+        // Fallback a gl_entries si aún no hay journal_entries
+        const { data: glData } = await supabase
+          .from("gl_entries")
+          .select("account_id, debit, credit")
+          .eq("entity_id", activeEntityId);
+        entries = (glData || []).map((gl: any) => ({
+          account_id: gl.account_id,
+          debit: Number(gl.debit || 0),
+          credit: Number(gl.credit || 0),
+        }));
+      }
+
+      const accList = accounts ?? [];
 
       // Calculate Balances per Account
       const balances: Record<string, { debit: number; credit: number; net: number }> = {};
-      accounts.forEach((a) => {
+      accList.forEach((a) => {
         balances[a.id] = { debit: 0, credit: 0, net: 0 };
       });
 
@@ -52,7 +80,7 @@ function ReportsPage() {
       });
 
       // Calculate net per account based on normal balance
-      accounts.forEach((a) => {
+      accList.forEach((a) => {
         const b = balances[a.id];
         if (["Asset", "Expense", "Cost of Goods Sold"].includes(a.account_type)) {
           b.net = b.debit - b.credit;
@@ -61,7 +89,7 @@ function ReportsPage() {
         }
       });
 
-      return { accounts, entries, balances };
+      return { accounts: accList, entries, balances };
     },
     enabled: !!activeEntityId,
   });

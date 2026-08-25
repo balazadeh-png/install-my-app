@@ -4,6 +4,26 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 2: Motor Contable de Partida Doble e Inmutabilidad] - 2026-08-25
+
+### Añadido
+* **Migración SQL del Motor Contable** ([`supabase/migrations/20260825000001_sprint02_motor_partida_doble.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000001_sprint02_motor_partida_doble.sql)):
+  * Enum `journal_entry_status` (`draft`, `posted`, `reversed`).
+  * Tabla `journal_entries` para cabeceras de comprobantes (empresa, libro, número correlativo, fecha, tipo de voucher, glosa, estado, creador, reversión).
+  * Tabla `journal_entry_lines` para el detalle de partidas contables con restricciones `CHECK` que exigen montos no negativos y exclusividad de débito o crédito por línea.
+  * Función `public.get_next_entry_number()` que consume de forma atómica correlativos de `naming_series`.
+  * Función `public.post_journal_entry()` con validación estricta de partida doble ($\sum \text{Débitos} = \sum \text{Créditos}$) y monto superior a cero antes del posteo.
+  * Función `public.reverse_journal_entry()` para anulación y creación automática de comprobantes inversos con trazabilidad a través de `reversal_of`.
+  * Trigger de inmutabilidad `trg_journal_entries_immutability` que bloquea `UPDATE` y `DELETE` sobre comprobantes ya posteados a nivel de base de datos.
+  * Políticas RLS completas en `journal_entries` y `journal_entry_lines` combinando roles y pertenencia a empresa.
+* **Interfaz de Usuario (UI)**:
+  * Modal avanzado en [`accounting.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx) para crear comprobantes con cabecera y tabla de $N$ líneas contables, selección de tercero/RUT y glosa.
+  * Indicador en tiempo real del estado de balanceo (Badge verde "Partida Doble Cuadrada" o Badge destructivo con monto de descuadre) con bloqueo de posteo si está desbalanceado.
+  * Vista rediseñada de **Libro Diario / Comprobantes** que agrupa por comprobante correlativo, mostrando estado, total, detalle de líneas y botón de acción "Reversar".
+  * Actualización de reportes financieros en [`reports.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx) para consolidar saldos a partir de líneas de comprobantes posteados.
+
+---
+
 ## [Sprint 1: Multiempresa Real y Seguridad RLS] - 2026-08-25
 
 ### Añadido
@@ -18,7 +38,7 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
   * `ActiveEntityContext` y hook `useActiveEntity` para gestión global de empresa activa.
   * Selector dinámico de empresa en [`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx) con información de código, RUT y moneda base.
   * Selector de moneda base dinámica en diálogo "Nueva Empresa" y auto-vinculación en `company_users`.
-  * Filtrado estricto por `entity_id` en todas las queries y mutaciones de [`accounting.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx), [`sales.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sales.tsx), [`purchases.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx), [`inventory.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx), [`cash.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx), [`reports.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx) y [`setup.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx).
+  * Filtrado estricto por `entity_id` en todas las queries y mutaciones.
 
 ---
 
