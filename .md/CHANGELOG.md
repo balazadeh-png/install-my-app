@@ -4,6 +4,22 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 3: Multimoneda a Nivel de Cuenta y Comprobantes] - 2026-08-25
+
+### Añadido
+* **Migración SQL Multimoneda** ([`supabase/migrations/20260825000002_sprint03_multimoneda_cuentas.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000002_sprint03_multimoneda_cuentas.sql)):
+  * Columna `currency_code` en `accounts` (FK a `currencies.code`) permitiendo que cuentas específicas (bancos en USD, cuentas por cobrar del exterior) operen en su propia moneda.
+  * Columnas `currency_code`, `exchange_rate`, `debit_account_currency`, `credit_account_currency` en `journal_entry_lines`.
+  * Función `public.get_exchange_rate(_origin, _destination, _date)` con validación de fecha exacta en `exchange_rates` (rechaza el uso silencioso de tasas obsoletas).
+  * Trigger `trg_resolve_line_currency` que resuelve la moneda de la cuenta y calcula automáticamente los montos funcionales en `debit` y `credit` multiplicados por la tasa del día.
+* **Interfaz de Usuario (UI)**:
+  * Selector de moneda opcional en el modal "Nueva Cuenta" de [`accounting.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx) con soporte para moneda base por defecto o divisas del catálogo (USD, EUR, etc.).
+  * Soporte multimoneda en el formulario de comprobante: detecta cuentas en moneda extranjera, muestra la divisa, el tipo de cambio del día y el monto equivalente calculado en vivo en moneda funcional base.
+  * Modal rápido de registro de tasa de cambio del día cuando la fecha del comprobante carece de tipo de cambio oficial registrado, evitando fallos en el flujo de trabajo.
+  * Visualización de montos duales (moneda de cuenta + moneda base) en la vista de comprobantes del Libro Diario.
+
+---
+
 ## [Sprint 2: Motor Contable de Partida Doble e Inmutabilidad] - 2026-08-25
 
 ### Añadido

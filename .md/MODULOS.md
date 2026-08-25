@@ -4,16 +4,18 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 1. Contabilidad & Partida Doble ([`/accounting`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx))
-* **Catálogo / Plan de Cuentas**:
+## 1. Contabilidad & Multimoneda ([`/accounting`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx))
+* **Catálogo Multimoneda de Cuentas**:
   * Estructura jerárquica con código numérico (ej. `1.1.01.001`), nombre y tipo de cuenta (`Asset`, `Liability`, `Equity`, `Income`, `Expense`, `Cost of Goods Sold`).
+  * Asignación de moneda propia por cuenta (`currency_code`), permitiendo cuentas en USD o divisas extranjeras conviviendo con la moneda base CLP.
   * Distinción entre cuentas de grupo (agrupadoras) y cuentas de detalle (asentables).
-  * Diálogo modal para la creación de nuevas cuentas contables.
-* **Motor de Comprobantes por Partida Doble (`journal_entries` & `journal_entry_lines`)**:
+* **Motor de Comprobantes por Partida Doble & Conversión Automática**:
   * Formulario de comprobantes contables con cabecera (fecha, tipo de comprobante, libro opcional, glosa) y tabla de $N$ líneas contables.
+  * Soporte multimoneda en cada línea: registra el monto en la moneda de la cuenta (`debit_account_currency`, `credit_account_currency`) y realiza la conversión en tiempo real al equivalente en moneda base funcional mediante la tasa del día (`exchange_rate`).
+  * Validación de existencia de tasa de cambio oficial para la fecha exacta del comprobante con modal de alta rápida integrado.
   * Validación en tiempo real del cuadre de partida doble ($\sum \text{Débitos} = \sum \text{Créditos}$) y bloqueo de guardado en caso de descuadre.
-  * Asignación atómica de número correlativo oficial (`ASI-000001`) mediante la función `get_next_entry_number` y `naming_series`.
-  * **Inmutabilidad estricta**: Los comprobantes en estado `posted` no admiten modificación ni eliminación por trigger de base de datos (`trg_journal_entries_immutability`).
+  * Asignación atómica de número correlativo oficial (`ASI-000001`) mediante `get_next_entry_number` y `naming_series`.
+  * **Inmutabilidad estricta**: Los comprobantes en estado `posted` no admiten modificación ni eliminación (`trg_journal_entries_immutability`).
   * **Mecanismo de Reversión**: Acción de anulación/reversión que genera automáticamente un contra-asiento invertido (`reversal_of`) manteniendo la integridad y la trazabilidad de auditoría.
 
 ---

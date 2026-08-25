@@ -1,13 +1,13 @@
 # Arquitectura del Sistema - EasyERP
 
 ## 1. Visión y Alcance
-Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en Chile bajo normativa contable IFRS / IFRS Pymes. Soporta operación multiempresa con aislamiento estricto de datos (RLS), motor de comprobantes contables con partida doble estricta e inmutabilidad, moneda base **Peso Chileno (CLP)** y multimoneda (USD / Dólar Observado), catálogo de cuentas jerárquico, libros contables, identificación tributaria mediante **RUT** y control de inventario con método FIFO.
+Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en Chile bajo normativa contable IFRS / IFRS Pymes. Soporta operación multiempresa con aislamiento estricto de datos (RLS), motor de comprobantes contables con partida doble estricta e inmutabilidad, soporte **multimoneda a nivel de cuenta** (cuentas en USD, EUR, etc. coexistiendo con la moneda funcional base CLP), libros contables, identificación tributaria mediante **RUT** y control de inventario con método FIFO.
 
 ## 2. Stack Tecnológico
 * **Frontend & SSR**: React 19, TanStack Start, TanStack Router (file-based routing), TanStack Query.
 * **Estilos**: Tailwind CSS v4 con variables semánticas en OKLCH, shadcn/ui y Lucide Icons.
 * **Backend**: Server Functions en TanStack Start, middleware de validación y autenticación.
-* **Base de Datos & Auth**: Supabase (PostgreSQL), políticas de Row Level Security (RLS), funciones `SECURITY DEFINER` (`public.has_role()`, `public.user_has_company_access()`, `public.post_journal_entry()`, `public.reverse_journal_entry()`).
+* **Base de Datos & Auth**: Supabase (PostgreSQL), políticas de Row Level Security (RLS), funciones `SECURITY DEFINER` (`public.has_role()`, `public.user_has_company_access()`, `public.post_journal_entry()`, `public.reverse_journal_entry()`, `public.get_exchange_rate()`).
 
 ## 3. Modelo de Datos
 * **Seguridad & Roles Multiempresa**:
@@ -15,18 +15,18 @@ Sistema ERP para contabilidad y gestión administrativa enfocado en empresas en 
   * `profiles`: Datos de usuario con `active_entity_id` (empresa activa) y zona horaria `America/Santiago`.
   * `user_has_company_access(_user_id, _entity_id)`: Función de seguridad para evaluar pertenencia y permisos en RLS.
   * `app_role` (`admin`, `accountant`, `sales`, `purchasing`, `inventory`, `viewer`).
-* **Configuración Contable**:
+* **Configuración Contable & Divisas**:
   * `entities`: Empresas con `base_currency_code` (FK a `currencies.code`), RUT y razón social.
-  * `currencies`: Monedas disponibles (`CLP` con 0 decimales, `USD` con 2 decimales).
-  * `exchange_rates`: Tasas oficiales (USD/CLP - Dólar Observado).
+  * `currencies`: Monedas disponibles (`CLP` con 0 decimales, `USD` con 2 decimales, etc.).
+  * `exchange_rates`: Tasas oficiales (USD/CLP - Dólar Observado) con búsqueda y validación estricta por fecha en `get_exchange_rate()`.
   * `books`, `fiscal_years`, `accounting_periods`: Estructuras filtradas por `entity_id`.
-* **Motor Contable de Partida Doble**:
+* **Motor Contable de Partida Doble & Multimoneda**:
+  * `accounts`: Plan de cuentas jerárquico (`parent_id`) con moneda propia `currency_code` (si es `NULL`, hereda la moneda base de la empresa).
   * `journal_entries`: Cabecera de comprobante (`entity_id`, `book_id`, `entry_number`, `posting_date`, `voucher_type`, `memo`, `status` ['draft', 'posted', 'reversed'], `reversal_of`, `created_by`).
-  * `journal_entry_lines`: Detalle de partidas contables (`journal_entry_id`, `line_no`, `account_id`, `party_id`, `debit`, `credit`, `memo`) con validación `CHECK` de no negatividad y exclusividad débito/crédito.
-  * `post_journal_entry()`: Valida $\sum \text{Débito} = \sum \text{Crédito}$, consume numeración correlativa atómica de `naming_series` y cambia estado a `posted`.
-  * `reverse_journal_entry()`: Anulación de comprobantes posteados mediante creación automática de contra-asiento invertido.
-  * `trg_journal_entries_immutability`: Trigger que bloquea `UPDATE` y `DELETE` sobre comprobantes en estado `posted`.
-  * `accounts`: Plan de cuentas jerárquico (`parent_id`) por `entity_id`.
+  * `journal_entry_lines`: Detalle de partidas con moneda de transacción (`currency_code`), tipo de cambio (`exchange_rate`), montos en divisa de cuenta (`debit_account_currency`, `credit_account_currency`) y montos funcionales en moneda base (`debit`, `credit`) calculados automáticamente por el trigger `trg_resolve_line_currency`.
+  * `post_journal_entry()`: Valida $\sum \text{Débito} = \sum \text{Crédito}$ en moneda funcional, asigna correlativo y postea.
+  * `reverse_journal_entry()`: Anulación con contra-asiento invertido.
+  * `trg_journal_entries_immutability`: Trigger que bloquea mutaciones sobre comprobantes en estado `posted`.
   * `naming_series`: Correlativos automáticos por `entity_id`.
 * **Terceros**: `party_groups`, `parties` (con RUT y `entity_id`), `contacts`, `addresses`.
 * **Inventario**: `uom`, `item_categories`, `items` (con `entity_id`), `warehouses` (con `entity_id`).

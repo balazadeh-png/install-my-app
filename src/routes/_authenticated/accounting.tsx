@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveEntity } from "@/context/ActiveEntityContext";
@@ -24,15 +24,15 @@ import {
   CheckCircle2,
   AlertCircle,
   RotateCcw,
-  Building2,
+  DollarSign,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/accounting")({
   component: AccountingPage,
   head: () => ({
     meta: [
-      { title: "Contabilidad & Partida Doble | EasyERP" },
-      { name: "description", content: "Plan de cuentas, comprobantes contables por partida doble y libro mayor." },
+      { title: "Contabilidad & Multimoneda | EasyERP" },
+      { name: "description", content: "Plan de cuentas multimoneda, comprobantes contables por partida doble y libro mayor." },
     ],
   }),
 });
@@ -40,8 +40,8 @@ export const Route = createFileRoute("/_authenticated/accounting")({
 interface JournalLineForm {
   account_id: string;
   party_id?: string;
-  debit: string;
-  credit: string;
+  debit: string; // Monto en moneda de cuenta o base
+  credit: string; // Monto en moneda de cuenta o base
   memo: string;
 }
 
@@ -50,12 +50,14 @@ function AccountingPage() {
   const { activeEntity, activeEntityId } = useActiveEntity();
   const [newAccountOpen, setNewAccountOpen] = useState(false);
   const [newVoucherOpen, setNewVoucherOpen] = useState(false);
-  const [reversingId, setReversingId] = useState<string | null>(null);
+  const [quickRateOpen, setQuickRateOpen] = useState(false);
+  const [quickRateValue, setQuickRateValue] = useState("");
 
   // Form State para Nueva Cuenta
   const [accountCode, setAccountCode] = useState("");
   const [accountName, setAccountName] = useState("");
   const [accountType, setAccountType] = useState("Asset");
+  const [accountCurrency, setAccountCurrency] = useState<string>("DEFAULT");
   const [isGroup, setIsGroup] = useState(false);
 
   // Form State para Nuevo Comprobante Contable
@@ -67,6 +69,31 @@ function AccountingPage() {
     { account_id: "", debit: "", credit: "", memo: "" },
     { account_id: "", debit: "", credit: "", memo: "" },
   ]);
+
+  const baseCurrency = activeEntity?.base_currency_code || "CLP";
+
+  // Query: Monedas disponibles
+  const currenciesQuery = useQuery({
+    queryKey: ["currencies"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("currencies").select("*").order("code");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Query: Tasas de cambio registradas
+  const exchangeRatesQuery = useQuery({
+    queryKey: ["exchange_rates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("exchange_rates")
+        .select("*")
+        .order("date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   // Query: Cuentas Contables
   const accountsQuery = useQuery({
@@ -116,7 +143,7 @@ function AccountingPage() {
     enabled: !!activeEntityId,
   });
 
-  // Query: Comprobantes Contables (journal_entries con detalle)
+  // Query: Comprobantes Contables (journal_entries con detalle multimoneda)
   const journalEntriesQuery = useQuery({
     queryKey: ["journal_entries", activeEntityId],
     queryFn: async () => {
@@ -131,10 +158,14 @@ function AccountingPage() {
             line_no,
             account_id,
             party_id,
+            currency_code,
+            exchange_rate,
+            debit_account_currency,
+            credit_account_currency,
             debit,
             credit,
             memo,
-            accounts(code, name),
+            accounts(code, name, currency_code),
             parties(name, tax_id)
           )
         `)
@@ -147,15 +178,40 @@ function AccountingPage() {
     enabled: !!activeEntityId,
   });
 
+  const currencies = currenciesQuery.data ?? [];
+  const exchangeRates = exchangeRatesQuery.data ?? [];
+  const accounts = accountsQuery.data ?? [];
+  const books = booksQuery.data ?? [];
+  const parties = partiesQuery.data ?? [];
+  const journalEntries = journalEntriesQuery.data ?? [];
+
+  // Helper para buscar tasa de cambio exacta
+  const findExchangeRate = (fromCurr: string, toCurr: string, dateStr: string): number | null => {
+    if (!fromCurr || !toCurr || fromCurr === toCurr) return 1.0;
+    const direct = exchangeRates.find(
+      (r) => r.origin === fromCurr && r.destination === toCurr && r.date === dateStr
+    );
+    if (direct && Number(direct.rate) > 0) return Number(direct.rate);
+
+    const inverse = exchangeRates.find(
+      (r) => r.origin === toCurr && r.destination === fromCurr && r.date === dateStr
+    );
+    if (inverse && Number(inverse.rate) > 0) return 1.0 / Number(inverse.rate);
+
+    return null;
+  };
+
   // Mutation: Crear Cuenta
   const createAccountMutation = useMutation({
     mutationFn: async () => {
       if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+      const finalCurrency = accountCurrency === "DEFAULT" ? null : accountCurrency;
       const { error } = await supabase.from("accounts").insert({
         entity_id: activeEntityId,
         code: accountCode.trim(),
         name: accountName.trim(),
         account_type: accountType,
+        currency_code: finalCurrency,
         is_group: isGroup,
         active: true,
       });
@@ -167,9 +223,35 @@ function AccountingPage() {
       setNewAccountOpen(false);
       setAccountCode("");
       setAccountName("");
+      setAccountCurrency("DEFAULT");
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al crear la cuenta");
+    },
+  });
+
+  // Mutation: Alta rápida de Tasa de Cambio
+  const createQuickRateMutation = useMutation({
+    mutationFn: async () => {
+      const numRate = parseFloat(quickRateValue);
+      if (isNaN(numRate) || numRate <= 0) throw new Error("Ingrese una tasa válida mayor a cero");
+
+      const { error } = await supabase.from("exchange_rates").insert({
+        origin: "USD",
+        destination: baseCurrency,
+        date: voucherDate,
+        rate: numRate,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exchange_rates"] });
+      toast.success(`Tasa de cambio USD / ${baseCurrency} registrada para el ${voucherDate}`);
+      setQuickRateOpen(false);
+      setQuickRateValue("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al registrar tasa");
     },
   });
 
@@ -189,7 +271,6 @@ function AccountingPage() {
   const handleLineChange = (index: number, field: keyof JournalLineForm, value: string) => {
     const updated = [...lines];
     updated[index] = { ...updated[index], [field]: value };
-    // Si escribe débito, limpiar crédito y viceversa
     if (field === "debit" && parseFloat(value || "0") > 0) {
       updated[index].credit = "";
     } else if (field === "credit" && parseFloat(value || "0") > 0) {
@@ -198,20 +279,75 @@ function AccountingPage() {
     setLines(updated);
   };
 
-  // Cálculos de Totales y Cuadre de Partida Doble
-  const totalDebitCalc = lines.reduce((sum, l) => sum + (parseFloat(l.debit || "0") || 0), 0);
-  const totalCreditCalc = lines.reduce((sum, l) => sum + (parseFloat(l.credit || "0") || 0), 0);
-  const difference = Math.abs(totalDebitCalc - totalCreditCalc);
-  const isBalanced = totalDebitCalc > 0 && Math.abs(totalDebitCalc - totalCreditCalc) < 0.001;
+  // Cálculos dinámicos en moneda funcional para las líneas del borrador
+  const computedLines = useMemo(() => {
+    let missingRate = false;
+    let missingCurrency = "";
+
+    const calculated = lines.map((line) => {
+      const acc = accounts.find((a) => a.id === line.account_id);
+      const accCurrency = acc?.currency_code || baseCurrency;
+      const isForeign = accCurrency !== baseCurrency;
+
+      const rawDebit = parseFloat(line.debit || "0") || 0;
+      const rawCredit = parseFloat(line.credit || "0") || 0;
+
+      let rate = 1.0;
+      if (isForeign) {
+        const found = findExchangeRate(accCurrency, baseCurrency, voucherDate);
+        if (found !== null) {
+          rate = found;
+        } else {
+          missingRate = true;
+          missingCurrency = accCurrency;
+          rate = 0;
+        }
+      }
+
+      const functionalDebit = isForeign ? Math.round(rawDebit * rate) : rawDebit;
+      const functionalCredit = isForeign ? Math.round(rawCredit * rate) : rawCredit;
+
+      return {
+        ...line,
+        accCurrency,
+        isForeign,
+        rate,
+        rawDebit,
+        rawCredit,
+        functionalDebit,
+        functionalCredit,
+      };
+    });
+
+    const totalDebitCalc = calculated.reduce((sum, l) => sum + l.functionalDebit, 0);
+    const totalCreditCalc = calculated.reduce((sum, l) => sum + l.functionalCredit, 0);
+    const difference = Math.abs(totalDebitCalc - totalCreditCalc);
+    const isBalanced = totalDebitCalc > 0 && difference < 0.01 && !missingRate;
+
+    return {
+      calculated,
+      totalDebitCalc,
+      totalCreditCalc,
+      difference,
+      isBalanced,
+      missingRate,
+      missingCurrency,
+    };
+  }, [lines, accounts, baseCurrency, exchangeRates, voucherDate]);
 
   // Mutation: Crear y Postear Comprobante Contable
   const createVoucherMutation = useMutation({
     mutationFn: async () => {
       if (!activeEntityId) throw new Error("Selecciona una empresa primero");
-      if (!isBalanced) throw new Error("El comprobante no cuadra: Total Débito debe ser igual a Total Crédito");
+      if (computedLines.missingRate) {
+        throw new Error(`Falta registrar la tasa de cambio para ${computedLines.missingCurrency} en la fecha ${voucherDate}`);
+      }
+      if (!computedLines.isBalanced) {
+        throw new Error("El comprobante no cuadra: Total Débito debe ser igual a Total Crédito en moneda base");
+      }
       if (lines.length < 2) throw new Error("Se requieren al menos dos líneas contables");
 
-      // 1. Crear cabecera en estado draft
+      // 1. Crear cabecera en draft
       const { data: header, error: headerError } = await supabase
         .from("journal_entries")
         .insert({
@@ -227,14 +363,18 @@ function AccountingPage() {
 
       if (headerError) throw headerError;
 
-      // 2. Insertar líneas de comprobante
-      const linesToInsert = lines.map((line, idx) => ({
+      // 2. Insertar líneas multimoneda
+      const linesToInsert = computedLines.calculated.map((line, idx) => ({
         journal_entry_id: header.id,
         line_no: idx + 1,
         account_id: line.account_id,
         party_id: line.party_id || null,
-        debit: parseFloat(line.debit || "0") || 0,
-        credit: parseFloat(line.credit || "0") || 0,
+        currency_code: line.accCurrency,
+        exchange_rate: line.rate,
+        debit_account_currency: line.rawDebit,
+        credit_account_currency: line.rawCredit,
+        debit: line.functionalDebit,
+        credit: line.functionalCredit,
         memo: line.memo.trim() || null,
       }));
 
@@ -280,18 +420,12 @@ function AccountingPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["journal_entries", activeEntityId] });
       queryClient.invalidateQueries({ queryKey: ["financial_reports_data", activeEntityId] });
-      toast.success("Comprobante contable reversado correctamente con asiento inverso");
-      setReversingId(null);
+      toast.success("Comprobante contable reversado correctamente con contra-asiento");
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al reversar comprobante");
     },
   });
-
-  const accounts = accountsQuery.data ?? [];
-  const books = booksQuery.data ?? [];
-  const parties = partiesQuery.data ?? [];
-  const journalEntries = journalEntriesQuery.data ?? [];
 
   const totalGlobalDebit = journalEntries.reduce((acc, curr: any) => {
     const linesArr = curr.journal_entry_lines || [];
@@ -305,29 +439,26 @@ function AccountingPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Breadcrumb & Navigation */}
+      {/* Navigation */}
       <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/dashboard">
-              <ArrowLeft className="mr-1.5 h-4 w-4" />
-              Volver al Dashboard
-            </Link>
-          </Button>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              accountsQuery.refetch();
-              journalEntriesQuery.refetch();
-            }}
-          >
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            Actualizar
-          </Button>
-        </div>
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/dashboard">
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Volver al Dashboard
+          </Link>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            accountsQuery.refetch();
+            journalEntriesQuery.refetch();
+            exchangeRatesQuery.refetch();
+          }}
+        >
+          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+          Actualizar
+        </Button>
       </div>
 
       {/* Header */}
@@ -340,7 +471,7 @@ function AccountingPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Módulo de Contabilidad</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Motor de partida doble, catálogo jerárquico de cuentas, comprobantes inmutables y libro diario.
+            Motor de partida doble, catálogo multimoneda ({baseCurrency}), comprobantes inmutables y libro mayor.
           </p>
         </div>
 
@@ -365,7 +496,7 @@ function AccountingPage() {
                   <Label htmlFor="code" className="text-right">Código</Label>
                   <Input
                     id="code"
-                    placeholder="ej. 1.1.01.001"
+                    placeholder="ej. 1.1.01.002"
                     value={accountCode}
                     onChange={(e) => setAccountCode(e.target.value)}
                     className="col-span-3 font-mono"
@@ -375,7 +506,7 @@ function AccountingPage() {
                   <Label htmlFor="name" className="text-right">Nombre</Label>
                   <Input
                     id="name"
-                    placeholder="ej. Banco de Chile"
+                    placeholder="ej. Banco Santander USD"
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value)}
                     className="col-span-3"
@@ -398,6 +529,26 @@ function AccountingPage() {
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="currency" className="text-right">Moneda</Label>
+                  <Select value={accountCurrency} onValueChange={setAccountCurrency}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Moneda de la cuenta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DEFAULT">
+                        Moneda base de la empresa ({baseCurrency})
+                      </SelectItem>
+                      {currencies
+                        .filter((c) => c.code !== baseCurrency)
+                        .map((c) => (
+                          <SelectItem key={c.code} value={c.code}>
+                            {c.code} - {c.name} ({c.symbol})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="isGroup" className="text-right">¿Es Grupo?</Label>
                   <div className="col-span-3 flex items-center space-x-2">
                     <input
@@ -408,7 +559,7 @@ function AccountingPage() {
                       className="rounded border-gray-300"
                     />
                     <label htmlFor="isGroup" className="text-xs text-muted-foreground">
-                      Marcar si agrupa subcuentas
+                      Marcar si agrupa subcuentas (no asienta movimientos)
                     </label>
                   </div>
                 </div>
@@ -424,7 +575,7 @@ function AccountingPage() {
             </DialogContent>
           </Dialog>
 
-          {/* Dialog Registrar Comprobante (Partida Doble N Líneas) */}
+          {/* Dialog Registrar Comprobante */}
           <Dialog open={newVoucherOpen} onOpenChange={setNewVoucherOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
@@ -432,11 +583,11 @@ function AccountingPage() {
                 Nuevo Comprobante
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Nuevo Comprobante Contable</DialogTitle>
                 <DialogDescription>
-                  Ingresa la cabecera y las partidas contables. Debe cumplirse estrictamente la partida doble (Débitos = Créditos).
+                  Ingresa la cabecera y las partidas contables. Soporta cuentas en moneda extranjera con conversión automática a {baseCurrency}.
                 </DialogDescription>
               </DialogHeader>
 
@@ -495,6 +646,27 @@ function AccountingPage() {
                 </div>
               </div>
 
+              {/* Alerta de Falta de Tasa de Cambio */}
+              {computedLines.missingRate && (
+                <div className="p-3 rounded-md bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>
+                      No existe tasa de cambio registrada para <strong>{computedLines.missingCurrency} &rarr; {baseCurrency}</strong> en la fecha <strong>{voucherDate}</strong>.
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900"
+                    onClick={() => setQuickRateOpen(true)}
+                  >
+                    + Registrar Tasa del Día
+                  </Button>
+                </div>
+              )}
+
               {/* Tabla de Líneas Contables */}
               <div className="py-3">
                 <div className="flex items-center justify-between mb-2">
@@ -511,15 +683,15 @@ function AccountingPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[30%]">Cuenta Contable</TableHead>
-                        <TableHead className="w-[20%]">Tercero / RUT</TableHead>
-                        <TableHead className="w-[18%] text-right">Débito ($)</TableHead>
-                        <TableHead className="w-[18%] text-right">Crédito ($)</TableHead>
-                        <TableHead className="w-[14%] text-center">Acción</TableHead>
+                        <TableHead className="w-[28%]">Cuenta Contable</TableHead>
+                        <TableHead className="w-[18%]">Tercero / RUT</TableHead>
+                        <TableHead className="w-[22%] text-right">Débito</TableHead>
+                        <TableHead className="w-[22%] text-right">Crédito</TableHead>
+                        <TableHead className="w-[10%] text-center">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {lines.map((line, idx) => (
+                      {computedLines.calculated.map((line, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="p-2">
                             <Select
@@ -534,7 +706,7 @@ function AccountingPage() {
                                   .filter((a) => !a.is_group)
                                   .map((acc) => (
                                     <SelectItem key={acc.id} value={acc.id}>
-                                      {acc.code} - {acc.name}
+                                      {acc.code} - {acc.name} {acc.currency_code ? `(${acc.currency_code})` : ""}
                                     </SelectItem>
                                   ))}
                               </SelectContent>
@@ -559,24 +731,52 @@ function AccountingPage() {
                             </Select>
                           </TableCell>
                           <TableCell className="p-2">
-                            <Input
-                              type="number"
-                              step="1"
-                              placeholder="0"
-                              value={line.debit}
-                              onChange={(e) => handleLineChange(idx, "debit", e.target.value)}
-                              className="h-8 text-right font-mono text-xs"
-                            />
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  step="any"
+                                  placeholder="0"
+                                  value={line.debit}
+                                  onChange={(e) => handleLineChange(idx, "debit", e.target.value)}
+                                  className="h-8 text-right font-mono text-xs"
+                                />
+                                {line.isForeign && (
+                                  <Badge variant="outline" className="text-[10px] font-mono h-6 shrink-0">
+                                    {line.accCurrency}
+                                  </Badge>
+                                )}
+                              </div>
+                              {line.isForeign && line.rawDebit > 0 && (
+                                <div className="text-[11px] text-right font-mono text-muted-foreground">
+                                  &asymp; $ {line.functionalDebit.toLocaleString("es-CL")} {baseCurrency} (T.C: {line.rate})
+                                </div>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="p-2">
-                            <Input
-                              type="number"
-                              step="1"
-                              placeholder="0"
-                              value={line.credit}
-                              onChange={(e) => handleLineChange(idx, "credit", e.target.value)}
-                              className="h-8 text-right font-mono text-xs"
-                            />
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  step="any"
+                                  placeholder="0"
+                                  value={line.credit}
+                                  onChange={(e) => handleLineChange(idx, "credit", e.target.value)}
+                                  className="h-8 text-right font-mono text-xs"
+                                />
+                                {line.isForeign && (
+                                  <Badge variant="outline" className="text-[10px] font-mono h-6 shrink-0">
+                                    {line.accCurrency}
+                                  </Badge>
+                                )}
+                              </div>
+                              {line.isForeign && line.rawCredit > 0 && (
+                                <div className="text-[11px] text-right font-mono text-muted-foreground">
+                                  &asymp; $ {line.functionalCredit.toLocaleString("es-CL")} {baseCurrency} (T.C: {line.rate})
+                                </div>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="p-2 text-center">
                             <Button
@@ -598,28 +798,30 @@ function AccountingPage() {
                 {/* Barra de Totales y Validación de Partida Doble */}
                 <div className="mt-3 flex flex-col sm:flex-row items-center justify-between p-3 rounded-lg bg-muted/60 border text-xs gap-3">
                   <div className="flex items-center gap-2">
-                    {isBalanced ? (
+                    {computedLines.isBalanced ? (
                       <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Partida Doble Cuadrada
+                        Partida Doble Cuadrada ({baseCurrency})
                       </Badge>
                     ) : (
                       <Badge variant="destructive" className="flex items-center gap-1">
                         <AlertCircle className="h-3.5 w-3.5" />
-                        Descuadre de $ {difference.toLocaleString("es-CL")}
+                        {computedLines.missingRate
+                          ? "Falta tasa de cambio"
+                          : `Descuadre de $ ${computedLines.difference.toLocaleString("es-CL")} ${baseCurrency}`}
                       </Badge>
                     )}
                     <span className="text-muted-foreground">
-                      {lines.length} {lines.length === 1 ? "línea" : "líneas"}
+                      {lines.length} líneas
                     </span>
                   </div>
 
                   <div className="flex items-center gap-4 font-mono">
                     <div>
-                      Débitos: <span className="font-bold text-foreground">$ {totalDebitCalc.toLocaleString("es-CL")}</span>
+                      Total Débitos: <span className="font-bold text-foreground">$ {computedLines.totalDebitCalc.toLocaleString("es-CL")} {baseCurrency}</span>
                     </div>
                     <div>
-                      Créditos: <span className="font-bold text-foreground">$ {totalCreditCalc.toLocaleString("es-CL")}</span>
+                      Total Créditos: <span className="font-bold text-foreground">$ {computedLines.totalCreditCalc.toLocaleString("es-CL")} {baseCurrency}</span>
                     </div>
                   </div>
                 </div>
@@ -628,9 +830,43 @@ function AccountingPage() {
               <DialogFooter className="mt-2">
                 <Button
                   onClick={() => createVoucherMutation.mutate()}
-                  disabled={createVoucherMutation.isPending || !isBalanced || lines.some((l) => !l.account_id)}
+                  disabled={createVoucherMutation.isPending || !computedLines.isBalanced || lines.some((l) => !l.account_id)}
                 >
                   {createVoucherMutation.isPending ? "Posteando..." : "Guardar y Postear Comprobante"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog Rápido de Tasa de Cambio */}
+          <Dialog open={quickRateOpen} onOpenChange={setQuickRateOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Registrar Tasa Oficial del Día</DialogTitle>
+                <DialogDescription>
+                  Ingresa el valor del Dólar Observado o tipo de cambio oficial para el <strong>{voucherDate}</strong>.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-3 space-y-3">
+                <div>
+                  <Label htmlFor="qRate" className="text-xs">Tasa USD &rarr; {baseCurrency}</Label>
+                  <Input
+                    id="qRate"
+                    type="number"
+                    step="any"
+                    placeholder="ej. 950.50"
+                    value={quickRateValue}
+                    onChange={(e) => setQuickRateValue(e.target.value)}
+                    className="mt-1 font-mono"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => createQuickRateMutation.mutate()}
+                  disabled={createQuickRateMutation.isPending || !quickRateValue}
+                >
+                  Guardar Tasa
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -656,17 +892,17 @@ function AccountingPage() {
           <Card>
             <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <CardTitle className="text-base font-semibold">Comprobantes de Diario (Partida Doble)</CardTitle>
+                <CardTitle className="text-base font-semibold">Comprobantes de Diario (Partida Doble & Multimoneda)</CardTitle>
                 <CardDescription>
-                  Asientos contables agrupados por comprobante correlativo e inmutables con historial de reversión.
+                  Asientos contables con soporte de moneda extranjera convertida a {baseCurrency}.
                 </CardDescription>
               </div>
               <div className="flex items-center gap-4 text-xs font-mono">
                 <div className="bg-muted px-2.5 py-1 rounded">
-                  Total Débitos: <span className="font-bold text-foreground">$ {totalGlobalDebit.toLocaleString("es-CL")}</span>
+                  Total Débitos: <span className="font-bold text-foreground">$ {totalGlobalDebit.toLocaleString("es-CL")} {baseCurrency}</span>
                 </div>
                 <div className="bg-muted px-2.5 py-1 rounded">
-                  Total Créditos: <span className="font-bold text-foreground">$ {totalGlobalCredit.toLocaleString("es-CL")}</span>
+                  Total Créditos: <span className="font-bold text-foreground">$ {totalGlobalCredit.toLocaleString("es-CL")} {baseCurrency}</span>
                 </div>
               </div>
             </CardHeader>
@@ -756,31 +992,58 @@ function AccountingPage() {
                           <Table>
                             <TableHeader>
                               <TableRow className="bg-muted/40">
-                                <TableHead className="w-[10%] text-xs py-1.5">Línea</TableHead>
-                                <TableHead className="w-[35%] text-xs py-1.5">Cuenta Contable</TableHead>
-                                <TableHead className="w-[25%] text-xs py-1.5">Tercero / RUT</TableHead>
-                                <TableHead className="w-[15%] text-right text-xs py-1.5">Débito ({activeEntity?.base_currency_code || "CLP"})</TableHead>
-                                <TableHead className="w-[15%] text-right text-xs py-1.5">Crédito ({activeEntity?.base_currency_code || "CLP"})</TableHead>
+                                <TableHead className="w-[8%] text-xs py-1.5">Línea</TableHead>
+                                <TableHead className="w-[32%] text-xs py-1.5">Cuenta Contable</TableHead>
+                                <TableHead className="w-[20%] text-xs py-1.5">Tercero / RUT</TableHead>
+                                <TableHead className="w-[20%] text-right text-xs py-1.5">Débito ({baseCurrency})</TableHead>
+                                <TableHead className="w-[20%] text-right text-xs py-1.5">Crédito ({baseCurrency})</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {linesArr.map((line: any, idx: number) => {
                                 const acc = line.accounts;
                                 const prt = line.parties;
+                                const isForeign = line.currency_code && line.currency_code !== baseCurrency;
+
                                 return (
                                   <TableRow key={line.id || idx}>
                                     <TableCell className="text-xs font-mono py-1.5 text-muted-foreground">{idx + 1}</TableCell>
                                     <TableCell className="text-xs font-medium py-1.5">
-                                      {acc ? `${acc.code} - ${acc.name}` : line.account_id}
+                                      <div className="flex items-center gap-1.5">
+                                        <span>{acc ? `${acc.code} - ${acc.name}` : line.account_id}</span>
+                                        {acc?.currency_code && acc.currency_code !== baseCurrency && (
+                                          <Badge variant="outline" className="text-[10px] h-4 font-mono">
+                                            {acc.currency_code}
+                                          </Badge>
+                                        )}
+                                      </div>
                                     </TableCell>
                                     <TableCell className="text-xs text-muted-foreground py-1.5">
                                       {prt ? `${prt.name} (${prt.tax_id || "Sin RUT"})` : "-"}
                                     </TableCell>
                                     <TableCell className="text-right font-mono text-xs font-medium py-1.5">
-                                      {Number(line.debit) > 0 ? `$ ${Number(line.debit).toLocaleString("es-CL")}` : "-"}
+                                      {Number(line.debit) > 0 ? (
+                                        <div>
+                                          <span>$ {Number(line.debit).toLocaleString("es-CL")}</span>
+                                          {isForeign && (
+                                            <div className="text-[10px] text-muted-foreground">
+                                              ({line.currency_code} {Number(line.debit_account_currency).toLocaleString("es-CL")})
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : "-"}
                                     </TableCell>
                                     <TableCell className="text-right font-mono text-xs font-medium py-1.5">
-                                      {Number(line.credit) > 0 ? `$ ${Number(line.credit).toLocaleString("es-CL")}` : "-"}
+                                      {Number(line.credit) > 0 ? (
+                                        <div>
+                                          <span>$ {Number(line.credit).toLocaleString("es-CL")}</span>
+                                          {isForeign && (
+                                            <div className="text-[10px] text-muted-foreground">
+                                              ({line.currency_code} {Number(line.credit_account_currency).toLocaleString("es-CL")})
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : "-"}
                                     </TableCell>
                                   </TableRow>
                                 );
@@ -791,7 +1054,7 @@ function AccountingPage() {
 
                         {/* Total Comprobante */}
                         <div className="mt-2 text-right text-xs font-mono text-muted-foreground">
-                          Total Comprobante: <span className="font-bold text-foreground">$ {vDebit.toLocaleString("es-CL")}</span>
+                          Total Comprobante: <span className="font-bold text-foreground">$ {vDebit.toLocaleString("es-CL")} {baseCurrency}</span>
                         </div>
                       </div>
                     );
@@ -830,9 +1093,10 @@ function AccountingPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[180px]">Código</TableHead>
+                        <TableHead className="w-[160px]">Código</TableHead>
                         <TableHead>Nombre de la Cuenta</TableHead>
                         <TableHead>Tipo</TableHead>
+                        <TableHead className="text-center">Moneda</TableHead>
                         <TableHead className="text-center">Clasificación</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
                       </TableRow>
@@ -848,6 +1112,17 @@ function AccountingPage() {
                             <Badge variant="outline" className="text-xs">
                               {acc.account_type}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {acc.currency_code ? (
+                              <Badge variant="secondary" className="text-xs font-mono font-semibold">
+                                {acc.currency_code}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground font-mono">
+                                {baseCurrency} (Base)
+                              </span>
+                            )}
                           </TableCell>
                           <TableCell className="text-center">
                             {acc.is_group ? (
