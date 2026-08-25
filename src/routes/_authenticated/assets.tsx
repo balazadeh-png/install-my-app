@@ -250,7 +250,7 @@ function AssetsPage() {
         _disposal_date: dispDate,
         _disposal_value: dVal,
         _gain_loss_account_id: gainLossAccId,
-        _bank_account_id: dVal > 0 ? (dispBankAccId || null) : null,
+        _bank_account_id: dVal > 0 && dispBankAccId ? dispBankAccId : undefined,
       });
 
       if (error) throw error;

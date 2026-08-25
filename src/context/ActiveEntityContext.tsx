@@ -11,6 +11,8 @@ export interface CompanyEntity {
   tax_id: string | null;
   base_currency_code: string | null;
   currency?: string | null;
+  tax_regime?: string | null;
+  ppm_rate?: number | null;
   active: boolean | null;
   userRole?: string;
 }

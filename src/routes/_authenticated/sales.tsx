@@ -279,14 +279,17 @@ function SalesPage() {
 
   const handleLineChange = (index: number, field: keyof InvoiceLineForm, value: string) => {
     const updated = [...lines];
-    updated[index] = { ...updated[index], [field]: value };
+    const currentLine = updated[index];
+    if (!currentLine) return;
+    const next: InvoiceLineForm = { ...currentLine, [field]: value };
 
     if (field === "item_id") {
       const it = items.find((i) => i.id === value);
       if (it) {
-        updated[index].description = it.name;
+        next.description = it.name;
       }
     }
+    updated[index] = next;
 
     setLines(updated);
   };
