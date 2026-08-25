@@ -69,12 +69,22 @@ const moduleConfig: Record<string, { icon: React.ReactNode; path: string; descri
     path: "/sii-books",
     description: "Libros Diario, Mayor, Balance 8 Columnas y RCV.",
   },
+  sii_books: {
+    icon: <FileSpreadsheet className="h-5 w-5" />,
+    path: "/sii-books",
+    description: "Libros Diario, Mayor, Balance 8 Columnas y RCV.",
+  },
   taxes: {
     icon: <Landmark className="h-5 w-5" />,
     path: "/taxes",
     description: "Declaraciones F29 mensual, F22 anual y regímenes.",
   },
   "declaraciones-juradas": {
+    icon: <FileBadge2 className="h-5 w-5" />,
+    path: "/declaraciones-juradas",
+    description: "Motor extensible de DDJJ anuales (DJ 1879, 1887, 1947).",
+  },
+  declaraciones_juradas: {
     icon: <FileBadge2 className="h-5 w-5" />,
     path: "/declaraciones-juradas",
     description: "Motor extensible de DDJJ anuales (DJ 1879, 1887, 1947).",
