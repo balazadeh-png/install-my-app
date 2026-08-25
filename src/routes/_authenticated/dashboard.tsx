@@ -44,6 +44,11 @@ const moduleConfig: Record<string, { icon: React.ReactNode; path: string; descri
     path: "/inventory",
     description: "Catálogo de artículos, bodegas y método FIFO.",
   },
+  assets: {
+    icon: <Building2 className="h-5 w-5" />,
+    path: "/assets",
+    description: "Catálogo de bienes de uso, depreciación mensual y bajas.",
+  },
   reports: {
     icon: <BarChart3 className="h-5 w-5" />,
     path: "/reports",

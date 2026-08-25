@@ -4,36 +4,38 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 8: Activos Fijos y Depreciación Mensual Automática] - 2026-08-25
+
+### Añadido
+* **Migración SQL de Activos Fijos** ([`supabase/migrations/20260825000007_sprint08_activos_fijos.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000007_sprint08_activos_fijos.sql)):
+  * Enums `depreciation_method` (`linea_recta`, `acelerada`) y `asset_status` (`active`, `fully_depreciated`, `disposed`).
+  * Tabla `fixed_assets` (fichas maestras de bienes de uso con costo histórico, valor residual, vida útil en meses, método, centros de costo y cuentas contables mapeadas).
+  * Tabla `fixed_asset_depreciation_entries` (registro único por activo y período mensual con su respectivo comprobante contable asociado).
+  * Función `public.run_monthly_depreciation()`: Cálculo automático de amortización mensual e inserción de comprobantes contables balanceados al Libro Mayor.
+  * Función `public.dispose_fixed_asset()`: Proceso de baja/disposición con descargo de valor histórico, reversión de depreciación acumulada e imputación del resultado en venta.
+  * Inserción del módulo `assets` en la tabla `modules`.
+* **Interfaz de Usuario (UI) en [`assets.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/assets.tsx)**:
+  * Vista principal con tarjetas KPI: Valor Histórico Total, Depreciación Acumulada y Valor Libro Neto (Net Book Value).
+  * Pestaña "Fichas de Activos Fijos" con modal de alta, detalle completo y opción de baja/disposición.
+  * Pestaña "Libro de Depreciaciones" con historial de cuotas mensuales y números de comprobantes posteados.
+  * Modal interactivo "Ejecutar Depreciación del Mes".
+  * Integración en la navegación global ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+
+---
+
 ## [Sprint 7: Cierre de Período y Revalorización Cambiaria Multimoneda] - 2026-08-25
 
 ### Añadido
-* **Migración SQL de Cierre y Revalorización** ([`supabase/migrations/20260825000006_sprint07_cierre_revalorizacion.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000006_sprint07_cierre_revalorizacion.sql)):
-  * Columnas `unrealized_exchange_gain_account_id` y `unrealized_exchange_loss_account_id` en `company_default_accounts`.
-  * Enum `period_status` (`open`, `closed`) y columna `status` en `accounting_periods`.
-  * Columna `skip_currency_resolution` en `journal_entry_lines` para permitir asientos de ajuste directo en moneda funcional sin re-conversión del trigger.
-  * Tablas `exchange_revaluations` y `exchange_revaluation_items` para trazabilidad y auditoría cuenta por cuenta de cada corrida de ajuste cambiario.
-  * Tabla `period_close_checks` para checklists de cierre de período.
-  * Actualización de la función `public.post_journal_entry()` para rechazar cualquier intento de posteo con fecha dentro de un período contable cerrado.
-  * Función `public.run_exchange_revaluation()`: Recorre cuentas en moneda extranjera, compara el saldo en libros contra la tasa de cierre a la fecha dada y postea automáticamente el comprobante de ajuste a Ganancia o Pérdida No Realizada.
-  * Función `public.close_accounting_period()`: Valida la ausencia de comprobantes en borrador y cierra formalmente el período bloqueando futuros asientos.
-* **Interfaz de Usuario (UI) en [`setup.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx)**:
-  * Selectores de cuentas de Diferencia de Cambio No Realizada en "Cuentas Predeterminadas".
-  * Sub-módulo en "Años & Cierre de Período" con listado de meses, estado (Abierto / Cerrado) y botón de cierre mensual.
-  * Modal para ejecutar la **Revalorización Cambiaria** seleccionando la fecha de corte y visualizando los resultados del cálculo.
+* **Migración SQL de Cierre y Revalorización** ([`supabase/migrations/20260825000006_sprint07_cierre_revalorizacion.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000006_sprint07_cierre_revalorizacion.sql)).
+* Selectores y submódulo en `setup.tsx`.
 
 ---
 
 ## [Sprint 6: Ciclo Transaccional de Ventas y Compras] - 2026-08-25
 
 ### Añadido
-* **Migración SQL Transaccional** ([`supabase/migrations/20260825000005_sprint06_ventas_compras_transaccional.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000005_sprint06_ventas_compras_transaccional.sql)):
-  * Tabla `company_default_accounts` para asociar las cuentas contables maestras por empresa.
-  * Tablas `sales_invoices`, `sales_invoice_lines`, `purchase_invoices`, `purchase_invoice_lines` e `invoice_payments`.
-  * Vistas `sales_invoice_balances` y `purchase_invoice_balances`.
-  * Funciones `public.post_sales_invoice()` y `public.post_purchase_invoice()`.
-* **Interfaz de Usuario (UI)**:
-  * Módulo de Facturación de Ventas en [`sales.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sales.tsx).
-  * Módulo de Facturación de Compras en [`purchases.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx).
+* **Migración SQL Transaccional** ([`supabase/migrations/20260825000005_sprint06_ventas_compras_transaccional.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000005_sprint06_ventas_compras_transaccional.sql)).
+* Módulos de Facturación de Ventas y Compras en `sales.tsx` y `purchases.tsx`.
 
 ---
 

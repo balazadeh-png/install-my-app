@@ -43,7 +43,19 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 4. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
+## 4. Activos Fijos & Depreciación ([`/assets`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/assets.tsx))
+* **Ficha Maestra de Activo Fijo (`fixed_assets`)**:
+  * Registro de bienes de uso con código, nombre, fecha de adquisición, costo histórico en CLP, valor residual, vida útil en meses, método de amortización, centro de costo y sucursal.
+  * Mapeo de cuentas contables específicas por bien: Cuenta de Activo (`asset_account_id`), Cuenta de Depreciación Acumulada (`accumulated_depreciation_account_id`) y Cuenta de Gasto por Depreciación (`depreciation_expense_account_id`).
+* **Depreciación Mensual Automática (`run_monthly_depreciation`, `fixed_asset_depreciation_entries`)**:
+  * Métodos de cálculo: **Línea Recta** y **Acelerada (1/3 Vida Útil)** bajo normativa chilena SII.
+  * Generación y posteo automático de los comprobantes de diario al Libro Mayor, actualizando la depreciación acumulada y el Valor Libro Neto (Net Book Value).
+* **Bajas y Disposición de Activos (`dispose_fixed_asset`)**:
+  * Reversión de depreciación acumulada, descargo de costo histórico, registro del ingreso por venta/rescate y reconocimiento del resultado (Utilidad o Pérdida en Venta de Activo).
+
+---
+
+## 5. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
 * **Motor de Movimientos de Inventario (`stock_ledger_entries`)**:
   * Registro de entradas (`receipt`), salidas (`issue`), ajustes (`adjustment`) y traslados interbodega.
 * **Capas de Valorización FIFO (`stock_valuation_layers`)**:
@@ -55,7 +67,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 5. Bancos & Tesorería ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
+## 6. Bancos & Tesorería ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
 * **Tasas de Cambio Oficiales / Dólar Observado (`exchange_rates`)**:
   * Registro diario del tipo de cambio oficial USD $\rightarrow$ CLP.
 * **Libros de Caja & Bancos (`books`)**:
@@ -63,13 +75,13 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 6. Reportes Financieros & Analíticos ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
+## 7. Reportes Financieros & Analíticos ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
 * **Filtros Analíticos**: Segmentación de reportes por Centro de Costo o Sucursal.
 * **Balanza de Comprobación, Balance General y Estado de Resultados (P&L)**: Generados en tiempo real desde asientos y facturas.
 
 ---
 
-## 7. Configuración General & Cierre de Período ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
+## 8. Configuración General & Cierre de Período ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
 * **Cuentas Contables Predeterminadas (`company_default_accounts`)**: Mapeo obligatorio de cuentas contables para CxC, CxP, Ventas, Compras, IVA (19%), COGS, Inventario y Diferencia de Cambio No Realizada (Ganancia y Pérdida).
 * **Cierre de Períodos Contables (`accounting_periods`, `close_accounting_period`)**: Flujo de validación previa de borradores y cierre de mes que bloquea nuevos posteos.
 * **Revalorización Cambiaria de Cierre (`exchange_revaluations`, `run_exchange_revaluation`)**: Ajuste automático del saldo en libros de cuentas en moneda extranjera (USD) contra la tasa de cierre del mes.
