@@ -1,0 +1,10 @@
+ALTER TABLE public.currencies ADD COLUMN IF NOT EXISTS symbol text;
+ALTER TABLE public.items ADD COLUMN IF NOT EXISTS sku text;
+ALTER TABLE public.parties ADD COLUMN IF NOT EXISTS party_type text;
+ALTER TABLE public.warehouses ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+ALTER TABLE public.roles ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS tax_regime text;
+ALTER TABLE public.entities ADD COLUMN IF NOT EXISTS ppm_rate numeric;
+UPDATE public.items SET sku = code WHERE sku IS NULL;
+UPDATE public.warehouses SET is_active = active WHERE active IS NOT NULL;
+UPDATE public.parties SET party_type = lower(classification) WHERE party_type IS NULL AND classification IS NOT NULL;

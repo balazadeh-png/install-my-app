@@ -12,14 +12,20 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAccountingRouteImport } from './routes/_authenticated/accounting'
-import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
-import { Route as AuthenticatedPurchasesRouteImport } from './routes/_authenticated/purchases'
-import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
+import { Route as AuthenticatedAssetsRouteImport } from './routes/_authenticated/assets'
 import { Route as AuthenticatedCashRouteImport } from './routes/_authenticated/cash'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDeclaracionesJuradasRouteImport } from './routes/_authenticated/declaraciones-juradas'
+import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
+import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
+import { Route as AuthenticatedProductionRouteImport } from './routes/_authenticated/production'
+import { Route as AuthenticatedPurchasesRouteImport } from './routes/_authenticated/purchases'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
 import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
+import { Route as AuthenticatedSiiBooksRouteImport } from './routes/_authenticated/sii-books'
+import { Route as AuthenticatedTaxesRouteImport } from './routes/_authenticated/taxes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -35,29 +41,14 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedAccountingRoute = AuthenticatedAccountingRouteImport.update({
   id: '/accounting',
   path: '/accounting',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSalesRoute = AuthenticatedSalesRouteImport.update({
-  id: '/sales',
-  path: '/sales',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPurchasesRoute = AuthenticatedPurchasesRouteImport.update({
-  id: '/purchases',
-  path: '/purchases',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
-  id: '/inventory',
-  path: '/inventory',
+const AuthenticatedAssetsRoute = AuthenticatedAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCashRoute = AuthenticatedCashRouteImport.update({
@@ -65,9 +56,45 @@ const AuthenticatedCashRoute = AuthenticatedCashRouteImport.update({
   path: '/cash',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDeclaracionesJuradasRoute =
+  AuthenticatedDeclaracionesJuradasRouteImport.update({
+    id: '/declaraciones-juradas',
+    path: '/declaraciones-juradas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPosRoute = AuthenticatedPosRouteImport.update({
+  id: '/pos',
+  path: '/pos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProductionRoute = AuthenticatedProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPurchasesRoute = AuthenticatedPurchasesRouteImport.update({
+  id: '/purchases',
+  path: '/purchases',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSalesRoute = AuthenticatedSalesRouteImport.update({
+  id: '/sales',
+  path: '/sales',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSetupRoute = AuthenticatedSetupRouteImport.update({
@@ -75,83 +102,129 @@ const AuthenticatedSetupRoute = AuthenticatedSetupRouteImport.update({
   path: '/setup',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSiiBooksRoute = AuthenticatedSiiBooksRouteImport.update({
+  id: '/sii-books',
+  path: '/sii-books',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTaxesRoute = AuthenticatedTaxesRouteImport.update({
+  id: '/taxes',
+  path: '/taxes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
   '/accounting': typeof AuthenticatedAccountingRoute
-  '/sales': typeof AuthenticatedSalesRoute
-  '/purchases': typeof AuthenticatedPurchasesRoute
-  '/inventory': typeof AuthenticatedInventoryRoute
+  '/assets': typeof AuthenticatedAssetsRoute
   '/cash': typeof AuthenticatedCashRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
+  '/inventory': typeof AuthenticatedInventoryRoute
+  '/pos': typeof AuthenticatedPosRoute
+  '/production': typeof AuthenticatedProductionRoute
+  '/purchases': typeof AuthenticatedPurchasesRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/sales': typeof AuthenticatedSalesRoute
   '/setup': typeof AuthenticatedSetupRoute
+  '/sii-books': typeof AuthenticatedSiiBooksRoute
+  '/taxes': typeof AuthenticatedTaxesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/dashboard': typeof AuthenticatedDashboardRoute
   '/accounting': typeof AuthenticatedAccountingRoute
-  '/sales': typeof AuthenticatedSalesRoute
-  '/purchases': typeof AuthenticatedPurchasesRoute
-  '/inventory': typeof AuthenticatedInventoryRoute
+  '/assets': typeof AuthenticatedAssetsRoute
   '/cash': typeof AuthenticatedCashRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
+  '/inventory': typeof AuthenticatedInventoryRoute
+  '/pos': typeof AuthenticatedPosRoute
+  '/production': typeof AuthenticatedProductionRoute
+  '/purchases': typeof AuthenticatedPurchasesRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/sales': typeof AuthenticatedSalesRoute
   '/setup': typeof AuthenticatedSetupRoute
+  '/sii-books': typeof AuthenticatedSiiBooksRoute
+  '/taxes': typeof AuthenticatedTaxesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/accounting': typeof AuthenticatedAccountingRoute
-  '/_authenticated/sales': typeof AuthenticatedSalesRoute
-  '/_authenticated/purchases': typeof AuthenticatedPurchasesRoute
-  '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
+  '/_authenticated/assets': typeof AuthenticatedAssetsRoute
   '/_authenticated/cash': typeof AuthenticatedCashRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
+  '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
+  '/_authenticated/pos': typeof AuthenticatedPosRoute
+  '/_authenticated/production': typeof AuthenticatedProductionRoute
+  '/_authenticated/purchases': typeof AuthenticatedPurchasesRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/sales': typeof AuthenticatedSalesRoute
   '/_authenticated/setup': typeof AuthenticatedSetupRoute
+  '/_authenticated/sii-books': typeof AuthenticatedSiiBooksRoute
+  '/_authenticated/taxes': typeof AuthenticatedTaxesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
-    | '/dashboard'
     | '/accounting'
-    | '/sales'
-    | '/purchases'
-    | '/inventory'
+    | '/assets'
     | '/cash'
+    | '/dashboard'
+    | '/declaraciones-juradas'
+    | '/inventory'
+    | '/pos'
+    | '/production'
+    | '/purchases'
     | '/reports'
+    | '/sales'
     | '/setup'
+    | '/sii-books'
+    | '/taxes'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
-    | '/dashboard'
     | '/accounting'
-    | '/sales'
-    | '/purchases'
-    | '/inventory'
+    | '/assets'
     | '/cash'
+    | '/dashboard'
+    | '/declaraciones-juradas'
+    | '/inventory'
+    | '/pos'
+    | '/production'
+    | '/purchases'
     | '/reports'
+    | '/sales'
     | '/setup'
+    | '/sii-books'
+    | '/taxes'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
-    | '/_authenticated/dashboard'
     | '/_authenticated/accounting'
-    | '/_authenticated/sales'
-    | '/_authenticated/purchases'
-    | '/_authenticated/inventory'
+    | '/_authenticated/assets'
     | '/_authenticated/cash'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/declaraciones-juradas'
+    | '/_authenticated/inventory'
+    | '/_authenticated/pos'
+    | '/_authenticated/production'
+    | '/_authenticated/purchases'
     | '/_authenticated/reports'
+    | '/_authenticated/sales'
     | '/_authenticated/setup'
+    | '/_authenticated/sii-books'
+    | '/_authenticated/taxes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -183,13 +256,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/accounting': {
       id: '/_authenticated/accounting'
       path: '/accounting'
@@ -197,25 +263,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/sales': {
-      id: '/_authenticated/sales'
-      path: '/sales'
-      fullPath: '/sales'
-      preLoaderRoute: typeof AuthenticatedSalesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/purchases': {
-      id: '/_authenticated/purchases'
-      path: '/purchases'
-      fullPath: '/purchases'
-      preLoaderRoute: typeof AuthenticatedPurchasesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/inventory': {
-      id: '/_authenticated/inventory'
-      path: '/inventory'
-      fullPath: '/inventory'
-      preLoaderRoute: typeof AuthenticatedInventoryRouteImport
+    '/_authenticated/assets': {
+      id: '/_authenticated/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AuthenticatedAssetsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/cash': {
@@ -225,11 +277,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCashRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/declaraciones-juradas': {
+      id: '/_authenticated/declaraciones-juradas'
+      path: '/declaraciones-juradas'
+      fullPath: '/declaraciones-juradas'
+      preLoaderRoute: typeof AuthenticatedDeclaracionesJuradasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/inventory': {
+      id: '/_authenticated/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof AuthenticatedInventoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pos': {
+      id: '/_authenticated/pos'
+      path: '/pos'
+      fullPath: '/pos'
+      preLoaderRoute: typeof AuthenticatedPosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/production': {
+      id: '/_authenticated/production'
+      path: '/production'
+      fullPath: '/production'
+      preLoaderRoute: typeof AuthenticatedProductionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/purchases': {
+      id: '/_authenticated/purchases'
+      path: '/purchases'
+      fullPath: '/purchases'
+      preLoaderRoute: typeof AuthenticatedPurchasesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/reports': {
       id: '/_authenticated/reports'
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sales': {
+      id: '/_authenticated/sales'
+      path: '/sales'
+      fullPath: '/sales'
+      preLoaderRoute: typeof AuthenticatedSalesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/setup': {
@@ -239,29 +340,56 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSetupRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/sii-books': {
+      id: '/_authenticated/sii-books'
+      path: '/sii-books'
+      fullPath: '/sii-books'
+      preLoaderRoute: typeof AuthenticatedSiiBooksRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/taxes': {
+      id: '/_authenticated/taxes'
+      path: '/taxes'
+      fullPath: '/taxes'
+      preLoaderRoute: typeof AuthenticatedTaxesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedAccountingRoute: typeof AuthenticatedAccountingRoute
-  AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
-  AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRoute
-  AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
+  AuthenticatedAssetsRoute: typeof AuthenticatedAssetsRoute
   AuthenticatedCashRoute: typeof AuthenticatedCashRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDeclaracionesJuradasRoute: typeof AuthenticatedDeclaracionesJuradasRoute
+  AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
+  AuthenticatedPosRoute: typeof AuthenticatedPosRoute
+  AuthenticatedProductionRoute: typeof AuthenticatedProductionRoute
+  AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
   AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
+  AuthenticatedSiiBooksRoute: typeof AuthenticatedSiiBooksRoute
+  AuthenticatedTaxesRoute: typeof AuthenticatedTaxesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedAccountingRoute: AuthenticatedAccountingRoute,
-  AuthenticatedSalesRoute: AuthenticatedSalesRoute,
-  AuthenticatedPurchasesRoute: AuthenticatedPurchasesRoute,
-  AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
+  AuthenticatedAssetsRoute: AuthenticatedAssetsRoute,
   AuthenticatedCashRoute: AuthenticatedCashRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDeclaracionesJuradasRoute:
+    AuthenticatedDeclaracionesJuradasRoute,
+  AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
+  AuthenticatedPosRoute: AuthenticatedPosRoute,
+  AuthenticatedProductionRoute: AuthenticatedProductionRoute,
+  AuthenticatedPurchasesRoute: AuthenticatedPurchasesRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedSalesRoute: AuthenticatedSalesRoute,
   AuthenticatedSetupRoute: AuthenticatedSetupRoute,
+  AuthenticatedSiiBooksRoute: AuthenticatedSiiBooksRoute,
+  AuthenticatedTaxesRoute: AuthenticatedTaxesRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

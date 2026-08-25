@@ -58,7 +58,7 @@ function SiiBooksPage() {
   const [rcvRut, setRcvRut] = useState("");
   const [rcvPartyName, setRcvPartyName] = useState("");
   const [rcvTotalAmount, setRcvTotalAmount] = useState("");
-  const [rcvDate, setRcvDate] = useState(new Date().toISOString().split("T")[0]);
+  const [rcvDate, setRcvDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
   const baseCurrency = activeEntity?.base_currency_code || "CLP";
 

@@ -50,7 +50,7 @@ function AssetsPage() {
   // Form State Nuevo Activo
   const [assetCode, setAssetCode] = useState("");
   const [assetName, setAssetName] = useState("");
-  const [acqDate, setAcqDate] = useState(new Date().toISOString().split("T")[0]);
+  const [acqDate, setAcqDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [acqValue, setAcqValue] = useState("");
   const [residualValue, setResidualValue] = useState("0");
   const [lifeMonths, setLifeMonths] = useState("36");
@@ -63,10 +63,10 @@ function AssetsPage() {
   const [memo, setMemo] = useState("");
 
   // Form State Depreciación Mensual
-  const [depPeriodDate, setDepPeriodDate] = useState(new Date().toISOString().split("T")[0]);
+  const [depPeriodDate, setDepPeriodDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
   // Form State Baja / Disposición
-  const [dispDate, setDispDate] = useState(new Date().toISOString().split("T")[0]);
+  const [dispDate, setDispDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [dispValue, setDispValue] = useState("0");
   const [gainLossAccId, setGainLossAccId] = useState("");
   const [dispBankAccId, setDispBankAccId] = useState("");
@@ -245,13 +245,21 @@ function AssetsPage() {
       if (!gainLossAccId) throw new Error("Seleccione la cuenta de resultado (Ganancia/Pérdida en baja)");
       const dVal = parseFloat(dispValue || "0");
 
-      const { data, error } = await supabase.rpc("dispose_fixed_asset", {
+      const disposeArgs: {
+        _asset_id: string;
+        _disposal_date: string;
+        _disposal_value: number;
+        _gain_loss_account_id: string;
+        _bank_account_id?: string;
+      } = {
         _asset_id: selectedAssetForDisposal.id,
         _disposal_date: dispDate,
         _disposal_value: dVal,
         _gain_loss_account_id: gainLossAccId,
-        _bank_account_id: dVal > 0 ? (dispBankAccId || null) : null,
-      });
+      };
+      if (dVal > 0 && dispBankAccId) disposeArgs._bank_account_id = dispBankAccId;
+
+      const { data, error } = await supabase.rpc("dispose_fixed_asset", disposeArgs);
 
       if (error) throw error;
       return data;

@@ -72,7 +72,7 @@ function PurchasesPage() {
   const [invBusinessUnitId, setInvBusinessUnitId] = useState<string>("");
   const [invCurrency, setInvCurrency] = useState("CLP");
   const [invRate, setInvRate] = useState("1.0");
-  const [invDate, setInvDate] = useState(new Date().toISOString().split("T")[0]);
+  const [invDate, setInvDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [invDueDate, setInvDueDate] = useState("");
   const [invMemo, setInvMemo] = useState("");
   const [lines, setLines] = useState<PurchaseLineForm[]>([
@@ -82,7 +82,7 @@ function PurchasesPage() {
   // Form State Pago
   const [payAmount, setPayAmount] = useState("");
   const [payBankAcc, setPayBankAcc] = useState("");
-  const [payDate, setPayDate] = useState(new Date().toISOString().split("T")[0]);
+  const [payDate, setPayDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [payMemo, setPayMemo] = useState("");
 
   const baseCurrency = activeEntity?.base_currency_code || "CLP";
@@ -198,7 +198,7 @@ function PurchasesPage() {
     queryFn: async () => {
       if (!activeEntityId) return [];
       const { data, error } = await supabase
-        .from("purchase_invoices" as any)
+        .from("purchase_invoices")
         .select(`
           *,
           parties(name, tax_id),
@@ -279,14 +279,17 @@ function PurchasesPage() {
 
   const handleLineChange = (index: number, field: keyof PurchaseLineForm, value: string) => {
     const updated = [...lines];
-    updated[index] = { ...updated[index], [field]: value };
+    const currentLine = updated[index];
+    if (!currentLine) return;
+    const next: PurchaseLineForm = { ...currentLine, [field]: value };
 
     if (field === "item_id") {
       const it = items.find((i) => i.id === value);
       if (it) {
-        updated[index].description = it.name;
+        next.description = it.name;
       }
     }
+    updated[index] = next;
 
     setLines(updated);
   };
@@ -346,7 +349,7 @@ function PurchasesPage() {
 
       // 1. Crear cabecera
       const { data: inv, error: invError } = await supabase
-        .from("purchase_invoices" as any)
+        .from("purchase_invoices")
         .insert({
           entity_id: activeEntityId,
           party_id: invPartyId,

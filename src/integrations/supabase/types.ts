@@ -19,33 +19,46 @@ export type Database = {
           closed: boolean | null
           created_at: string
           end_date: string
+          entity_id: string | null
           fiscal_year_id: string | null
           id: string
           name: string
           start_date: string
+          status: Database["public"]["Enums"]["period_status"]
           updated_at: string
         }
         Insert: {
           closed?: boolean | null
           created_at?: string
           end_date: string
+          entity_id?: string | null
           fiscal_year_id?: string | null
           id?: string
           name: string
           start_date: string
+          status?: Database["public"]["Enums"]["period_status"]
           updated_at?: string
         }
         Update: {
           closed?: boolean | null
           created_at?: string
           end_date?: string
+          entity_id?: string | null
           fiscal_year_id?: string | null
           id?: string
           name?: string
           start_date?: string
+          status?: Database["public"]["Enums"]["period_status"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "accounting_periods_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "accounting_periods_fiscal_year_id_fkey"
             columns: ["fiscal_year_id"]
@@ -61,11 +74,14 @@ export type Database = {
           active: boolean | null
           code: string
           created_at: string
+          currency_code: string | null
           entity_id: string | null
           id: string
           is_group: boolean | null
           name: string
           parent_id: string | null
+          requires_business_unit: boolean | null
+          requires_cost_center: boolean | null
           updated_at: string
         }
         Insert: {
@@ -73,11 +89,14 @@ export type Database = {
           active?: boolean | null
           code: string
           created_at?: string
+          currency_code?: string | null
           entity_id?: string | null
           id?: string
           is_group?: boolean | null
           name: string
           parent_id?: string | null
+          requires_business_unit?: boolean | null
+          requires_cost_center?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -85,14 +104,24 @@ export type Database = {
           active?: boolean | null
           code?: string
           created_at?: string
+          currency_code?: string | null
           entity_id?: string | null
           id?: string
           is_group?: boolean | null
           name?: string
           parent_id?: string | null
+          requires_business_unit?: boolean | null
+          requires_cost_center?: boolean | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "accounts_currency_code_fkey"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
           {
             foreignKeyName: "accounts_entity_id_fkey"
             columns: ["entity_id"]
@@ -116,6 +145,7 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string
+          entity_id: string | null
           id: string
           is_primary: boolean | null
           party_id: string
@@ -129,6 +159,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          entity_id?: string | null
           id?: string
           is_primary?: boolean | null
           party_id: string
@@ -142,6 +173,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          entity_id?: string | null
           id?: string
           is_primary?: boolean | null
           party_id?: string
@@ -151,10 +183,107 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "addresses_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "addresses_party_id_fkey"
             columns: ["party_id"]
             isOneToOne: false
             referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bill_of_materials: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          id: string
+          is_active: boolean
+          item_id: string
+          name: string
+          notes: string | null
+          output_qty: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          id?: string
+          is_active?: boolean
+          item_id: string
+          name: string
+          notes?: string | null
+          output_qty?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          id?: string
+          is_active?: boolean
+          item_id?: string
+          name?: string
+          notes?: string | null
+          output_qty?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_of_materials_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_of_materials_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bom_lines: {
+        Row: {
+          bom_id: string
+          component_item_id: string
+          created_at: string
+          id: string
+          qty_required: number
+        }
+        Insert: {
+          bom_id: string
+          component_item_id: string
+          created_at?: string
+          id?: string
+          qty_required: number
+        }
+        Update: {
+          bom_id?: string
+          component_item_id?: string
+          created_at?: string
+          id?: string
+          qty_required?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_lines_bom_id_fkey"
+            columns: ["bom_id"]
+            isOneToOne: false
+            referencedRelation: "bill_of_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_lines_component_item_id_fkey"
+            columns: ["component_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
             referencedColumns: ["id"]
           },
         ]
@@ -197,10 +326,237 @@ export type Database = {
           },
         ]
       }
+      business_units: {
+        Row: {
+          active: boolean | null
+          code: string
+          created_at: string
+          entity_id: string
+          id: string
+          is_group: boolean | null
+          name: string
+          parent_id: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code: string
+          created_at?: string
+          entity_id: string
+          id?: string
+          is_group?: boolean | null
+          name: string
+          parent_id?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string
+          created_at?: string
+          entity_id?: string
+          id?: string
+          is_group?: boolean | null
+          name?: string
+          parent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_units_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_units_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_default_accounts: {
+        Row: {
+          cogs_account_id: string | null
+          entity_id: string
+          input_tax_account_id: string | null
+          inventory_account_id: string | null
+          output_tax_account_id: string | null
+          payable_account_id: string | null
+          purchase_expense_account_id: string | null
+          realized_exchange_gain_account_id: string | null
+          realized_exchange_loss_account_id: string | null
+          receivable_account_id: string | null
+          sales_income_account_id: string | null
+          unrealized_exchange_gain_account_id: string | null
+          unrealized_exchange_loss_account_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cogs_account_id?: string | null
+          entity_id: string
+          input_tax_account_id?: string | null
+          inventory_account_id?: string | null
+          output_tax_account_id?: string | null
+          payable_account_id?: string | null
+          purchase_expense_account_id?: string | null
+          realized_exchange_gain_account_id?: string | null
+          realized_exchange_loss_account_id?: string | null
+          receivable_account_id?: string | null
+          sales_income_account_id?: string | null
+          unrealized_exchange_gain_account_id?: string | null
+          unrealized_exchange_loss_account_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cogs_account_id?: string | null
+          entity_id?: string
+          input_tax_account_id?: string | null
+          inventory_account_id?: string | null
+          output_tax_account_id?: string | null
+          payable_account_id?: string | null
+          purchase_expense_account_id?: string | null
+          realized_exchange_gain_account_id?: string | null
+          realized_exchange_loss_account_id?: string | null
+          receivable_account_id?: string | null
+          sales_income_account_id?: string | null
+          unrealized_exchange_gain_account_id?: string | null
+          unrealized_exchange_loss_account_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_default_accounts_cogs_account_id_fkey"
+            columns: ["cogs_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: true
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_input_tax_account_id_fkey"
+            columns: ["input_tax_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_inventory_account_id_fkey"
+            columns: ["inventory_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_output_tax_account_id_fkey"
+            columns: ["output_tax_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_payable_account_id_fkey"
+            columns: ["payable_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_purchase_expense_account_id_fkey"
+            columns: ["purchase_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_realized_exchange_gain_account_id_fkey"
+            columns: ["realized_exchange_gain_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_realized_exchange_loss_account_id_fkey"
+            columns: ["realized_exchange_loss_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_receivable_account_id_fkey"
+            columns: ["receivable_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_sales_income_account_id_fkey"
+            columns: ["sales_income_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_unrealized_exchange_gain_account__fkey"
+            columns: ["unrealized_exchange_gain_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_default_accounts_unrealized_exchange_loss_account__fkey"
+            columns: ["unrealized_exchange_loss_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_users: {
+        Row: {
+          created_at: string
+          entity_id: string
+          id: string
+          is_default: boolean | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          id?: string
+          is_default?: boolean | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          id?: string
+          is_default?: boolean | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_users_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           created_at: string
           email: string | null
+          entity_id: string | null
           first_name: string | null
           id: string
           is_primary: boolean | null
@@ -212,6 +568,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email?: string | null
+          entity_id?: string | null
           first_name?: string | null
           id?: string
           is_primary?: boolean | null
@@ -223,6 +580,7 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string | null
+          entity_id?: string | null
           first_name?: string | null
           id?: string
           is_primary?: boolean | null
@@ -233,10 +591,65 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "contacts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "contacts_party_id_fkey"
             columns: ["party_id"]
             isOneToOne: false
             referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_centers: {
+        Row: {
+          active: boolean | null
+          code: string
+          created_at: string
+          entity_id: string
+          id: string
+          is_group: boolean | null
+          name: string
+          parent_id: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code: string
+          created_at?: string
+          entity_id: string
+          id?: string
+          is_group?: boolean | null
+          name: string
+          parent_id?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string
+          created_at?: string
+          entity_id?: string
+          id?: string
+          is_group?: boolean | null
+          name?: string
+          parent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_centers_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_centers_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
         ]
@@ -250,6 +663,7 @@ export type Database = {
           id: string
           is_default: boolean | null
           name: string
+          symbol: string | null
           updated_at: string
         }
         Insert: {
@@ -260,6 +674,7 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           name: string
+          symbol?: string | null
           updated_at?: string
         }
         Update: {
@@ -270,45 +685,202 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           name?: string
+          symbol?: string | null
           updated_at?: string
         }
         Relationships: []
       }
+      dj_definitions: {
+        Row: {
+          active: boolean
+          created_at: string
+          dj_code: string
+          field_schema: Json
+          id: string
+          name: string
+          periodicity: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          dj_code: string
+          field_schema?: Json
+          id?: string
+          name: string
+          periodicity?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          dj_code?: string
+          field_schema?: Json
+          id?: string
+          name?: string
+          periodicity?: string
+        }
+        Relationships: []
+      }
+      dj_field_mappings: {
+        Row: {
+          created_at: string
+          description: string | null
+          dj_definition_id: string
+          entity_id: string
+          field_key: string
+          id: string
+          source_account_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          dj_definition_id: string
+          entity_id: string
+          field_key: string
+          id?: string
+          source_account_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          dj_definition_id?: string
+          entity_id?: string
+          field_key?: string
+          id?: string
+          source_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_field_mappings_dj_definition_id_fkey"
+            columns: ["dj_definition_id"]
+            isOneToOne: false
+            referencedRelation: "dj_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_field_mappings_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_field_mappings_source_account_id_fkey"
+            columns: ["source_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dj_generations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          dj_definition_id: string
+          entity_id: string
+          filed_at: string | null
+          generated_values: Json
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["dj_generation_status"]
+          tax_year: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          dj_definition_id: string
+          entity_id: string
+          filed_at?: string | null
+          generated_values?: Json
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["dj_generation_status"]
+          tax_year: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          dj_definition_id?: string
+          entity_id?: string
+          filed_at?: string | null
+          generated_values?: Json
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["dj_generation_status"]
+          tax_year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_generations_dj_definition_id_fkey"
+            columns: ["dj_definition_id"]
+            isOneToOne: false
+            referencedRelation: "dj_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_generations_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entities: {
         Row: {
           active: boolean | null
+          base_currency_code: string | null
           code: string
           created_at: string
           currency: string
           default_book_id: string | null
           id: string
           name: string
+          ppm_rate: number
           tax_id: string | null
+          tax_regime: Database["public"]["Enums"]["tax_regime_type"]
           updated_at: string
         }
         Insert: {
           active?: boolean | null
+          base_currency_code?: string | null
           code: string
           created_at?: string
           currency: string
           default_book_id?: string | null
           id?: string
           name: string
+          ppm_rate?: number
           tax_id?: string | null
+          tax_regime?: Database["public"]["Enums"]["tax_regime_type"]
           updated_at?: string
         }
         Update: {
           active?: boolean | null
+          base_currency_code?: string | null
           code?: string
           created_at?: string
           currency?: string
           default_book_id?: string | null
           id?: string
           name?: string
+          ppm_rate?: number
           tax_id?: string | null
+          tax_regime?: Database["public"]["Enums"]["tax_regime_type"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "entities_base_currency_code_fkey"
+            columns: ["base_currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       exchange_rates: {
         Row: {
@@ -336,6 +908,99 @@ export type Database = {
           rate?: number
         }
         Relationships: []
+      }
+      exchange_revaluation_items: {
+        Row: {
+          account_id: string
+          adjustment_amount: number
+          balance_account_currency: number
+          book_balance: number
+          closing_rate: number
+          created_at: string
+          exchange_revaluation_id: string
+          id: string
+          revalued_balance: number
+        }
+        Insert: {
+          account_id: string
+          adjustment_amount: number
+          balance_account_currency: number
+          book_balance: number
+          closing_rate: number
+          created_at?: string
+          exchange_revaluation_id: string
+          id?: string
+          revalued_balance: number
+        }
+        Update: {
+          account_id?: string
+          adjustment_amount?: number
+          balance_account_currency?: number
+          book_balance?: number
+          closing_rate?: number
+          created_at?: string
+          exchange_revaluation_id?: string
+          id?: string
+          revalued_balance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_revaluation_items_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_revaluation_items_exchange_revaluation_id_fkey"
+            columns: ["exchange_revaluation_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_revaluations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_revaluations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          id: string
+          journal_entry_id: string | null
+          revaluation_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          id?: string
+          journal_entry_id?: string | null
+          revaluation_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          id?: string
+          journal_entry_id?: string | null
+          revaluation_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_revaluations_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_revaluations_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fiscal_years: {
         Row: {
@@ -371,6 +1036,183 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "fiscal_years_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixed_asset_depreciation_entries: {
+        Row: {
+          amount: number
+          created_at: string
+          fixed_asset_id: string
+          id: string
+          journal_entry_id: string | null
+          period_date: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          fixed_asset_id: string
+          id?: string
+          journal_entry_id?: string | null
+          period_date: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          fixed_asset_id?: string
+          id?: string
+          journal_entry_id?: string | null
+          period_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixed_asset_depreciation_entries_fixed_asset_id_fkey"
+            columns: ["fixed_asset_id"]
+            isOneToOne: false
+            referencedRelation: "fixed_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_asset_depreciation_entries_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixed_assets: {
+        Row: {
+          accumulated_depreciation: number
+          accumulated_depreciation_account_id: string
+          acquisition_date: string
+          acquisition_value: number
+          asset_account_id: string
+          asset_code: string
+          business_unit_id: string | null
+          cost_center_id: string | null
+          created_at: string
+          created_by: string | null
+          currency_code: string
+          depreciation_expense_account_id: string
+          depreciation_method: Database["public"]["Enums"]["depreciation_method"]
+          disposal_date: string | null
+          disposal_journal_entry_id: string | null
+          disposal_value: number | null
+          entity_id: string
+          id: string
+          memo: string | null
+          name: string
+          residual_value: number
+          status: Database["public"]["Enums"]["asset_status"]
+          useful_life_months: number
+        }
+        Insert: {
+          accumulated_depreciation?: number
+          accumulated_depreciation_account_id: string
+          acquisition_date: string
+          acquisition_value: number
+          asset_account_id: string
+          asset_code: string
+          business_unit_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency_code?: string
+          depreciation_expense_account_id: string
+          depreciation_method?: Database["public"]["Enums"]["depreciation_method"]
+          disposal_date?: string | null
+          disposal_journal_entry_id?: string | null
+          disposal_value?: number | null
+          entity_id: string
+          id?: string
+          memo?: string | null
+          name: string
+          residual_value?: number
+          status?: Database["public"]["Enums"]["asset_status"]
+          useful_life_months: number
+        }
+        Update: {
+          accumulated_depreciation?: number
+          accumulated_depreciation_account_id?: string
+          acquisition_date?: string
+          acquisition_value?: number
+          asset_account_id?: string
+          asset_code?: string
+          business_unit_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency_code?: string
+          depreciation_expense_account_id?: string
+          depreciation_method?: Database["public"]["Enums"]["depreciation_method"]
+          disposal_date?: string | null
+          disposal_journal_entry_id?: string | null
+          disposal_value?: number | null
+          entity_id?: string
+          id?: string
+          memo?: string | null
+          name?: string
+          residual_value?: number
+          status?: Database["public"]["Enums"]["asset_status"]
+          useful_life_months?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixed_assets_accumulated_depreciation_account_id_fkey"
+            columns: ["accumulated_depreciation_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_asset_account_id_fkey"
+            columns: ["asset_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_currency_code_fkey"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "fixed_assets_depreciation_expense_account_id_fkey"
+            columns: ["depreciation_expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_disposal_journal_entry_id_fkey"
+            columns: ["disposal_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_entity_id_fkey"
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "entities"
@@ -470,6 +1312,108 @@ export type Database = {
           },
         ]
       }
+      invoice_payments: {
+        Row: {
+          amount: number
+          bank_account_id: string
+          created_at: string
+          created_by: string | null
+          currency_code: string
+          entity_id: string
+          id: string
+          journal_entry_id: string | null
+          memo: string | null
+          payment_date: string
+          purchase_invoice_id: string | null
+          sales_invoice_id: string | null
+        }
+        Insert: {
+          amount: number
+          bank_account_id: string
+          created_at?: string
+          created_by?: string | null
+          currency_code?: string
+          entity_id: string
+          id?: string
+          journal_entry_id?: string | null
+          memo?: string | null
+          payment_date: string
+          purchase_invoice_id?: string | null
+          sales_invoice_id?: string | null
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string
+          created_at?: string
+          created_by?: string | null
+          currency_code?: string
+          entity_id?: string
+          id?: string
+          journal_entry_id?: string | null
+          memo?: string | null
+          payment_date?: string
+          purchase_invoice_id?: string | null
+          sales_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payments_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_currency_code_fkey"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "invoice_payments_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoice_balances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoice_balances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_categories: {
         Row: {
           created_at: string
@@ -513,6 +1457,7 @@ export type Database = {
           id: string
           is_stock_item: boolean | null
           name: string
+          sku: string | null
           uom_id: string | null
           updated_at: string
           valuation_method: string | null
@@ -527,6 +1472,7 @@ export type Database = {
           id?: string
           is_stock_item?: boolean | null
           name: string
+          sku?: string | null
           uom_id?: string | null
           updated_at?: string
           valuation_method?: string | null
@@ -541,6 +1487,7 @@ export type Database = {
           id?: string
           is_stock_item?: boolean | null
           name?: string
+          sku?: string | null
           uom_id?: string | null
           updated_at?: string
           valuation_method?: string | null
@@ -565,6 +1512,200 @@ export type Database = {
             columns: ["uom_id"]
             isOneToOne: false
             referencedRelation: "uom"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entries: {
+        Row: {
+          accounting_period_id: string | null
+          book_id: string | null
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          entry_number: string | null
+          fiscal_year_id: string | null
+          id: string
+          memo: string | null
+          naming_series_id: string | null
+          posting_date: string
+          reversal_of: string | null
+          status: Database["public"]["Enums"]["journal_entry_status"]
+          updated_at: string
+          voucher_type: string
+        }
+        Insert: {
+          accounting_period_id?: string | null
+          book_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          entry_number?: string | null
+          fiscal_year_id?: string | null
+          id?: string
+          memo?: string | null
+          naming_series_id?: string | null
+          posting_date: string
+          reversal_of?: string | null
+          status?: Database["public"]["Enums"]["journal_entry_status"]
+          updated_at?: string
+          voucher_type?: string
+        }
+        Update: {
+          accounting_period_id?: string | null
+          book_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          entry_number?: string | null
+          fiscal_year_id?: string | null
+          id?: string
+          memo?: string | null
+          naming_series_id?: string | null
+          posting_date?: string
+          reversal_of?: string | null
+          status?: Database["public"]["Enums"]["journal_entry_status"]
+          updated_at?: string
+          voucher_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_accounting_period_id_fkey"
+            columns: ["accounting_period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_fiscal_year_id_fkey"
+            columns: ["fiscal_year_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_naming_series_id_fkey"
+            columns: ["naming_series_id"]
+            isOneToOne: false
+            referencedRelation: "naming_series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_reversal_of_fkey"
+            columns: ["reversal_of"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entry_lines: {
+        Row: {
+          account_id: string
+          business_unit_id: string | null
+          cost_center_id: string | null
+          credit: number
+          credit_account_currency: number | null
+          currency_code: string | null
+          debit: number
+          debit_account_currency: number | null
+          exchange_rate: number | null
+          id: string
+          journal_entry_id: string
+          line_no: number
+          memo: string | null
+          party_id: string | null
+          skip_currency_resolution: boolean
+        }
+        Insert: {
+          account_id: string
+          business_unit_id?: string | null
+          cost_center_id?: string | null
+          credit?: number
+          credit_account_currency?: number | null
+          currency_code?: string | null
+          debit?: number
+          debit_account_currency?: number | null
+          exchange_rate?: number | null
+          id?: string
+          journal_entry_id: string
+          line_no?: number
+          memo?: string | null
+          party_id?: string | null
+          skip_currency_resolution?: boolean
+        }
+        Update: {
+          account_id?: string
+          business_unit_id?: string | null
+          cost_center_id?: string | null
+          credit?: number
+          credit_account_currency?: number | null
+          currency_code?: string | null
+          debit?: number
+          debit_account_currency?: number | null
+          exchange_rate?: number | null
+          id?: string
+          journal_entry_id?: string
+          line_no?: number
+          memo?: string | null
+          party_id?: string | null
+          skip_currency_resolution?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entry_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_currency_code_fkey"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
             referencedColumns: ["id"]
           },
         ]
@@ -641,6 +1782,7 @@ export type Database = {
           group_id: string | null
           id: string
           name: string
+          party_type: string | null
           tax_id: string | null
           updated_at: string
         }
@@ -653,6 +1795,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           name: string
+          party_type?: string | null
           tax_id?: string | null
           updated_at?: string
         }
@@ -665,6 +1808,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           name?: string
+          party_type?: string | null
           tax_id?: string | null
           updated_at?: string
         }
@@ -709,9 +1853,273 @@ export type Database = {
         }
         Relationships: []
       }
+      period_close_checks: {
+        Row: {
+          accounting_period_id: string
+          check_name: string
+          checked_at: string | null
+          checked_by: string | null
+          id: string
+          passed: boolean
+        }
+        Insert: {
+          accounting_period_id: string
+          check_name: string
+          checked_at?: string | null
+          checked_by?: string | null
+          id?: string
+          passed?: boolean
+        }
+        Update: {
+          accounting_period_id?: string
+          check_name?: string
+          checked_at?: string | null
+          checked_by?: string | null
+          id?: string
+          passed?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "period_close_checks_accounting_period_id_fkey"
+            columns: ["accounting_period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_sale_payment_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          payment_method: Database["public"]["Enums"]["pos_payment_method"]
+          reference_number: string | null
+          sales_invoice_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          payment_method: Database["public"]["Enums"]["pos_payment_method"]
+          reference_number?: string | null
+          sales_invoice_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_method?: Database["public"]["Enums"]["pos_payment_method"]
+          reference_number?: string | null
+          sales_invoice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sale_payment_lines_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoice_balances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_payment_lines_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_sessions: {
+        Row: {
+          business_unit_id: string | null
+          cash_difference: number | null
+          closed_at: string | null
+          closing_amount: number | null
+          entity_id: string
+          expected_amount: number | null
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by: string
+          opening_amount: number
+          status: Database["public"]["Enums"]["pos_session_status"]
+          warehouse_id: string
+        }
+        Insert: {
+          business_unit_id?: string | null
+          cash_difference?: number | null
+          closed_at?: string | null
+          closing_amount?: number | null
+          entity_id: string
+          expected_amount?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by: string
+          opening_amount?: number
+          status?: Database["public"]["Enums"]["pos_session_status"]
+          warehouse_id: string
+        }
+        Update: {
+          business_unit_id?: string | null
+          cash_difference?: number | null
+          closed_at?: string | null
+          closing_amount?: number | null
+          entity_id?: string
+          expected_amount?: number | null
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by?: string
+          opening_amount?: number
+          status?: Database["public"]["Enums"]["pos_session_status"]
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sessions_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sessions_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sessions_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_orders: {
+        Row: {
+          bom_id: string
+          business_unit_id: string | null
+          completed_date: string | null
+          cost_center_id: string | null
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          id: string
+          item_id: string
+          notes: string | null
+          order_number: string
+          planned_date: string
+          qty_planned: number
+          qty_produced: number
+          source_warehouse_id: string
+          status: Database["public"]["Enums"]["production_order_status"]
+          target_warehouse_id: string
+          total_cost: number | null
+          unit_cost: number | null
+        }
+        Insert: {
+          bom_id: string
+          business_unit_id?: string | null
+          completed_date?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          id?: string
+          item_id: string
+          notes?: string | null
+          order_number: string
+          planned_date: string
+          qty_planned: number
+          qty_produced?: number
+          source_warehouse_id: string
+          status?: Database["public"]["Enums"]["production_order_status"]
+          target_warehouse_id: string
+          total_cost?: number | null
+          unit_cost?: number | null
+        }
+        Update: {
+          bom_id?: string
+          business_unit_id?: string | null
+          completed_date?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          id?: string
+          item_id?: string
+          notes?: string | null
+          order_number?: string
+          planned_date?: string
+          qty_planned?: number
+          qty_produced?: number
+          source_warehouse_id?: string
+          status?: Database["public"]["Enums"]["production_order_status"]
+          target_warehouse_id?: string
+          total_cost?: number | null
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_orders_bom_id_fkey"
+            columns: ["bom_id"]
+            isOneToOne: false
+            referencedRelation: "bill_of_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_orders_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_orders_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_orders_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_orders_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_orders_source_warehouse_id_fkey"
+            columns: ["source_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_orders_target_warehouse_id_fkey"
+            columns: ["target_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active: boolean | null
+          active_entity_id: string | null
           company_id: string | null
           created_at: string
           email: string | null
@@ -724,6 +2132,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          active_entity_id?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
@@ -736,6 +2145,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          active_entity_id?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
@@ -746,7 +2156,302 @@ export type Database = {
           updated_at?: string
           user_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_active_entity_id_fkey"
+            columns: ["active_entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_invoice_lines: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          item_id: string | null
+          line_total: number
+          purchase_invoice_id: string
+          qty: number
+          tax_rate: number
+          unit_price: number
+          warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          item_id?: string | null
+          line_total?: number
+          purchase_invoice_id: string
+          qty?: number
+          tax_rate?: number
+          unit_price?: number
+          warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          item_id?: string | null
+          line_total?: number
+          purchase_invoice_id?: string
+          qty?: number
+          tax_rate?: number
+          unit_price?: number
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoice_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_lines_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoice_balances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_lines_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoice_lines_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_invoices: {
+        Row: {
+          business_unit_id: string | null
+          cost_center_id: string | null
+          created_at: string
+          created_by: string | null
+          currency_code: string
+          due_date: string | null
+          entity_id: string
+          exchange_rate: number
+          id: string
+          invoice_number: string | null
+          issue_date: string
+          journal_entry_id: string | null
+          memo: string | null
+          party_id: string
+          status: Database["public"]["Enums"]["invoice_status"]
+          subtotal_amount: number
+          tax_amount: number
+          total_amount: number
+          warehouse_id: string | null
+        }
+        Insert: {
+          business_unit_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency_code?: string
+          due_date?: string | null
+          entity_id: string
+          exchange_rate?: number
+          id?: string
+          invoice_number?: string | null
+          issue_date: string
+          journal_entry_id?: string | null
+          memo?: string | null
+          party_id: string
+          status?: Database["public"]["Enums"]["invoice_status"]
+          subtotal_amount?: number
+          tax_amount?: number
+          total_amount?: number
+          warehouse_id?: string | null
+        }
+        Update: {
+          business_unit_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency_code?: string
+          due_date?: string | null
+          entity_id?: string
+          exchange_rate?: number
+          id?: string
+          invoice_number?: string | null
+          issue_date?: string
+          journal_entry_id?: string | null
+          memo?: string | null
+          party_id?: string
+          status?: Database["public"]["Enums"]["invoice_status"]
+          subtotal_amount?: number
+          tax_amount?: number
+          total_amount?: number
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_currency_code_fkey"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rcv_reconciliation_items: {
+        Row: {
+          amount_in_easyerp: number | null
+          amount_in_rcv: number | null
+          difference: number | null
+          document_number: string
+          document_type: string
+          id: string
+          issue_date: string | null
+          matched: boolean
+          operation_type: string
+          party_name: string | null
+          party_tax_id: string
+          rcv_reconciliation_run_id: string
+          status: string
+        }
+        Insert: {
+          amount_in_easyerp?: number | null
+          amount_in_rcv?: number | null
+          difference?: number | null
+          document_number: string
+          document_type: string
+          id?: string
+          issue_date?: string | null
+          matched?: boolean
+          operation_type: string
+          party_name?: string | null
+          party_tax_id: string
+          rcv_reconciliation_run_id: string
+          status?: string
+        }
+        Update: {
+          amount_in_easyerp?: number | null
+          amount_in_rcv?: number | null
+          difference?: number | null
+          document_number?: string
+          document_type?: string
+          id?: string
+          issue_date?: string | null
+          matched?: boolean
+          operation_type?: string
+          party_name?: string | null
+          party_tax_id?: string
+          rcv_reconciliation_run_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rcv_reconciliation_items_rcv_reconciliation_run_id_fkey"
+            columns: ["rcv_reconciliation_run_id"]
+            isOneToOne: false
+            referencedRelation: "rcv_reconciliation_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rcv_reconciliation_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          file_name: string | null
+          id: string
+          matched_items: number
+          period_end: string
+          period_start: string
+          total_items: number
+          unmatched_items: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          file_name?: string | null
+          id?: string
+          matched_items?: number
+          period_end: string
+          period_start: string
+          total_items?: number
+          unmatched_items?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          file_name?: string | null
+          id?: string
+          matched_items?: number
+          period_end?: string
+          period_start?: string
+          total_items?: number
+          unmatched_items?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rcv_reconciliation_runs_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       role_modules: {
         Row: {
@@ -814,6 +2519,7 @@ export type Database = {
       roles: {
         Row: {
           created_at: string
+          description: string | null
           id: string
           name: string
           note: string | null
@@ -821,6 +2527,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description?: string | null
           id?: string
           name: string
           note?: string | null
@@ -828,12 +2535,486 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description?: string | null
           id?: string
           name?: string
           note?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      sales_invoice_lines: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          item_id: string | null
+          line_total: number
+          qty: number
+          sales_invoice_id: string
+          tax_rate: number
+          unit_price: number
+          warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          item_id?: string | null
+          line_total?: number
+          qty?: number
+          sales_invoice_id: string
+          tax_rate?: number
+          unit_price?: number
+          warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          item_id?: string | null
+          line_total?: number
+          qty?: number
+          sales_invoice_id?: string
+          tax_rate?: number
+          unit_price?: number
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoice_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoice_balances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_sales_invoice_id_fkey"
+            columns: ["sales_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoice_lines_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_invoices: {
+        Row: {
+          business_unit_id: string | null
+          cost_center_id: string | null
+          created_at: string
+          created_by: string | null
+          currency_code: string
+          due_date: string | null
+          entity_id: string
+          exchange_rate: number
+          id: string
+          invoice_number: string | null
+          issue_date: string
+          journal_entry_id: string | null
+          memo: string | null
+          party_id: string
+          pos_session_id: string | null
+          status: Database["public"]["Enums"]["invoice_status"]
+          subtotal_amount: number
+          tax_amount: number
+          total_amount: number
+          warehouse_id: string | null
+        }
+        Insert: {
+          business_unit_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency_code?: string
+          due_date?: string | null
+          entity_id: string
+          exchange_rate?: number
+          id?: string
+          invoice_number?: string | null
+          issue_date: string
+          journal_entry_id?: string | null
+          memo?: string | null
+          party_id: string
+          pos_session_id?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          subtotal_amount?: number
+          tax_amount?: number
+          total_amount?: number
+          warehouse_id?: string | null
+        }
+        Update: {
+          business_unit_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency_code?: string
+          due_date?: string | null
+          entity_id?: string
+          exchange_rate?: number
+          id?: string
+          invoice_number?: string | null
+          issue_date?: string
+          journal_entry_id?: string | null
+          memo?: string | null
+          party_id?: string
+          pos_session_id?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          subtotal_amount?: number
+          tax_amount?: number
+          total_amount?: number
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoices_business_unit_id_fkey"
+            columns: ["business_unit_id"]
+            isOneToOne: false
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_currency_code_fkey"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "sales_invoices_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_pos_session_id_fkey"
+            columns: ["pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sii_book_exports: {
+        Row: {
+          book_type: Database["public"]["Enums"]["sii_book_type"]
+          entity_id: string
+          file_content: string | null
+          file_format: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          period_end: string
+          period_start: string
+          record_count: number
+          total_credit: number
+          total_debit: number
+        }
+        Insert: {
+          book_type: Database["public"]["Enums"]["sii_book_type"]
+          entity_id: string
+          file_content?: string | null
+          file_format?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          period_end: string
+          period_start: string
+          record_count?: number
+          total_credit?: number
+          total_debit?: number
+        }
+        Update: {
+          book_type?: Database["public"]["Enums"]["sii_book_type"]
+          entity_id?: string
+          file_content?: string | null
+          file_format?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          record_count?: number
+          total_credit?: number
+          total_debit?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sii_book_exports_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_ledger_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          id: string
+          item_id: string
+          memo: string | null
+          movement_type: Database["public"]["Enums"]["stock_movement_type"]
+          posting_date: string
+          qty_change: number
+          transfer_pair_id: string | null
+          valuation_rate: number
+          voucher_id: string | null
+          voucher_type: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          id?: string
+          item_id: string
+          memo?: string | null
+          movement_type: Database["public"]["Enums"]["stock_movement_type"]
+          posting_date: string
+          qty_change: number
+          transfer_pair_id?: string | null
+          valuation_rate?: number
+          voucher_id?: string | null
+          voucher_type?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          id?: string
+          item_id?: string
+          memo?: string | null
+          movement_type?: Database["public"]["Enums"]["stock_movement_type"]
+          posting_date?: string
+          qty_change?: number
+          transfer_pair_id?: string | null
+          valuation_rate?: number
+          voucher_id?: string | null
+          voucher_type?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_ledger_entries_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_valuation_layers: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          qty_remaining: number
+          rate: number
+          stock_ledger_entry_id: string
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          qty_remaining: number
+          rate: number
+          stock_ledger_entry_id: string
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          qty_remaining?: number
+          rate?: number
+          stock_ledger_entry_id?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_valuation_layers_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_valuation_layers_stock_ledger_entry_id_fkey"
+            columns: ["stock_ledger_entry_id"]
+            isOneToOne: false
+            referencedRelation: "stock_ledger_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_valuation_layers_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_adjustments: {
+        Row: {
+          adjustment_type: string
+          amount: number
+          created_at: string
+          description: string
+          entity_id: string
+          id: string
+          tax_calculation_run_id: string | null
+        }
+        Insert: {
+          adjustment_type: string
+          amount: number
+          created_at?: string
+          description: string
+          entity_id: string
+          id?: string
+          tax_calculation_run_id?: string | null
+        }
+        Update: {
+          adjustment_type?: string
+          amount?: number
+          created_at?: string
+          description?: string
+          entity_id?: string
+          id?: string
+          tax_calculation_run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_adjustments_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_adjustments_tax_calculation_run_id_fkey"
+            columns: ["tax_calculation_run_id"]
+            isOneToOne: false
+            referencedRelation: "tax_calculation_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_calculation_runs: {
+        Row: {
+          calculated_values: Json
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          filed_at: string | null
+          form_type: Database["public"]["Enums"]["tax_form_type"]
+          id: string
+          notes: string | null
+          period_end: string
+          period_start: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["tax_calculation_status"]
+        }
+        Insert: {
+          calculated_values?: Json
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          filed_at?: string | null
+          form_type: Database["public"]["Enums"]["tax_form_type"]
+          id?: string
+          notes?: string | null
+          period_end: string
+          period_start: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["tax_calculation_status"]
+        }
+        Update: {
+          calculated_values?: Json
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          filed_at?: string | null
+          form_type?: Database["public"]["Enums"]["tax_form_type"]
+          id?: string
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["tax_calculation_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_calculation_runs_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       uom: {
         Row: {
@@ -884,6 +3065,7 @@ export type Database = {
           created_at: string
           entity_id: string | null
           id: string
+          is_active: boolean
           name: string
           updated_at: string
         }
@@ -893,6 +3075,7 @@ export type Database = {
           created_at?: string
           entity_id?: string | null
           id?: string
+          is_active?: boolean
           name: string
           updated_at?: string
         }
@@ -902,6 +3085,7 @@ export type Database = {
           created_at?: string
           entity_id?: string | null
           id?: string
+          is_active?: boolean
           name?: string
           updated_at?: string
         }
@@ -917,14 +3101,244 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      purchase_invoice_balances: {
+        Row: {
+          balance_due: number | null
+          currency_code: string | null
+          due_date: string | null
+          entity_id: string | null
+          id: string | null
+          invoice_number: string | null
+          issue_date: string | null
+          paid_amount: number | null
+          party_id: string | null
+          party_name: string | null
+          party_tax_id: string | null
+          status: Database["public"]["Enums"]["invoice_status"] | null
+          total_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_currency_code_fkey"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_invoice_balances: {
+        Row: {
+          balance_due: number | null
+          currency_code: string | null
+          due_date: string | null
+          entity_id: string | null
+          id: string | null
+          invoice_number: string | null
+          issue_date: string | null
+          paid_amount: number | null
+          party_id: string | null
+          party_name: string | null
+          party_tax_id: string | null
+          status: Database["public"]["Enums"]["invoice_status"] | null
+          total_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoices_currency_code_fkey"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "sales_invoices_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_balances: {
+        Row: {
+          avg_rate: number | null
+          entity_id: string | null
+          item_code: string | null
+          item_id: string | null
+          item_name: string | null
+          qty_on_hand: number | null
+          value_on_hand: number | null
+          warehouse_code: string | null
+          warehouse_id: string | null
+          warehouse_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_ledger_entries_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      calculate_f22: {
+        Args: { _entity_id: string; _period_end: string; _period_start: string }
+        Returns: Json
+      }
+      calculate_f29: {
+        Args: { _entity_id: string; _period_end: string; _period_start: string }
+        Returns: Json
+      }
+      close_accounting_period: { Args: { _period_id: string }; Returns: Json }
+      close_pos_session: {
+        Args: { _counted_amount: number; _session_id: string }
+        Returns: Json
+      }
+      complete_production_order: { Args: { _order_id: string }; Returns: Json }
+      create_pos_sale: {
+        Args: {
+          _items: Json
+          _party_id: string
+          _payments: Json
+          _session_id: string
+        }
+        Returns: Json
+      }
+      create_warehouse_transfer: {
+        Args: {
+          _entity_id: string
+          _from_warehouse: string
+          _item_id: string
+          _memo?: string
+          _posting_date: string
+          _qty: number
+          _to_warehouse: string
+        }
+        Returns: Json
+      }
+      dispose_fixed_asset: {
+        Args: {
+          _asset_id: string
+          _bank_account_id?: string
+          _disposal_date: string
+          _disposal_value: number
+          _gain_loss_account_id: string
+        }
+        Returns: Json
+      }
+      generate_dj: {
+        Args: {
+          _dj_definition_id: string
+          _entity_id: string
+          _tax_year: number
+        }
+        Returns: Json
+      }
+      get_exchange_rate: {
+        Args: { _date: string; _destination: string; _origin: string }
+        Returns: number
+      }
+      get_next_entry_number: {
+        Args: { _entity_id: string; _prefix?: string }
+        Returns: string
+      }
+      get_sii_book_data: {
+        Args: {
+          _book_type: Database["public"]["Enums"]["sii_book_type"]
+          _end_date: string
+          _entity_id: string
+          _start_date: string
+        }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      post_journal_entry: { Args: { _journal_entry_id: string }; Returns: Json }
+      post_purchase_invoice: { Args: { _invoice_id: string }; Returns: Json }
+      post_sales_invoice: { Args: { _invoice_id: string }; Returns: Json }
+      reconcile_rcv_batch: {
+        Args: {
+          _entity_id: string
+          _file_name: string
+          _period_end: string
+          _period_start: string
+          _rcv_rows: Json
+        }
+        Returns: Json
+      }
+      reverse_journal_entry: {
+        Args: { _journal_entry_id: string }
+        Returns: string
+      }
+      run_exchange_revaluation: {
+        Args: { _entity_id: string; _revaluation_date: string }
+        Returns: Json
+      }
+      run_monthly_depreciation: {
+        Args: { _entity_id: string; _period_date: string }
+        Returns: Json
+      }
+      update_dj_status: {
+        Args: {
+          _generation_id: string
+          _new_status: Database["public"]["Enums"]["dj_generation_status"]
+        }
+        Returns: Json
+      }
+      update_tax_run_status: {
+        Args: {
+          _new_status: Database["public"]["Enums"]["tax_calculation_status"]
+          _notes?: string
+          _run_id: string
+        }
+        Returns: Json
+      }
+      user_has_company_access: {
+        Args: { _entity_id: string; _user_id: string }
         Returns: boolean
       }
     }
@@ -936,6 +3350,48 @@ export type Database = {
         | "purchasing"
         | "inventory"
         | "viewer"
+      asset_status: "active" | "fully_depreciated" | "disposed"
+      depreciation_method: "linea_recta" | "acelerada"
+      dj_generation_status: "draft" | "reviewed" | "filed"
+      invoice_status:
+        | "draft"
+        | "confirmed"
+        | "partially_paid"
+        | "paid"
+        | "cancelled"
+      journal_entry_status: "draft" | "posted" | "reversed"
+      period_status: "open" | "closed"
+      pos_payment_method:
+        | "efectivo"
+        | "tarjeta_debito"
+        | "tarjeta_credito"
+        | "transferencia"
+        | "otro"
+      pos_session_status: "open" | "closed"
+      production_order_status:
+        | "planned"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
+      sii_book_type:
+        | "libro_diario"
+        | "libro_mayor"
+        | "balance_tributario_8_columnas"
+        | "libro_compras"
+        | "libro_ventas"
+      stock_movement_type:
+        | "receipt"
+        | "issue"
+        | "transfer_out"
+        | "transfer_in"
+        | "adjustment"
+      tax_calculation_status: "draft" | "reviewed" | "filed"
+      tax_form_type: "f29" | "f22"
+      tax_regime_type:
+        | "14A_general"
+        | "14D3_pro_pyme_general"
+        | "14D8_pro_pyme_transparente"
+        | "renta_presunta"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1070,6 +3526,54 @@ export const Constants = {
         "purchasing",
         "inventory",
         "viewer",
+      ],
+      asset_status: ["active", "fully_depreciated", "disposed"],
+      depreciation_method: ["linea_recta", "acelerada"],
+      dj_generation_status: ["draft", "reviewed", "filed"],
+      invoice_status: [
+        "draft",
+        "confirmed",
+        "partially_paid",
+        "paid",
+        "cancelled",
+      ],
+      journal_entry_status: ["draft", "posted", "reversed"],
+      period_status: ["open", "closed"],
+      pos_payment_method: [
+        "efectivo",
+        "tarjeta_debito",
+        "tarjeta_credito",
+        "transferencia",
+        "otro",
+      ],
+      pos_session_status: ["open", "closed"],
+      production_order_status: [
+        "planned",
+        "in_progress",
+        "completed",
+        "cancelled",
+      ],
+      sii_book_type: [
+        "libro_diario",
+        "libro_mayor",
+        "balance_tributario_8_columnas",
+        "libro_compras",
+        "libro_ventas",
+      ],
+      stock_movement_type: [
+        "receipt",
+        "issue",
+        "transfer_out",
+        "transfer_in",
+        "adjustment",
+      ],
+      tax_calculation_status: ["draft", "reviewed", "filed"],
+      tax_form_type: ["f29", "f22"],
+      tax_regime_type: [
+        "14A_general",
+        "14D3_pro_pyme_general",
+        "14D8_pro_pyme_transparente",
+        "renta_presunta",
       ],
     },
   },

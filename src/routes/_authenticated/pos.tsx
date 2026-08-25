@@ -709,7 +709,9 @@ function PosPage() {
                           value={p.payment_method}
                           onValueChange={(val: any) => {
                             const updated = [...payments];
-                            updated[idx].payment_method = val;
+                            const current = updated[idx];
+                            if (!current) return;
+                            updated[idx] = { ...current, payment_method: val };
                             setPayments(updated);
                           }}
                         >
@@ -732,7 +734,9 @@ function PosPage() {
                           value={p.amount}
                           onChange={(e) => {
                             const updated = [...payments];
-                            updated[idx].amount = parseFloat(e.target.value || "0");
+                            const current = updated[idx];
+                            if (!current) return;
+                            updated[idx] = { ...current, amount: parseFloat(e.target.value || "0") };
                             setPayments(updated);
                           }}
                           className="font-mono text-xs"

@@ -30,7 +30,7 @@ function CashPage() {
   const [newBookOpen, setNewBookOpen] = useState(false);
 
   // Form State Rate
-  const [rateDate, setRateDate] = useState(new Date().toISOString().split("T")[0]);
+  const [rateDate, setRateDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [rateValue, setRateValue] = useState("");
 
   // Form State Book

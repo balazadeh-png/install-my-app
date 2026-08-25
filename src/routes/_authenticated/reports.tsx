@@ -155,9 +155,10 @@ function ReportsPage() {
     });
 
     filteredEntries.forEach((e) => {
-      if (balMap[e.account_id]) {
-        balMap[e.account_id].debit += e.debit;
-        balMap[e.account_id].credit += e.credit;
+      const bal = balMap[e.account_id];
+      if (bal) {
+        bal.debit += e.debit;
+        bal.credit += e.credit;
       }
     });
 
@@ -170,6 +171,7 @@ function ReportsPage() {
 
     accounts.forEach((a) => {
       const b = balMap[a.id];
+      if (!b) return;
       if (["Asset", "Expense", "Cost of Goods Sold"].includes(a.account_type)) {
         b.net = b.debit - b.credit;
       } else {
