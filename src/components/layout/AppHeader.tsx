@@ -27,12 +27,14 @@ import {
   Building2,
   Check,
   Factory,
+  Store,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export const moduleNavItems = [
   { name: "accounting", label: "Contabilidad", path: "/accounting", icon: BookOpen },
   { name: "sales", label: "Ventas", path: "/sales", icon: Users },
+  { name: "pos", label: "Punto de Venta (POS)", path: "/pos", icon: Store },
   { name: "purchases", label: "Compras", path: "/purchases", icon: ShoppingCart },
   { name: "inventory", label: "Inventario", path: "/inventory", icon: Package },
   { name: "production", label: "Producción", path: "/production", icon: Factory },

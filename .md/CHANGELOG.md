@@ -4,20 +4,32 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 10: Ventas POS, Boletas y Arqueo de Caja] - 2026-08-25
+
+### Añadido
+* **Migración SQL del Punto de Venta POS** ([`supabase/migrations/20260825000009_sprint10_ventas_pos.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000009_sprint10_ventas_pos.sql)):
+  * Enums `pos_session_status` (`open`, `closed`) y `pos_payment_method` (`efectivo`, `tarjeta_debito`, `tarjeta_credito`, `transferencia`, `otro`).
+  * Tabla `pos_sessions` para la apertura, cierre y arqueo de turnos de caja con control de diferencias de efectivo.
+  * Columna `pos_session_id` en `sales_invoices` para vincular boletas y facturas emitidas en el mostrador a la sesión del cajero.
+  * Tabla `pos_sale_payment_lines` para soportar pagos mixtos por venta (ej. parte en efectivo y parte en tarjeta).
+  * Función `public.create_pos_sale()`: Emite la boleta, genera el desglose de pagos y dispara el posteo contable e inventario en tiempo real.
+  * Función `public.close_pos_session()`: Realiza el arqueo comparando el efectivo contado físicamente contra el esperado ($ \text{Apertura} + \text{Ventas Efectivo} $).
+  * Registro del módulo `pos` en la tabla `modules`.
+* **Interfaz de Usuario (UI) en [`pos.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/pos.tsx)**:
+  * Pantalla de **Apertura de Caja** con selector de bodega asignada y fondo inicial en gaveta.
+  * Terminal de **Venta Rápida POS**: Búsqueda ágil de productos, carrito dinámico con cálculo de IVA (19%) y selector de cliente.
+  * Modal de **Cobro & Medios de Pago Mixtos** con cálculo automático de vuelto en efectivo y validación de cuadre total.
+  * Modal de **Arqueo y Cierre de Caja** con visualización instantánea de diferencias.
+  * Pestaña de **Historial de Turnos de Caja**.
+  * Integración en el menú superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+
+---
+
 ## [Sprint 9: Módulo de Producción Simple & Lista de Materiales (BOM)] - 2026-08-25
 
 ### Añadido
-* **Migración SQL de Producción y Recetas BOM** ([`supabase/migrations/20260825000008_sprint09_produccion_bom.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000008_sprint09_produccion_bom.sql)):
-  * Tablas `bill_of_materials` y `bom_lines` para la formulación de recetas de productos terminados e insumos requeridos.
-  * Enum `production_order_status` (`planned`, `in_progress`, `completed`, `cancelled`).
-  * Tabla `production_orders` para la programación y ejecución de órdenes de fabricación con bodegas de origen y destino.
-  * Función `public.complete_production_order()`: Consume materiales en capas FIFO desde la bodega de origen, calcula el costo total consumido e ingresa el producto terminado en la bodega de destino con su costo unitario real.
-  * Registro del módulo `production` en la tabla `modules`.
-* **Interfaz de Usuario (UI) en [`production.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/production.tsx)**:
-  * Tarjetas KPI: *Órdenes Completadas*, *Unidades Producidas* y *Costo Total de Materiales*.
-  * Pestaña "Órdenes de Producción": Lanzamiento de lotes, seguimiento de estado y botón "Completar".
-  * Pestaña "Fórmulas / Recetas BOM": Catálogo visual de fórmulas y modal interactivo para agregar insumos dinámicamente.
-  * Integración en la barra superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+* **Migración SQL de Producción y Recetas BOM** ([`supabase/migrations/20260825000008_sprint09_produccion_bom.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000008_sprint09_produccion_bom.sql)).
+* Módulo en `production.tsx`.
 
 ---
 

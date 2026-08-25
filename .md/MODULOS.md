@@ -31,7 +31,20 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 3. Compras, Facturas de Proveedores & Cuentas por Pagar ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
+## 3. Punto de Venta (POS) & Boletas ([`/pos`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/pos.tsx))
+* **Turnos y Arqueo de Caja (`pos_sessions`, `close_pos_session`)**:
+  * Apertura de turno con bodega asignada y fondo inicial de sencillo en gaveta.
+  * Cierre de turno con arqueo de caja: cálculo automático del efectivo esperado ($ \text{Fondo Inicial} + \text{Ventas Efectivo} $), ingreso del efectivo contado físicamente y detección en vivo de sobrantes o faltantes.
+* **Terminal de Venta Rápida de Mostrador**:
+  * Búsqueda ágil de artículos, visualización de precios y disponibilidad.
+  * Carrito de venta con discriminación de IVA 19% y emisión de boletas correlativas (`BOL-000001`).
+* **Medios de Pago Mixtos (`pos_sale_payment_lines`, `create_pos_sale`)**:
+  * Cobro dividido en múltiples medios: Efectivo, Tarjeta Débito (Redcompra), Tarjeta Crédito, Transferencias.
+  * Cálculo de vuelto en efectivo y posteo automático e instantáneo tanto al Libro Mayor como al inventario FIFO de la bodega.
+
+---
+
+## 4. Compras, Facturas de Proveedores & Cuentas por Pagar ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
 * **Ciclo Transaccional de Compras (`purchase_invoices`, `purchase_invoice_lines`)**:
   * Registro de facturas de proveedores con discriminación de **IVA Crédito Fiscal (19%)**.
   * Soporte para compra de mercaderías (con SKU e ingreso a bodega) y gastos generales directos.
@@ -43,7 +56,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 4. Producción Simple & Recetas BOM ([`/production`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/production.tsx))
+## 5. Producción Simple & Recetas BOM ([`/production`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/production.tsx))
 * **Lista de Materiales y Fórmulas (`bill_of_materials`, `bom_lines`)**:
   * Definición de recetas para productos terminados con rendimientos base e insumos/materias primas requeridas.
 * **Órdenes de Producción Transaccionales (`production_orders`, `complete_production_order`)**:
@@ -53,7 +66,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 5. Activos Fijos & Depreciación ([`/assets`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/assets.tsx))
+## 6. Activos Fijos & Depreciación ([`/assets`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/assets.tsx))
 * **Ficha Maestra de Activo Fijo (`fixed_assets`)**:
   * Registro de bienes de uso con costo histórico en CLP, valor residual, vida útil en meses, método de amortización, centro de costo y sucursal.
   * Mapeo de cuentas: Activo, Depreciación Acumulada y Gasto por Depreciación.
@@ -65,7 +78,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 6. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
+## 7. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
 * **Motor de Movimientos de Inventario (`stock_ledger_entries`)**:
   * Registro de entradas (`receipt`), salidas (`issue`), ajustes (`adjustment`) y traslados interbodega.
 * **Capas de Valorización FIFO (`stock_valuation_layers`)**:
@@ -77,7 +90,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 7. Bancos & Tesorería ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
+## 8. Bancos & Tesorería ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
 * **Tasas de Cambio Oficiales / Dólar Observado (`exchange_rates`)**:
   * Registro diario del tipo de cambio oficial USD $\rightarrow$ CLP.
 * **Libros de Caja & Bancos (`books`)**:
@@ -85,13 +98,13 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 8. Reportes Financieros & Analíticos ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
+## 9. Reportes Financieros & Analíticos ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
 * **Filtros Analíticos**: Segmentación de reportes por Centro de Costo o Sucursal.
 * **Balanza de Comprobación, Balance General y Estado de Resultados (P&L)**: Generados en tiempo real desde asientos y facturas.
 
 ---
 
-## 9. Configuración General & Cierre de Período ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
+## 10. Configuración General & Cierre de Período ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
 * **Cuentas Contables Predeterminadas (`company_default_accounts`)**: Mapeo obligatorio de cuentas contables para CxC, CxP, Ventas, Compras, IVA (19%), COGS, Inventario y Diferencia de Cambio No Realizada.
 * **Cierre de Períodos Contables (`accounting_periods`, `close_accounting_period`)**: Flujo de validación previa de borradores y cierre de mes que bloquea nuevos posteos.
 * **Revalorización Cambiaria de Cierre (`exchange_revaluations`, `run_exchange_revaluation`)**: Ajuste automático del saldo en libros de cuentas en moneda extranjera (USD) contra la tasa de cierre del mes.

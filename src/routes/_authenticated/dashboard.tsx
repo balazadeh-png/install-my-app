@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Building2,
   Factory,
+  Store,
 } from "lucide-react";
 
 const moduleConfig: Record<string, { icon: React.ReactNode; path: string; description: string }> = {
@@ -24,6 +25,11 @@ const moduleConfig: Record<string, { icon: React.ReactNode; path: string; descri
     icon: <BookOpen className="h-5 w-5" />,
     path: "/accounting",
     description: "Catálogo de cuentas, asientos de diario y libro mayor.",
+  },
+  pos: {
+    icon: <Store className="h-5 w-5" />,
+    path: "/pos",
+    description: "Terminal de venta mostrador, boletas y arqueo de caja.",
   },
   cash: {
     icon: <DollarSign className="h-5 w-5" />,
