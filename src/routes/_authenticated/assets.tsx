@@ -50,7 +50,7 @@ function AssetsPage() {
   // Form State Nuevo Activo
   const [assetCode, setAssetCode] = useState("");
   const [assetName, setAssetName] = useState("");
-  const [acqDate, setAcqDate] = useState(new Date().toISOString().split("T")[0]);
+  const [acqDate, setAcqDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [acqValue, setAcqValue] = useState("");
   const [residualValue, setResidualValue] = useState("0");
   const [lifeMonths, setLifeMonths] = useState("36");
@@ -63,10 +63,10 @@ function AssetsPage() {
   const [memo, setMemo] = useState("");
 
   // Form State Depreciación Mensual
-  const [depPeriodDate, setDepPeriodDate] = useState(new Date().toISOString().split("T")[0]);
+  const [depPeriodDate, setDepPeriodDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
   // Form State Baja / Disposición
-  const [dispDate, setDispDate] = useState(new Date().toISOString().split("T")[0]);
+  const [dispDate, setDispDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [dispValue, setDispValue] = useState("0");
   const [gainLossAccId, setGainLossAccId] = useState("");
   const [dispBankAccId, setDispBankAccId] = useState("");

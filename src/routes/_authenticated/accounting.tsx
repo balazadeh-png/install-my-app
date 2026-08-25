@@ -66,7 +66,7 @@ function AccountingPage() {
   const [isGroup, setIsGroup] = useState(false);
 
   // Form State para Nuevo Comprobante Contable
-  const [voucherDate, setVoucherDate] = useState(new Date().toISOString().split("T")[0]);
+  const [voucherDate, setVoucherDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [voucherType, setVoucherType] = useState("Manual");
   const [voucherBookId, setVoucherBookId] = useState<string>("");
   const [voucherMemo, setVoucherMemo] = useState("");

@@ -63,7 +63,7 @@ function InventoryPage() {
   const [movWarehouseId, setMovWarehouseId] = useState("");
   const [movQty, setMovQty] = useState("");
   const [movRate, setMovRate] = useState("");
-  const [movDate, setMovDate] = useState(new Date().toISOString().split("T")[0]);
+  const [movDate, setMovDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [movMemo, setMovMemo] = useState("");
 
   // Form State Traslado entre Bodegas
@@ -71,7 +71,7 @@ function InventoryPage() {
   const [trFromWh, setTrFromWh] = useState("");
   const [trToWh, setTrToWh] = useState("");
   const [trQty, setTrQty] = useState("");
-  const [trDate, setTrDate] = useState(new Date().toISOString().split("T")[0]);
+  const [trDate, setTrDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [trMemo, setTrMemo] = useState("");
 
   // Filtros de vista

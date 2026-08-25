@@ -72,7 +72,7 @@ function PurchasesPage() {
   const [invBusinessUnitId, setInvBusinessUnitId] = useState<string>("");
   const [invCurrency, setInvCurrency] = useState("CLP");
   const [invRate, setInvRate] = useState("1.0");
-  const [invDate, setInvDate] = useState(new Date().toISOString().split("T")[0]);
+  const [invDate, setInvDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [invDueDate, setInvDueDate] = useState("");
   const [invMemo, setInvMemo] = useState("");
   const [lines, setLines] = useState<PurchaseLineForm[]>([
@@ -82,7 +82,7 @@ function PurchasesPage() {
   // Form State Pago
   const [payAmount, setPayAmount] = useState("");
   const [payBankAcc, setPayBankAcc] = useState("");
-  const [payDate, setPayDate] = useState(new Date().toISOString().split("T")[0]);
+  const [payDate, setPayDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [payMemo, setPayMemo] = useState("");
 
   const baseCurrency = activeEntity?.base_currency_code || "CLP";

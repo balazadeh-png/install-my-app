@@ -60,7 +60,7 @@ function ProductionPage() {
   const [orderQty, setOrderQty] = useState("1");
   const [orderSourceWarehouseId, setOrderSourceWarehouseId] = useState("");
   const [orderTargetWarehouseId, setOrderTargetWarehouseId] = useState("");
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
+  const [orderDate, setOrderDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [orderCostCenterId, setOrderCostCenterId] = useState("");
   const [orderBusinessUnitId, setOrderBusinessUnitId] = useState("");
 
