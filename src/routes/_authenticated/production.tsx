@@ -411,7 +411,9 @@ function ProductionPage() {
                             value={comp.component_item_id}
                             onValueChange={(val) => {
                               const updated = [...bomComponents];
-                              updated[idx].component_item_id = val;
+                              const current = updated[idx];
+                              if (!current) return;
+                              updated[idx] = { ...current, component_item_id: val };
                               setBomComponents(updated);
                             }}
                           >

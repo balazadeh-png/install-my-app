@@ -734,7 +734,9 @@ function PosPage() {
                           value={p.amount}
                           onChange={(e) => {
                             const updated = [...payments];
-                            updated[idx].amount = parseFloat(e.target.value || "0");
+                            const current = updated[idx];
+                            if (!current) return;
+                            updated[idx] = { ...current, amount: parseFloat(e.target.value || "0") };
                             setPayments(updated);
                           }}
                           className="font-mono text-xs"
