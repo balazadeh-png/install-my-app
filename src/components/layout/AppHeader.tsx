@@ -30,6 +30,7 @@ import {
   Store,
   FileSpreadsheet,
   Landmark,
+  FileBadge2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -44,6 +45,7 @@ export const moduleNavItems = [
   { name: "cash", label: "Bancos / Tesorería", path: "/cash", icon: DollarSign },
   { name: "sii-books", label: "Libros Legales SII", path: "/sii-books", icon: FileSpreadsheet },
   { name: "taxes", label: "Impuestos (F29/F22)", path: "/taxes", icon: Landmark },
+  { name: "declaraciones-juradas", label: "DDJJ (SII)", path: "/declaraciones-juradas", icon: FileBadge2 },
   { name: "reports", label: "Reportes", path: "/reports", icon: BarChart3 },
   { name: "setup", label: "Configuración", path: "/setup", icon: Settings },
 ];

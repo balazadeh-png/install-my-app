@@ -44,7 +44,16 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 4. Declaración de Impuestos SII — F29 / F22 ([`/taxes`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/taxes.tsx))
+## 4. Declaraciones Juradas SII — DDJJ ([`/declaraciones-juradas`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/declaraciones-juradas.tsx))
+* **Motor Extensible de Declaraciones Juradas (`dj_definitions`, `dj_field_mappings`, `dj_generations`)**:
+  * Catálogo dinámico de formularios oficiales: **DJ 1879** (Honorarios), **DJ 1887** (Sueldos y Retenciones 2da Categoría), **DJ 1947** (Renta Atribuida / Pro Pyme Transparente 14 D8).
+  * Posibilidad de crear y registrar nuevas definiciones de DJ con esquemas de campos personalizados (`field_schema`) sin modificar código.
+  * **Mapeo por Empresa**: Asignación flexible de qué cuenta del plan contable alimenta cada casilla oficial.
+  * **Generación Automática & Exportación CSV**: Extracción anual de saldos y partidas con exportación para carga en el SII.
+
+---
+
+## 5. Declaración de Impuestos SII — F29 / F22 ([`/taxes`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/taxes.tsx))
 * **Formulario 29 (F29 Mensual - IVA y PPM)**:
   * Cálculo automático de IVA Débito Fiscal 19% (ventas y boletas) y Crédito Fiscal 19% (compras).
   * Arrastre y aplicación automática del Remanente de Crédito Fiscal del mes anterior.
@@ -54,12 +63,10 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Determinación de la Renta Líquida Imponible (RLI) a partir de ingresos, costos y gastos.
   * Aplicación de tasas según el régimen tributario de la empresa (14A General, 14 D3 Pro Pyme General, 14 D8 Transparente).
   * Rebaja de los PPMs pagados durante los 12 meses para determinar el saldo a pagar o a devolución.
-* **Flujo de Auditoría Tributaria**:
-  * Estados de control: `draft` (Borrador) $\rightarrow$ `reviewed` (Revisado por Contador/Admin) $\rightarrow$ `filed` (Presentado ante el SII).
 
 ---
 
-## 5. Libros Legales SII & Conciliación RCV ([`/sii-books`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sii-books.tsx))
+## 6. Libros Legales SII & Conciliación RCV ([`/sii-books`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sii-books.tsx))
 * **Generación de Libros Contables Oficiales**:
   * **Libro Diario Legal**: Cronología de comprobantes, cuentas, glosas y partidas balanceadas.
   * **Libro Mayor Legal**: Movimientos débitos, créditos y saldos acumulados por cuenta.
@@ -71,7 +78,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 6. Compras, Facturas de Proveedores & Cuentas por Pagar ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
+## 7. Compras, Facturas de Proveedores & Cuentas por Pagar ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
 * **Ciclo Transaccional de Compras (`purchase_invoices`, `purchase_invoice_lines`)**:
   * Registro de facturas de proveedores con discriminación de **IVA Crédito Fiscal (19%)**.
   * Soporte para compra de mercaderías (con SKU e ingreso a bodega) y gastos generales directos.
@@ -83,7 +90,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 7. Producción Simple & Recetas BOM ([`/production`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/production.tsx))
+## 8. Producción Simple & Recetas BOM ([`/production`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/production.tsx))
 * **Lista de Materiales y Fórmulas (`bill_of_materials`, `bom_lines`)**:
   * Definición de recetas para productos terminados con rendimientos base e insumos/materias primas requeridas.
 * **Órdenes de Producción Transaccionales (`production_orders`, `complete_production_order`)**:
@@ -93,7 +100,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 8. Activos Fijos & Depreciación ([`/assets`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/assets.tsx))
+## 9. Activos Fijos & Depreciación ([`/assets`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/assets.tsx))
 * **Ficha Maestra de Activo Fijo (`fixed_assets`)**:
   * Registro de bienes de uso con costo histórico en CLP, valor residual, vida útil en meses, método de amortización, centro de costo y sucursal.
   * Mapeo de cuentas: Activo, Depreciación Acumulada y Gasto por Depreciación.
@@ -105,7 +112,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 9. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
+## 10. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
 * **Motor de Movimientos de Inventario (`stock_ledger_entries`)**:
   * Registro de entradas (`receipt`), salidas (`issue`), ajustes (`adjustment`) y traslados interbodega.
 * **Capas de Valorización FIFO (`stock_valuation_layers`)**:
@@ -117,7 +124,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 10. Bancos & Tesorería ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
+## 11. Bancos & Tesorería ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
 * **Tasas de Cambio Oficiales / Dólar Observado (`exchange_rates`)**:
   * Registro diario del tipo de cambio oficial USD $\rightarrow$ CLP.
 * **Libros de Caja & Bancos (`books`)**:
@@ -125,13 +132,13 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 11. Reportes Financieros & Analíticos ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
+## 12. Reportes Financieros & Analíticos ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
 * **Filtros Analíticos**: Segmentación de reportes por Centro de Costo o Sucursal.
 * **Balanza de Comprobación, Balance General y Estado de Resultados (P&L)**: Generados en tiempo real desde asientos y facturas.
 
 ---
 
-## 12. Configuración General & Cierre de Período ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
+## 13. Configuración General & Cierre de Período ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
 * **Cuentas Contables Predeterminadas (`company_default_accounts`)**: Mapeo obligatorio de cuentas contables para CxC, CxP, Ventas, Compras, IVA (19%), COGS, Inventario y Diferencia de Cambio No Realizada.
 * **Cierre de Períodos Contables (`accounting_periods`, `close_accounting_period`)**: Flujo de validación previa de borradores y cierre de mes que bloquea nuevos posteos.
 * **Revalorización Cambiaria de Cierre (`exchange_revaluations`, `run_exchange_revaluation`)**: Ajuste automático del saldo en libros de cuentas en moneda extranjera (USD) contra la tasa de cierre del mes.

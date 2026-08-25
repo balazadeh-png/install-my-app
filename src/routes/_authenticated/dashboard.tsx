@@ -20,6 +20,7 @@ import {
   Store,
   FileSpreadsheet,
   Landmark,
+  FileBadge2,
 } from "lucide-react";
 
 const moduleConfig: Record<string, { icon: React.ReactNode; path: string; description: string }> = {
@@ -72,6 +73,11 @@ const moduleConfig: Record<string, { icon: React.ReactNode; path: string; descri
     icon: <Landmark className="h-5 w-5" />,
     path: "/taxes",
     description: "Declaraciones F29 mensual, F22 anual y regímenes.",
+  },
+  "declaraciones-juradas": {
+    icon: <FileBadge2 className="h-5 w-5" />,
+    path: "/declaraciones-juradas",
+    description: "Motor extensible de DDJJ anuales (DJ 1879, 1887, 1947).",
   },
   reports: {
     icon: <BarChart3 className="h-5 w-5" />,

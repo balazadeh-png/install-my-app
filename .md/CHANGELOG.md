@@ -4,23 +4,31 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 13: Declaraciones Juradas SII (DDJJ)] - 2026-08-25
+
+### Añadido
+* **Migración SQL del Motor de Declaraciones Juradas** ([`supabase/migrations/20260825000012_sprint13_declaraciones_juradas.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000012_sprint13_declaraciones_juradas.sql)):
+  * Enum `dj_generation_status` (`draft`, `reviewed`, `filed`).
+  * Tabla `dj_definitions`: Catálogo dinámico de declaraciones juradas con esquema extensible de campos `field_schema` jsonb.
+  * Tabla `dj_field_mappings`: Configuración por empresa para asociar casillas oficiales a cuentas contables del plan de cuentas.
+  * Tabla `dj_generations`: Liquidaciones anuales con persistencia estructurada de valores calculados en `generated_values` jsonb.
+  * Función `public.generate_dj()`: Extrae automáticamente los saldos del año comercial desde los comprobantes posteados en las cuentas mapeadas.
+  * Función `public.update_dj_status()`: Flujo de aprobación tributaria (`draft` $\rightarrow$ `reviewed` $\rightarrow$ `filed`).
+  * Semilla inicial con las DJs más utilizadas en Chile: **DJ 1879** (Honorarios), **DJ 1887** (Sueldos y Retenciones de 2da Categoría) y **DJ 1947** (Renta Atribuida Pro Pyme Transparente 14 D8).
+  * Registro del módulo `declaraciones_juradas` en la tabla `modules`.
+* **Interfaz de Usuario (UI) en [`declaraciones-juradas.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/declaraciones-juradas.tsx)**:
+  * Pestaña "Resultado Generado" con visualización de casillas oficiales, selector de Año Tributario y botón de **Descarga en CSV**.
+  * Pestaña "Mapeo de Cuentas Contables" para enlazar cada campo de la DJ al catálogo contable de la empresa activa.
+  * Pestaña "Catálogo Oficial de DJs" con modal para crear nuevas definiciones de DJ sin tocar código.
+  * Integración en el menú superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+
+---
+
 ## [Sprint 12: Declaración de Impuestos SII - F29 y F22] - 2026-08-25
 
 ### Añadido
-* **Migración SQL de Declaraciones de Impuestos** ([`supabase/migrations/20260825000011_sprint12_impuestos_f29_f22.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000011_sprint12_impuestos_f29_f22.sql)):
-  * Enums `tax_form_type` (`f29`, `f22`), `tax_calculation_status` (`draft`, `reviewed`, `filed`) y `tax_regime_type` (`14A_general`, `14D3_pro_pyme_general`, `14D8_pro_pyme_transparente`, `renta_presunta`).
-  * Columnas `ppm_rate` y `tax_regime` en `entities`.
-  * Tabla `tax_calculation_runs` para registrar corridas de cálculo con desglose estructurado en `calculated_values` jsonb.
-  * Tabla `tax_adjustments` para trazabilidad de agregados y deducciones de RLI en el F22.
-  * Función `public.calculate_f29()`: Calcula automáticamente IVA Débito Fiscal, IVA Crédito Fiscal, arrastra el Remanente del mes anterior, determina el PPM obligatorio sobre ingresos netos y la liquidación total a pagar.
-  * Función `public.calculate_f22()`: Genera el borrador del Formulario 22 anual con RLI, tasa de 1ra categoría y rebaja de PPMs acumulados.
-  * Función `public.update_tax_run_status()`: Flujo de aprobación contable (`draft` $\rightarrow$ `reviewed` $\rightarrow$ `filed`).
-  * Registro del módulo `taxes` en la tabla `modules`.
-* **Interfaz de Usuario (UI) en [`taxes.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/taxes.tsx)**:
-  * Pestaña "Formulario 29 (F29 Mensual)" con visualización de casillas de IVA, PPM y total a pagar.
-  * Pestaña "Formulario 22 (F22 Anual Renta)" con cálculo de RLI y saldo líquido.
-  * Pestaña "Historial de Declaraciones" con control de estados y auditoría.
-  * Integración en el menú superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+* **Migración SQL de Declaraciones de Impuestos** ([`supabase/migrations/20260825000011_sprint12_impuestos_f29_f22.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000011_sprint12_impuestos_f29_f22.sql)).
+* Módulo en `taxes.tsx`.
 
 ---
 
