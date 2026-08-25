@@ -155,9 +155,10 @@ function ReportsPage() {
     });
 
     filteredEntries.forEach((e) => {
-      if (balMap[e.account_id]) {
-        balMap[e.account_id].debit += e.debit;
-        balMap[e.account_id].credit += e.credit;
+      const bal = balMap[e.account_id];
+      if (bal) {
+        bal.debit += e.debit;
+        bal.credit += e.credit;
       }
     });
 

@@ -198,7 +198,7 @@ function PurchasesPage() {
     queryFn: async () => {
       if (!activeEntityId) return [];
       const { data, error } = await supabase
-        .from("purchase_invoices" as any)
+        .from("purchase_invoices")
         .select(`
           *,
           parties(name, tax_id),
@@ -346,7 +346,7 @@ function PurchasesPage() {
 
       // 1. Crear cabecera
       const { data: inv, error: invError } = await supabase
-        .from("purchase_invoices" as any)
+        .from("purchase_invoices")
         .insert({
           entity_id: activeEntityId,
           party_id: invPartyId,

@@ -198,7 +198,7 @@ function SalesPage() {
     queryFn: async () => {
       if (!activeEntityId) return [];
       const { data, error } = await supabase
-        .from("sales_invoices" as any)
+        .from("sales_invoices")
         .select(`
           *,
           parties(name, tax_id),
@@ -346,7 +346,7 @@ function SalesPage() {
 
       // 1. Crear cabecera
       const { data: inv, error: invError } = await supabase
-        .from("sales_invoices" as any)
+        .from("sales_invoices")
         .insert({
           entity_id: activeEntityId,
           party_id: invPartyId,

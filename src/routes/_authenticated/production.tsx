@@ -135,7 +135,7 @@ function ProductionPage() {
     queryFn: async () => {
       if (!activeEntityId) return [];
       const { data, error } = await supabase
-        .from("bill_of_materials" as any)
+        .from("bill_of_materials")
         .select(`
           *,
           finished_item:item_id(sku, name),
@@ -191,7 +191,7 @@ function ProductionPage() {
 
       // 1. Crear cabecera BOM
       const { data: newBom, error: bomErr } = await supabase
-        .from("bill_of_materials" as any)
+        .from("bill_of_materials")
         .insert({
           entity_id: activeEntityId,
           name: bomName.trim(),
