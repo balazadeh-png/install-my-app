@@ -13,23 +13,38 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Package, Plus, ArrowLeft, RefreshCw, Warehouse, Scale } from "lucide-react";
+import {
+  Package,
+  Plus,
+  ArrowLeft,
+  RefreshCw,
+  Warehouse,
+  ArrowRightLeft,
+  ListOrdered,
+  Layers,
+  ArrowDownRight,
+  ArrowUpRight,
+  Boxes,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
   component: InventoryPage,
   head: () => ({
     meta: [
-      { title: "Inventario & Bodegas | EasyERP" },
-      { name: "description", content: "Catálogo de artículos, bodegas, valoración FIFO y existencias." },
+      { title: "Inventario & Multibodega | EasyERP" },
+      { name: "description", content: "Movimientos de stock, traslados entre bodegas, existencias y Kardex FIFO." },
     ],
   }),
 });
 
 function InventoryPage() {
   const queryClient = useQueryClient();
-  const { activeEntityId } = useActiveEntity();
+  const { activeEntity, activeEntityId } = useActiveEntity();
+
   const [newItemOpen, setNewItemOpen] = useState(false);
   const [newWarehouseOpen, setNewWarehouseOpen] = useState(false);
+  const [newMovementOpen, setNewMovementOpen] = useState(false);
+  const [newTransferOpen, setNewTransferOpen] = useState(false);
 
   // Form State Item
   const [itemCode, setItemCode] = useState("");
@@ -41,6 +56,28 @@ function InventoryPage() {
   // Form State Warehouse
   const [warehouseCode, setWarehouseCode] = useState("");
   const [warehouseName, setWarehouseName] = useState("");
+
+  // Form State Movimiento Individual (Entrada / Salida / Ajuste)
+  const [movType, setMovType] = useState<"receipt" | "issue" | "adjustment">("receipt");
+  const [movItemId, setMovItemId] = useState("");
+  const [movWarehouseId, setMovWarehouseId] = useState("");
+  const [movQty, setMovQty] = useState("");
+  const [movRate, setMovRate] = useState("");
+  const [movDate, setMovDate] = useState(new Date().toISOString().split("T")[0]);
+  const [movMemo, setMovMemo] = useState("");
+
+  // Form State Traslado entre Bodegas
+  const [trItem, setTrItem] = useState("");
+  const [trFromWh, setTrFromWh] = useState("");
+  const [trToWh, setTrToWh] = useState("");
+  const [trQty, setTrQty] = useState("");
+  const [trDate, setTrDate] = useState(new Date().toISOString().split("T")[0]);
+  const [trMemo, setTrMemo] = useState("");
+
+  // Filtros de vista
+  const [filterWarehouse, setFilterWarehouse] = useState<string>("ALL");
+
+  const baseCurrency = activeEntity?.base_currency_code || "CLP";
 
   // Query: Items
   const itemsQuery = useQuery({
@@ -94,13 +131,45 @@ function InventoryPage() {
     enabled: !!activeEntityId,
   });
 
+  // Query: Saldos por Bodega (stock_balances)
+  const balancesQuery = useQuery({
+    queryKey: ["stock_balances", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("stock_balances" as any)
+        .select("*")
+        .eq("entity_id", activeEntityId);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  // Query: Kardex / Movimientos (stock_ledger_entries)
+  const movementsQuery = useQuery({
+    queryKey: ["stock_ledger_entries", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("stock_ledger_entries" as any)
+        .select("*, items(code, name), warehouses(code, name)")
+        .eq("entity_id", activeEntityId)
+        .order("posting_date", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!activeEntityId,
+  });
+
   // Mutation: Crear Item
   const createItemMutation = useMutation({
     mutationFn: async () => {
       if (!activeEntityId) throw new Error("Selecciona una empresa primero");
       const { error } = await supabase.from("items").insert({
         entity_id: activeEntityId,
-        code: itemCode.trim(),
+        code: itemCode.trim().toUpperCase(),
         name: itemName.trim(),
         category_id: itemCategory || null,
         uom_id: itemUom || null,
@@ -130,7 +199,7 @@ function InventoryPage() {
       if (!activeEntityId) throw new Error("Selecciona una empresa primero");
       const { error } = await supabase.from("warehouses").insert({
         entity_id: activeEntityId,
-        code: warehouseCode.trim(),
+        code: warehouseCode.trim().toUpperCase(),
         name: warehouseName.trim(),
         active: true,
       });
@@ -148,10 +217,102 @@ function InventoryPage() {
     },
   });
 
+  // Mutation: Registrar Movimiento Individual (Entrada / Salida / Ajuste)
+  const createMovementMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+      if (!movItemId) throw new Error("Selecciona un artículo");
+      if (!movWarehouseId) throw new Error("Selecciona una bodega");
+
+      const qty = parseFloat(movQty);
+      if (isNaN(qty) || qty <= 0) throw new Error("Ingresa una cantidad válida mayor a cero");
+
+      const isExit = movType === "issue";
+      const finalQty = isExit ? -qty : qty;
+      const rate = parseFloat(movRate || "0");
+
+      if (!isExit && (isNaN(rate) || rate <= 0)) {
+        throw new Error("Las entradas requieren un costo unitario de valorización mayor a cero");
+      }
+
+      const { error } = await supabase.from("stock_ledger_entries" as any).insert({
+        entity_id: activeEntityId,
+        item_id: movItemId,
+        warehouse_id: movWarehouseId,
+        movement_type: movType,
+        qty_change: finalQty,
+        valuation_rate: isExit ? 0 : rate, // El trigger FIFO calcula el rate en salidas
+        posting_date: movDate,
+        memo: movMemo.trim() || `Movimiento de ${movType === "receipt" ? "Entrada" : movType === "issue" ? "Salida" : "Ajuste"}`,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stock_ledger_entries", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["stock_balances", activeEntityId] });
+      toast.success("Movimiento de inventario procesado correctamente");
+      setNewMovementOpen(false);
+      setMovQty("");
+      setMovRate("");
+      setMovMemo("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al procesar movimiento");
+    },
+  });
+
+  // Mutation: Registrar Traslado entre Bodegas
+  const createTransferMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+      if (!trItem) throw new Error("Selecciona un artículo");
+      if (!trFromWh || !trToWh) throw new Error("Selecciona bodegas de origen y destino");
+      if (trFromWh === trToWh) throw new Error("Las bodegas deben ser distintas");
+
+      const qty = parseFloat(trQty);
+      if (isNaN(qty) || qty <= 0) throw new Error("Ingresa una cantidad mayor a cero");
+
+      const { data, error } = await supabase.rpc("create_warehouse_transfer", {
+        _entity_id: activeEntityId,
+        _item_id: trItem,
+        _from_warehouse: trFromWh,
+        _to_warehouse: trToWh,
+        _qty: qty,
+        _posting_date: trDate,
+        _memo: trMemo.trim() || "Traslado entre bodegas",
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["stock_ledger_entries", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["stock_balances", activeEntityId] });
+      toast.success(`Traslado completado. Costo unitario FIFO transferido: $ ${Number(res?.valuation_rate || 0).toLocaleString("es-CL")}`);
+      setNewTransferOpen(false);
+      setTrQty("");
+      setTrMemo("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al realizar traslado");
+    },
+  });
+
   const items = itemsQuery.data ?? [];
   const categories = categoriesQuery.data ?? [];
   const uoms = uomQuery.data ?? [];
   const warehouses = warehousesQuery.data ?? [];
+  const balances = balancesQuery.data ?? [];
+  const movements = movementsQuery.data ?? [];
+
+  const filteredBalances = balances.filter((b) => {
+    if (filterWarehouse !== "ALL" && b.warehouse_id !== filterWarehouse) return false;
+    return true;
+  });
+
+  const totalStockQty = balances.reduce((sum, b) => sum + Number(b.qty_on_hand || 0), 0);
+  const totalStockValue = balances.reduce((sum, b) => sum + Number(b.value_on_hand || 0), 0);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -169,6 +330,8 @@ function InventoryPage() {
           onClick={() => {
             itemsQuery.refetch();
             warehousesQuery.refetch();
+            balancesQuery.refetch();
+            movementsQuery.refetch();
           }}
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -183,14 +346,107 @@ function InventoryPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Package className="h-4 w-4" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Módulo de Inventario & Bodegas</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Módulo de Inventario & Multibodega</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Catálogo de productos, control de existencias, bodegas físicas y valoración FIFO.
+            Control de existencias por bodega, movimientos de entrada/salida, traslados y Kardex valorizado bajo método FIFO.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Dialog Crear Artículo */}
+          <Dialog open={newItemOpen} onOpenChange={setNewItemOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Nuevo Artículo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Registrar Artículo de Inventario</DialogTitle>
+                <DialogDescription>
+                  Crea un nuevo ítem en el catálogo de productos con método de valorización FIFO.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-3">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="iCode" className="text-right">Código / SKU</Label>
+                  <Input
+                    id="iCode"
+                    placeholder="ej. PROD-001"
+                    value={itemCode}
+                    onChange={(e) => setItemCode(e.target.value)}
+                    className="col-span-3 font-mono"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="iName" className="text-right">Descripción</Label>
+                  <Input
+                    id="iName"
+                    placeholder="ej. Notebook Dell Latitude 5420"
+                    value={itemName}
+                    onChange={(e) => setItemName(e.target.value)}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="iCat" className="text-right">Categoría</Label>
+                  <Select value={itemCategory} onValueChange={setItemCategory}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Seleccione categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="iUom" className="text-right">Unidad (UOM)</Label>
+                  <Select value={itemUom} onValueChange={setItemUom}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Seleccione unidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {uoms.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.code} - {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Stockable</Label>
+                  <div className="col-span-3 flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isStock"
+                      checked={isStockItem}
+                      onChange={(e) => setIsStockItem(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <label htmlFor="isStock" className="text-xs text-muted-foreground">
+                      Lleva control de inventario y capas FIFO
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => createItemMutation.mutate()}
+                  disabled={createItemMutation.isPending || !itemCode || !itemName}
+                >
+                  Guardar Artículo
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           {/* Dialog Crear Bodega */}
           <Dialog open={newWarehouseOpen} onOpenChange={setNewWarehouseOpen}>
             <DialogTrigger asChild>
@@ -203,7 +459,7 @@ function InventoryPage() {
               <DialogHeader>
                 <DialogTitle>Registrar Bodega / Almacén</DialogTitle>
                 <DialogDescription>
-                  Define una nueva ubicación física para almacenar inventario.
+                  Agrega una ubicación física para el almacenamiento de inventario.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-3">
@@ -211,7 +467,7 @@ function InventoryPage() {
                   <Label htmlFor="wCode" className="text-right">Código</Label>
                   <Input
                     id="wCode"
-                    placeholder="ej. BOD-CENTRAL"
+                    placeholder="ej. BOD-01"
                     value={warehouseCode}
                     onChange={(e) => setWarehouseCode(e.target.value)}
                     className="col-span-3 font-mono"
@@ -239,94 +495,231 @@ function InventoryPage() {
             </DialogContent>
           </Dialog>
 
-          {/* Dialog Crear Item */}
-          <Dialog open={newItemOpen} onOpenChange={setNewItemOpen}>
+          {/* Dialog Traslado entre Bodegas */}
+          <Dialog open={newTransferOpen} onOpenChange={setNewTransferOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Nuevo Artículo
+              <Button variant="secondary" size="sm">
+                <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                Traslado entre Bodegas
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Crear Producto o Servicio</DialogTitle>
+                <DialogTitle>Traslado de Mercadería entre Bodegas</DialogTitle>
                 <DialogDescription>
-                  Agrega un nuevo ítem a la lista maestra de inventario.
+                  Mueve unidades entre bodegas preservando automáticamente el costo FIFO de origen.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-3">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="iCode" className="text-right">Código / SKU</Label>
-                  <Input
-                    id="iCode"
-                    placeholder="ej. PROD-001"
-                    value={itemCode}
-                    onChange={(e) => setItemCode(e.target.value)}
-                    className="col-span-3 font-mono"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="iName" className="text-right">Descripción</Label>
-                  <Input
-                    id="iName"
-                    placeholder="ej. Café Grano Tostado Premium (Saco 25kg)"
-                    value={itemName}
-                    onChange={(e) => setItemName(e.target.value)}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="iCategory" className="text-right">Categoría</Label>
-                  <Select value={itemCategory} onValueChange={setItemCategory}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Seleccione categoría" />
+                <div>
+                  <Label className="text-xs">Artículo a Trasladar</Label>
+                  <Select value={trItem} onValueChange={setTrItem}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Seleccionar producto" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
+                      {items.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                          {i.code} - {i.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="iUom" className="text-right">U. Medida</Label>
-                  <Select value={itemUom} onValueChange={setItemUom}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Seleccione unidad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {uoms.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.name} ({u.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Bodega Origen (Salida)</Label>
+                    <Select value={trFromWh} onValueChange={setTrFromWh}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Origen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {warehouses.map((w) => (
+                          <SelectItem key={w.id} value={w.id}>
+                            {w.code} - {w.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Bodega Destino (Entrada)</Label>
+                    <Select value={trToWh} onValueChange={setTrToWh}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Destino" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {warehouses.map((w) => (
+                          <SelectItem key={w.id} value={w.id}>
+                            {w.code} - {w.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="isStock" className="text-right">¿Controla Stock?</Label>
-                  <div className="col-span-3 flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isStock"
-                      checked={isStockItem}
-                      onChange={(e) => setIsStockItem(e.target.checked)}
-                      className="rounded border-gray-300"
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Cantidad</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="0"
+                      value={trQty}
+                      onChange={(e) => setTrQty(e.target.value)}
+                      className="mt-1 font-mono"
                     />
-                    <label htmlFor="isStock" className="text-xs text-muted-foreground">
-                      Desmarcar si es un Servicio
-                    </label>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Fecha</Label>
+                    <Input
+                      type="date"
+                      value={trDate}
+                      onChange={(e) => setTrDate(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Glosa / Observación</Label>
+                  <Input
+                    placeholder="Motivo del traslado"
+                    value={trMemo}
+                    onChange={(e) => setTrMemo(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => createTransferMutation.mutate()}
+                  disabled={createTransferMutation.isPending || !trItem || !trFromWh || !trToWh || !trQty}
+                >
+                  {createTransferMutation.isPending ? "Procesando..." : "Ejecutar Traslado FIFO"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog Registrar Movimiento (Entrada / Salida / Ajuste) */}
+          <Dialog open={newMovementOpen} onOpenChange={setNewMovementOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Registrar Movimiento
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Movimiento de Inventario</DialogTitle>
+                <DialogDescription>
+                  Ingreso de compras, salidas a consumo o ajustes de existencias.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-3">
+                <div>
+                  <Label className="text-xs">Tipo de Movimiento</Label>
+                  <Select value={movType} onValueChange={(val: any) => setMovType(val)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="receipt">Entrada / Recepción de Mercadería</SelectItem>
+                      <SelectItem value="issue">Salida / Consumo de Materiales</SelectItem>
+                      <SelectItem value="adjustment">Ajuste de Inventario (Entrada)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Artículo</Label>
+                  <Select value={movItemId} onValueChange={setMovItemId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Seleccionar producto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {items.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                          {i.code} - {i.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Bodega</Label>
+                  <Select value={movWarehouseId} onValueChange={setMovWarehouseId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Seleccionar bodega" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {warehouses.map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.code} - {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Cantidad</Label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="0"
+                      value={movQty}
+                      onChange={(e) => setMovQty(e.target.value)}
+                      className="mt-1 font-mono"
+                    />
+                  </div>
+                  {movType !== "issue" ? (
+                    <div>
+                      <Label className="text-xs">Costo Unitario ($ {baseCurrency})</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="ej. 1500"
+                        value={movRate}
+                        onChange={(e) => setMovRate(e.target.value)}
+                        className="mt-1 font-mono"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Costo Salida</Label>
+                      <div className="mt-1 h-9 px-3 flex items-center rounded border bg-muted text-xs text-muted-foreground font-mono">
+                        Cálculo FIFO Auto
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Fecha</Label>
+                    <Input
+                      type="date"
+                      value={movDate}
+                      onChange={(e) => setMovDate(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Glosa / Concepto</Label>
+                    <Input
+                      placeholder="ej. Factura Compra #102"
+                      value={movMemo}
+                      onChange={(e) => setMovMemo(e.target.value)}
+                      className="mt-1"
+                    />
                   </div>
                 </div>
               </div>
               <DialogFooter>
                 <Button
-                  onClick={() => createItemMutation.mutate()}
-                  disabled={createItemMutation.isPending || !itemCode || !itemName}
+                  onClick={() => createMovementMutation.mutate()}
+                  disabled={createMovementMutation.isPending || !movItemId || !movWarehouseId || !movQty}
                 >
-                  Guardar Artículo
+                  {createMovementMutation.isPending ? "Guardando..." : "Registrar Movimiento"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -334,44 +727,125 @@ function InventoryPage() {
         </div>
       </div>
 
+      {/* KPI Cards */}
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+              Total Unidades en Stock
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono text-foreground">
+              {totalStockQty.toLocaleString("es-CL")}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Existencias globales</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+              Valorización Total (FIFO)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+              $ {totalStockValue.toLocaleString("es-CL")}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Moneda base ({baseCurrency})</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+              Bodegas Activas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {warehouses.length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Ubicaciones de acopio</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">
+              Catálogo de Artículos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {items.length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">SKUs registrados</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Tabs */}
-      <Tabs defaultValue="items" className="space-y-4">
+      <Tabs defaultValue="balances" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="balances" className="flex items-center gap-1.5">
+            <Boxes className="h-4 w-4" />
+            <span>Saldos por Bodega ({balances.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="ledger" className="flex items-center gap-1.5">
+            <ListOrdered className="h-4 w-4" />
+            <span>Kardex / Movimientos ({movements.length})</span>
+          </TabsTrigger>
           <TabsTrigger value="items" className="flex items-center gap-1.5">
             <Package className="h-4 w-4" />
-            <span>Artículos ({items.length})</span>
+            <span>Catálogo de Artículos ({items.length})</span>
           </TabsTrigger>
           <TabsTrigger value="warehouses" className="flex items-center gap-1.5">
             <Warehouse className="h-4 w-4" />
             <span>Bodegas ({warehouses.length})</span>
           </TabsTrigger>
-          <TabsTrigger value="uom" className="flex items-center gap-1.5">
-            <Scale className="h-4 w-4" />
-            <span>Unidades de Medida ({uoms.length})</span>
-          </TabsTrigger>
         </TabsList>
 
-        {/* Tab Items */}
-        <TabsContent value="items">
+        {/* Tab Saldos por Bodega */}
+        <TabsContent value="balances">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Maestro de Artículos y Servicios</CardTitle>
-              <CardDescription>
-                Productos con método de valoración FIFO y control de inventario.
-              </CardDescription>
+            <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-semibold">Existencias y Valorización por Bodega</CardTitle>
+                <CardDescription>
+                  Saldos en tiempo real consolidados a partir de las capas FIFO activas.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">Filtrar Bodega:</Label>
+                <Select value={filterWarehouse} onValueChange={setFilterWarehouse}>
+                  <SelectTrigger className="w-[200px] h-8 text-xs">
+                    <SelectValue placeholder="Todas las bodegas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Todas las bodegas</SelectItem>
+                    {warehouses.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>
+                        {w.code} - {w.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
             <CardContent>
-              {items.length === 0 ? (
+              {filteredBalances.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground">
-                  <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">No hay artículos registrados aún.</p>
+                  <Boxes className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">No hay registros de stock en las bodegas.</p>
                   <Button
                     variant="outline"
                     size="sm"
                     className="mt-3"
-                    onClick={() => setNewItemOpen(true)}
+                    onClick={() => setNewMovementOpen(true)}
                   >
-                    Crear primer artículo
+                    Registrar primera entrada
                   </Button>
                 </div>
               ) : (
@@ -380,34 +854,129 @@ function InventoryPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[140px]">SKU / Código</TableHead>
-                        <TableHead>Descripción</TableHead>
-                        <TableHead>Categoría</TableHead>
-                        <TableHead>Unidad</TableHead>
-                        <TableHead className="text-center">Tipo</TableHead>
-                        <TableHead className="text-center">Valoración</TableHead>
-                        <TableHead className="text-center">Estado</TableHead>
+                        <TableHead>Artículo</TableHead>
+                        <TableHead>Bodega</TableHead>
+                        <TableHead className="text-right">Cantidad en Stock</TableHead>
+                        <TableHead className="text-right">Costo Promedio Unitario</TableHead>
+                        <TableHead className="text-right">Valorización Total ({baseCurrency})</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {items.map((it) => {
-                        const cat = (it as any).item_categories;
-                        const uom = (it as any).uom;
+                      {filteredBalances.map((b, idx) => (
+                        <TableRow key={`${b.item_id}-${b.warehouse_id}-${idx}`}>
+                          <TableCell className="font-mono text-xs font-semibold text-primary">
+                            {b.item_code}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium">{b.item_name}</TableCell>
+                          <TableCell className="text-xs">
+                            <Badge variant="outline" className="text-xs">
+                              {b.warehouse_code} - {b.warehouse_name}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs font-bold">
+                            {Number(b.qty_on_hand).toLocaleString("es-CL")}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                            $ {Number(b.avg_rate).toLocaleString("es-CL")}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                            $ {Number(b.value_on_hand).toLocaleString("es-CL")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab Kardex / Movimientos */}
+        <TabsContent value="ledger">
+          <Card>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">Kardex de Movimientos de Inventario</CardTitle>
+                <CardDescription>
+                  Trazabilidad inmutable de entradas, salidas y traslados con costo FIFO real.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {movements.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <ListOrdered className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">No hay movimientos registrados en el Kardex.</p>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[100px]">Fecha</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Artículo</TableHead>
+                        <TableHead>Bodega</TableHead>
+                        <TableHead className="text-right">Cantidad</TableHead>
+                        <TableHead className="text-right">Costo Unitario FIFO</TableHead>
+                        <TableHead className="text-right">Total Movimiento</TableHead>
+                        <TableHead>Glosa / Referencia</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {movements.map((m) => {
+                        const isEntry = Number(m.qty_change) > 0;
+                        const isTransfer = m.movement_type === "transfer_in" || m.movement_type === "transfer_out";
+                        const totalVal = Math.abs(Number(m.qty_change) * Number(m.valuation_rate));
+
                         return (
-                          <TableRow key={it.id}>
-                            <TableCell className="font-mono font-medium text-xs">{it.code}</TableCell>
-                            <TableCell className="font-semibold text-foreground text-xs">{it.name}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{cat?.name || "Sin categoría"}</TableCell>
-                            <TableCell className="text-xs">{uom?.code || "-"}</TableCell>
-                            <TableCell className="text-center">
-                              <Badge variant={it.is_stock_item ? "default" : "secondary"} className="text-[11px]">
-                                {it.is_stock_item ? "Inventario" : "Servicio"}
-                              </Badge>
+                          <TableRow key={m.id}>
+                            <TableCell className="font-mono text-xs">{m.posting_date}</TableCell>
+                            <TableCell className="text-xs">
+                              {m.movement_type === "receipt" && (
+                                <Badge className="bg-emerald-600 text-white gap-1 text-[11px]">
+                                  <ArrowDownRight className="h-3 w-3" /> Entrada
+                                </Badge>
+                              )}
+                              {m.movement_type === "issue" && (
+                                <Badge variant="destructive" className="gap-1 text-[11px]">
+                                  <ArrowUpRight className="h-3 w-3" /> Salida
+                                </Badge>
+                              )}
+                              {m.movement_type === "transfer_out" && (
+                                <Badge variant="outline" className="border-amber-500 text-amber-600 gap-1 text-[11px]">
+                                  <ArrowRightLeft className="h-3 w-3" /> Traslado Salida
+                                </Badge>
+                              )}
+                              {m.movement_type === "transfer_in" && (
+                                <Badge variant="outline" className="border-blue-500 text-blue-600 gap-1 text-[11px]">
+                                  <ArrowRightLeft className="h-3 w-3" /> Traslado Entrada
+                                </Badge>
+                              )}
+                              {m.movement_type === "adjustment" && (
+                                <Badge variant="secondary" className="text-[11px]">
+                                  Ajuste
+                                </Badge>
+                              )}
                             </TableCell>
-                            <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                              {it.valuation_method || "FIFO"}
+                            <TableCell className="text-xs font-medium">
+                              {m.items ? `${m.items.code} - ${m.items.name}` : m.item_id}
                             </TableCell>
-                            <TableCell className="text-center">
-                              <span className={`inline-block h-2 w-2 rounded-full ${it.active ? "bg-emerald-500" : "bg-red-500"}`} />
+                            <TableCell className="text-xs">
+                              {m.warehouses?.name || m.warehouse_id}
+                            </TableCell>
+                            <TableCell className={`text-right font-mono text-xs font-bold ${isEntry ? "text-emerald-600" : "text-destructive"}`}>
+                              {isEntry ? `+${Number(m.qty_change).toLocaleString("es-CL")}` : Number(m.qty_change).toLocaleString("es-CL")}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-xs">
+                              $ {Number(m.valuation_rate).toLocaleString("es-CL")}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-xs font-semibold">
+                              $ {totalVal.toLocaleString("es-CL")}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {m.memo || "-"}
                             </TableCell>
                           </TableRow>
                         );
@@ -420,13 +989,82 @@ function InventoryPage() {
           </Card>
         </TabsContent>
 
+        {/* Tab Items */}
+        <TabsContent value="items">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Catálogo Maestro de Artículos</CardTitle>
+              <CardDescription>
+                Productos y servicios administrados por la empresa.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {items.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">No hay artículos registrados aún.</p>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[140px]">SKU / Código</TableHead>
+                        <TableHead>Descripción</TableHead>
+                        <TableHead>Categoría</TableHead>
+                        <TableHead>Unidad</TableHead>
+                        <TableHead className="text-center">Método</TableHead>
+                        <TableHead className="text-center">Control Stock</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((i) => (
+                        <TableRow key={i.id}>
+                          <TableCell className="font-mono text-xs font-semibold">{i.code}</TableCell>
+                          <TableCell className="text-xs font-medium">{i.name}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {i.item_categories?.name || "-"}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono">
+                            {i.uom?.code || "-"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="text-xs">
+                              {i.valuation_method || "FIFO"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {i.is_stock_item ? (
+                              <Badge variant="default" className="text-xs bg-primary/20 text-primary border-primary/30">
+                                Stockable
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">
+                                Servicio
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={`inline-block h-2 w-2 rounded-full ${i.active ? "bg-emerald-500" : "bg-red-500"}`} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Tab Warehouses */}
         <TabsContent value="warehouses">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Bodegas y Almacenes</CardTitle>
+              <CardTitle className="text-base font-semibold">Bodegas & Ubicaciones de Almacenamiento</CardTitle>
               <CardDescription>
-                Ubicaciones físicas de almacenamiento y control de existencias.
+                Instalaciones físicas configuradas para la empresa activa.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -440,19 +1078,19 @@ function InventoryPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[180px]">Código</TableHead>
-                        <TableHead>Nombre de Bodega</TableHead>
+                        <TableHead className="w-[140px]">Código</TableHead>
+                        <TableHead>Nombre del Almacén</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {warehouses.map((w) => (
                         <TableRow key={w.id}>
-                          <TableCell className="font-mono font-medium text-xs">{w.code}</TableCell>
-                          <TableCell className="font-medium text-xs">{w.name}</TableCell>
+                          <TableCell className="font-mono text-xs font-semibold text-primary">{w.code}</TableCell>
+                          <TableCell className="text-xs font-semibold">{w.name}</TableCell>
                           <TableCell className="text-center">
                             <Badge variant={w.active ? "outline" : "secondary"} className="text-xs">
-                              {w.active ? "Activa" : "Inactiva"}
+                              {w.active ? "Operativa" : "Inactiva"}
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -461,38 +1099,6 @@ function InventoryPage() {
                   </Table>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab UOM */}
-        <TabsContent value="uom">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Unidades de Medida (UOM)</CardTitle>
-              <CardDescription>
-                Unidades estándar para compras, ventas y control de existencias.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[180px]">Código</TableHead>
-                      <TableHead>Descripción</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {uoms.map((u) => (
-                      <TableRow key={u.id}>
-                        <TableCell className="font-mono font-semibold text-xs">{u.code}</TableCell>
-                        <TableCell className="text-xs">{u.name}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

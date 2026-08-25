@@ -20,7 +20,23 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 2. Ventas & Clientes ([`/sales`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sales.tsx))
+## 2. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
+* **Motor de Movimientos de Inventario (`stock_ledger_entries`)**:
+  * Registro de transacciones inmutables de entrada (`receipt`), salida (`issue`), ajuste (`adjustment`), salida por traslado (`transfer_out`) y entrada por traslado (`transfer_in`).
+  * Control de cantidades con signo y fecha contable de valorización.
+* **Capas de Valorización FIFO (`stock_valuation_layers`)**:
+  * Creación automática de capas de costo unitario tras cada entrada de mercadería (`trg_create_fifo_layer`).
+  * Consumo de capas más antiguas primero ante cada salida (`trg_consume_fifo_layers`) con bloqueo preventivo ante falta de stock suficiente (no permite inventario negativo).
+  * Recálculo automático del costo unitario ponderado real de la salida.
+* **Traslados Atómicos entre Bodegas (`create_warehouse_transfer`)**:
+  * Función que realiza la salida en la bodega origen consumiendo capas FIFO y replica la entrada en la bodega destino preservando exactamente el costo unitario de origen sin alterar el costo del producto por el simple hecho de moverse de almacén.
+* **Saldos en Tiempo Real (`stock_balances`) & Kardex**:
+  * Vista que calcula la cantidad disponible (`qty_on_hand`), el valor total del inventario (`value_on_hand`) y el costo promedio unitario actual.
+  * Kardex histórico detallado con trazabilidad de costos por bodega y por ítem.
+
+---
+
+## 3. Ventas & Clientes ([`/sales`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sales.tsx))
 * **Directorio de Clientes (`parties`)**:
   * Gestión de clientes con razón social, nombre comercial y **RUT** chileno (ej. `76.123.456-K`).
   * Relación con personas de contacto (`contacts`) incluyendo correo y teléfono.
@@ -28,22 +44,11 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 3. Compras & Proveedores ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
+## 4. Compras & Proveedores ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
 * **Directorio de Suplidores (`parties`)**:
   * Registro de proveedores de materias primas, productos y servicios con **RUT**.
   * Contactos asociados para cotizaciones y pedidos.
   * Modal de alta rápida de proveedores.
-
----
-
-## 4. Inventario & Bodegas ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
-* **Maestro de Artículos (`items`)**:
-  * Catálogo de productos y servicios con SKU/código, descripción, categoría y unidad de medida (`uom`).
-  * Indicador de control de stock y método de valoración predeterminado (FIFO).
-* **Bodegas y Almacenes (`warehouses`)**:
-  * Registro y gestión de ubicaciones físicas de almacenamiento.
-* **Unidades de Medida (`uom`)**:
-  * Catálogo de unidades estándar (UNIDAD, KG, LT, etc.).
 
 ---
 

@@ -4,6 +4,26 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 5: Multibodega Real, Movimientos de Stock y Kardex FIFO] - 2026-08-25
+
+### Añadido
+* **Migración SQL del Motor de Inventario** ([`supabase/migrations/20260825000004_sprint05_multibodega_kardex_fifo.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000004_sprint05_multibodega_kardex_fifo.sql)):
+  * Enum `stock_movement_type` (`receipt`, `issue`, `transfer_out`, `transfer_in`, `adjustment`).
+  * Tabla `stock_ledger_entries` para registrar todos los movimientos de stock inmutables con trazabilidad de costos.
+  * Tabla `stock_valuation_layers` para el seguimiento de capas FIFO activas (`qty_remaining`, `rate`).
+  * Vista `stock_balances` que consolida cantidad física disponible (`qty_on_hand`), valorización monetaria total (`value_on_hand`) y costo unitario promedio ponderado por bodega y producto.
+  * Trigger `trg_consume_fifo_layers` (`BEFORE INSERT` en salidas) que consume capas cronológicamente con `FOR UPDATE`, calcula el costo ponderado real de la salida y bloquea stocks negativos.
+  * Trigger `trg_create_fifo_layer` (`AFTER INSERT` en entradas) para registrar nuevas capas valorizadas.
+  * Función `public.create_warehouse_transfer()` para traslados atómicos entre bodegas manteniendo intacto el costo unitario de origen en la bodega de destino.
+  * Políticas de Row Level Security (RLS) multiempresa para inventario.
+* **Interfaz de Usuario (UI) en [`inventory.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx)**:
+  * Pestaña "Saldos por Bodega": Vista de existencias y valorización total en `$ CLP` filtrable por bodega.
+  * Pestaña "Kardex / Movimientos": Historial cronológico con badges por tipo de movimiento, cantidades y costo unitario FIFO.
+  * Modal "Registrar Movimiento": Soporte para entradas por compra, salidas a consumo y ajustes.
+  * Modal "Traslado entre Bodegas": Ejecución de traslados interbodega conservando el valor FIFO.
+
+---
+
 ## [Sprint 4: Centros de Costo y Unidades/Sucursales] - 2026-08-25
 
 ### Añadido
@@ -13,7 +33,6 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
   * Columnas `cost_center_id` y `business_unit_id` en `journal_entry_lines`.
   * Columnas `requires_cost_center` y `requires_business_unit` en `accounts`.
   * Trigger `trg_validate_line_dimensions` que valida a nivel de base de datos la obligatoriedad de centros de costo o sucursales antes de permitir el asiento y rechaza imputaciones a nodos agrupadores.
-  * Semillero por defecto para empresas existentes con sucursal principal y centros de costo de administración, ventas y operaciones.
 * **Interfaz de Usuario (UI)**:
   * Pestañas dedicadas en [`setup.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx) para crear, jerarquizar y administrar Centros de Costo y Sucursales.
   * Opciones en "Nueva Cuenta" de [`accounting.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx) para exigir Centro de Costo o Sucursal en cuentas de resultado.
@@ -26,14 +45,10 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ### Añadido
 * **Migración SQL Multimoneda** ([`supabase/migrations/20260825000002_sprint03_multimoneda_cuentas.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000002_sprint03_multimoneda_cuentas.sql)):
-  * Columna `currency_code` en `accounts` (FK a `currencies.code`) permitiendo que cuentas específicas (bancos en USD, cuentas por cobrar del exterior) operen en su propia moneda.
+  * Columna `currency_code` en `accounts` (FK a `currencies.code`) permitiendo que cuentas específicas operen en su propia moneda.
   * Columnas `currency_code`, `exchange_rate`, `debit_account_currency`, `credit_account_currency` en `journal_entry_lines`.
   * Función `public.get_exchange_rate(_origin, _destination, _date)` con validación de fecha exacta en `exchange_rates`.
-  * Trigger `trg_resolve_line_currency` que resuelve la moneda de la cuenta y calcula automáticamente los montos funcionales en `debit` y `credit` multiplicados por la tasa del día.
-* **Interfaz de Usuario (UI)**:
-  * Selector de moneda opcional en el modal "Nueva Cuenta" de [`accounting.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx).
-  * Soporte multimoneda en el formulario de comprobante con cálculo de equivalentes en tiempo real y modal rápido de tasa de cambio.
-  * Visualización de montos duales en la vista de comprobantes del Libro Diario.
+  * Trigger `trg_resolve_line_currency` que resuelve la moneda de la cuenta y calcula automáticamente los montos funcionales en `debit` y `credit`.
 
 ---
 
@@ -42,15 +57,9 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 ### Añadido
 * **Migración SQL del Motor Contable** ([`supabase/migrations/20260825000001_sprint02_motor_partida_doble.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000001_sprint02_motor_partida_doble.sql)):
   * Enum `journal_entry_status` (`draft`, `posted`, `reversed`).
-  * Tabla `journal_entries` para cabeceras de comprobantes y `journal_entry_lines` para detalle de partidas.
-  * Función `public.get_next_entry_number()` que consume de forma atómica correlativos de `naming_series`.
-  * Función `public.post_journal_entry()` con validación estricta de partida doble ($\sum \text{Débitos} = \sum \text{Créditos}$).
-  * Función `public.reverse_journal_entry()` para anulación y creación automática de contra-asientos invertidos.
+  * Tablas `journal_entries` y `journal_entry_lines`.
+  * Función `public.get_next_entry_number()`, `public.post_journal_entry()` y `public.reverse_journal_entry()`.
   * Trigger de inmutabilidad `trg_journal_entries_immutability`.
-* **Interfaz de Usuario (UI)**:
-  * Modal de comprobantes contables con $N$ líneas y validación visual de balance.
-  * Vista de Libro Diario agrupada por comprobante con botón de reversión.
-  * Reportes financieros consolidados desde comprobantes posteados.
 
 ---
 
@@ -58,13 +67,9 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ### Añadido
 * **Migración SQL Multiempresa** ([`supabase/migrations/20260825000000_sprint01_multiempresa_rls.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000000_sprint01_multiempresa_rls.sql)):
-  * Tabla `company_users` para asociar usuarios a empresas con roles específicos.
-  * Función de seguridad `public.user_has_company_access(_user_id, _entity_id)` (`SECURITY DEFINER`).
+  * Tabla `company_users`, función `public.user_has_company_access(_user_id, _entity_id)`.
   * `base_currency_code` en `entities` y `active_entity_id` en `profiles`.
-  * Políticas RLS reescritas para aislamiento estricto por `entity_id` en todas las tablas de negocio.
-* **Capa de Estado y UI**:
-  * `ActiveEntityContext` y selector dinámico de empresa en [`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx).
-  * Filtrado estricto por `entity_id` en todas las pantallas.
+  * Políticas RLS reescritas para aislamiento estricto por `entity_id`.
 
 ---
 
