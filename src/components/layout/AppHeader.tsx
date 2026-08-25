@@ -26,7 +26,7 @@ import {
   ChevronDown,
   Building2,
   Check,
-  Plus,
+  Factory,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -35,6 +35,7 @@ export const moduleNavItems = [
   { name: "sales", label: "Ventas", path: "/sales", icon: Users },
   { name: "purchases", label: "Compras", path: "/purchases", icon: ShoppingCart },
   { name: "inventory", label: "Inventario", path: "/inventory", icon: Package },
+  { name: "production", label: "Producción", path: "/production", icon: Factory },
   { name: "assets", label: "Activos Fijos", path: "/assets", icon: Building2 },
   { name: "cash", label: "Bancos / Tesorería", path: "/cash", icon: DollarSign },
   { name: "reports", label: "Reportes", path: "/reports", icon: BarChart3 },

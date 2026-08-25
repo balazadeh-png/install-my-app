@@ -4,22 +4,28 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 9: Módulo de Producción Simple & Lista de Materiales (BOM)] - 2026-08-25
+
+### Añadido
+* **Migración SQL de Producción y Recetas BOM** ([`supabase/migrations/20260825000008_sprint09_produccion_bom.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000008_sprint09_produccion_bom.sql)):
+  * Tablas `bill_of_materials` y `bom_lines` para la formulación de recetas de productos terminados e insumos requeridos.
+  * Enum `production_order_status` (`planned`, `in_progress`, `completed`, `cancelled`).
+  * Tabla `production_orders` para la programación y ejecución de órdenes de fabricación con bodegas de origen y destino.
+  * Función `public.complete_production_order()`: Consume materiales en capas FIFO desde la bodega de origen, calcula el costo total consumido e ingresa el producto terminado en la bodega de destino con su costo unitario real.
+  * Registro del módulo `production` en la tabla `modules`.
+* **Interfaz de Usuario (UI) en [`production.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/production.tsx)**:
+  * Tarjetas KPI: *Órdenes Completadas*, *Unidades Producidas* y *Costo Total de Materiales*.
+  * Pestaña "Órdenes de Producción": Lanzamiento de lotes, seguimiento de estado y botón "Completar".
+  * Pestaña "Fórmulas / Recetas BOM": Catálogo visual de fórmulas y modal interactivo para agregar insumos dinámicamente.
+  * Integración en la barra superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+
+---
+
 ## [Sprint 8: Activos Fijos y Depreciación Mensual Automática] - 2026-08-25
 
 ### Añadido
-* **Migración SQL de Activos Fijos** ([`supabase/migrations/20260825000007_sprint08_activos_fijos.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000007_sprint08_activos_fijos.sql)):
-  * Enums `depreciation_method` (`linea_recta`, `acelerada`) y `asset_status` (`active`, `fully_depreciated`, `disposed`).
-  * Tabla `fixed_assets` (fichas maestras de bienes de uso con costo histórico, valor residual, vida útil en meses, método, centros de costo y cuentas contables mapeadas).
-  * Tabla `fixed_asset_depreciation_entries` (registro único por activo y período mensual con su respectivo comprobante contable asociado).
-  * Función `public.run_monthly_depreciation()`: Cálculo automático de amortización mensual e inserción de comprobantes contables balanceados al Libro Mayor.
-  * Función `public.dispose_fixed_asset()`: Proceso de baja/disposición con descargo de valor histórico, reversión de depreciación acumulada e imputación del resultado en venta.
-  * Inserción del módulo `assets` en la tabla `modules`.
-* **Interfaz de Usuario (UI) en [`assets.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/assets.tsx)**:
-  * Vista principal con tarjetas KPI: Valor Histórico Total, Depreciación Acumulada y Valor Libro Neto (Net Book Value).
-  * Pestaña "Fichas de Activos Fijos" con modal de alta, detalle completo y opción de baja/disposición.
-  * Pestaña "Libro de Depreciaciones" con historial de cuotas mensuales y números de comprobantes posteados.
-  * Modal interactivo "Ejecutar Depreciación del Mes".
-  * Integración en la navegación global ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+* **Migración SQL de Activos Fijos** ([`supabase/migrations/20260825000007_sprint08_activos_fijos.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000007_sprint08_activos_fijos.sql)).
+* Módulo en `assets.tsx`.
 
 ---
 
@@ -27,7 +33,6 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ### Añadido
 * **Migración SQL de Cierre y Revalorización** ([`supabase/migrations/20260825000006_sprint07_cierre_revalorizacion.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000006_sprint07_cierre_revalorizacion.sql)).
-* Selectores y submódulo en `setup.tsx`.
 
 ---
 
@@ -35,7 +40,6 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ### Añadido
 * **Migración SQL Transaccional** ([`supabase/migrations/20260825000005_sprint06_ventas_compras_transaccional.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000005_sprint06_ventas_compras_transaccional.sql)).
-* Módulos de Facturación de Ventas y Compras en `sales.tsx` y `purchases.tsx`.
 
 ---
 

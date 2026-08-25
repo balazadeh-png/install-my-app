@@ -16,6 +16,7 @@ import {
   BarChart3,
   ArrowRight,
   Building2,
+  Factory,
 } from "lucide-react";
 
 const moduleConfig: Record<string, { icon: React.ReactNode; path: string; description: string }> = {
@@ -43,6 +44,11 @@ const moduleConfig: Record<string, { icon: React.ReactNode; path: string; descri
     icon: <Package className="h-5 w-5" />,
     path: "/inventory",
     description: "Catálogo de artículos, bodegas y método FIFO.",
+  },
+  production: {
+    icon: <Factory className="h-5 w-5" />,
+    path: "/production",
+    description: "Fórmulas BOM, órdenes de producción y costeo real.",
   },
   assets: {
     icon: <Building2 className="h-5 w-5" />,
