@@ -70,7 +70,33 @@ WHERE base_currency_code IS NULL;
 -- 4. Columna active_entity_id en profiles
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS active_entity_id uuid REFERENCES public.entities(id) ON DELETE SET NULL;
 
--- 5. Backfill: Crear empresa por defecto si no existe ninguna
+-- 5. Agregar columna entity_id a todas las tablas de negocio
+ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.books ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.fiscal_years ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.accounting_periods ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.gl_entries ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.parties ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.contacts ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.addresses ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.items ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.warehouses ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+ALTER TABLE public.naming_series ADD COLUMN IF NOT EXISTS entity_id uuid REFERENCES public.entities(id) ON DELETE CASCADE;
+
+-- Índices en entity_id para alto rendimiento en RLS
+CREATE INDEX IF NOT EXISTS ix_accounts_entity_id ON public.accounts(entity_id);
+CREATE INDEX IF NOT EXISTS ix_gl_entries_entity_id ON public.gl_entries(entity_id);
+CREATE INDEX IF NOT EXISTS ix_parties_entity_id ON public.parties(entity_id);
+CREATE INDEX IF NOT EXISTS ix_contacts_entity_id ON public.contacts(entity_id);
+CREATE INDEX IF NOT EXISTS ix_addresses_entity_id ON public.addresses(entity_id);
+CREATE INDEX IF NOT EXISTS ix_items_entity_id ON public.items(entity_id);
+CREATE INDEX IF NOT EXISTS ix_warehouses_entity_id ON public.warehouses(entity_id);
+CREATE INDEX IF NOT EXISTS ix_books_entity_id ON public.books(entity_id);
+CREATE INDEX IF NOT EXISTS ix_fiscal_years_entity_id ON public.fiscal_years(entity_id);
+CREATE INDEX IF NOT EXISTS ix_accounting_periods_entity_id ON public.accounting_periods(entity_id);
+CREATE INDEX IF NOT EXISTS ix_naming_series_entity_id ON public.naming_series(entity_id);
+
+-- 6. Backfill: Crear empresa por defecto si no existe ninguna y asignar registros huérfanos
 DO $$
 DECLARE
     v_default_entity_id uuid;
@@ -109,7 +135,7 @@ BEGIN
     UPDATE public.naming_series SET entity_id = v_default_entity_id WHERE entity_id IS NULL;
 END $$;
 
--- 6. Reescritura de Políticas RLS con Filtro por Empresa + Rol
+-- 7. Reescritura de Políticas RLS con Filtro por Empresa + Rol
 
 -- Entities
 ALTER TABLE public.entities ENABLE ROW LEVEL SECURITY;
