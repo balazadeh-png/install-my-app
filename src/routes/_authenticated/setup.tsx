@@ -4,13 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveEntity } from "@/context/ActiveEntityContext";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +44,8 @@ import {
   RefreshCw,
   CheckCircle,
   Building2,
+  PieChart,
+  Network,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,7 +54,7 @@ export const Route = createFileRoute("/_authenticated/setup")({
   head: () => ({
     meta: [
       { title: "Configuración | EasyERP" },
-      { name: "description", content: "Empresa, años fiscales, períodos contables y correlativos." },
+      { name: "description", content: "Empresa, centros de costo, sucursales, años fiscales y correlativos." },
     ],
   }),
 });
@@ -72,6 +67,8 @@ function SetupPage() {
   const [newEntityOpen, setNewEntityOpen] = useState(false);
   const [newYearOpen, setNewYearOpen] = useState(false);
   const [newSeriesOpen, setNewSeriesOpen] = useState(false);
+  const [newCcOpen, setNewCcOpen] = useState(false);
+  const [newBuOpen, setNewBuOpen] = useState(false);
 
   // Form Entity
   const [entityCode, setEntityCode] = useState("");
@@ -87,6 +84,18 @@ function SetupPage() {
   // Form Series
   const [seriesName, setSeriesName] = useState("");
   const [seriesPrefix, setSeriesPrefix] = useState("");
+
+  // Form Cost Center
+  const [ccCode, setCcCode] = useState("");
+  const [ccName, setCcName] = useState("");
+  const [ccParentId, setCcParentId] = useState<string>("NONE");
+  const [ccIsGroup, setCcIsGroup] = useState(false);
+
+  // Form Business Unit
+  const [buCode, setBuCode] = useState("");
+  const [buName, setBuName] = useState("");
+  const [buParentId, setBuParentId] = useState<string>("NONE");
+  const [buIsGroup, setBuIsGroup] = useState(false);
 
   // Queries
   const currenciesQuery = useQuery({
@@ -137,6 +146,36 @@ function SetupPage() {
     enabled: !!activeEntityId,
   });
 
+  const costCentersQuery = useQuery({
+    queryKey: ["cost_centers", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("cost_centers")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .order("code");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  const businessUnitsQuery = useQuery({
+    queryKey: ["business_units", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("business_units")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .order("code");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
   const rolesQuery = useQuery({
     queryKey: ["system_roles"],
     queryFn: async () => {
@@ -166,7 +205,6 @@ function SetupPage() {
 
       if (entityErr) throw entityErr;
 
-      // Asignar al creador como admin de esta empresa
       const { error: cuErr } = await supabase.from("company_users" as any).insert({
         user_id: user.id,
         entity_id: newEntity.id,
@@ -209,11 +247,11 @@ function SetupPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fiscal_years", activeEntityId] });
-      toast.success("Año fiscal registrado");
+      toast.success("Año fiscal aperturado exitosamente");
       setNewYearOpen(false);
     },
     onError: (err: any) => {
-      toast.error(err.message || "Error al registrar año fiscal");
+      toast.error(err.message || "Error al crear año fiscal");
     },
   });
 
@@ -230,21 +268,77 @@ function SetupPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["naming_series", activeEntityId] });
-      toast.success("Serie registrada");
+      toast.success("Serie correlativa creada");
       setNewSeriesOpen(false);
       setSeriesName("");
       setSeriesPrefix("");
     },
     onError: (err: any) => {
-      toast.error(err.message || "Error al registrar serie");
+      toast.error(err.message || "Error al crear serie");
+    },
+  });
+
+  const createCcMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+      const { error } = await supabase.from("cost_centers").insert({
+        entity_id: activeEntityId,
+        code: ccCode.trim().toUpperCase(),
+        name: ccName.trim(),
+        parent_id: ccParentId === "NONE" ? null : ccParentId,
+        is_group: ccIsGroup,
+        active: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cost_centers", activeEntityId] });
+      toast.success("Centro de costo registrado");
+      setNewCcOpen(false);
+      setCcCode("");
+      setCcName("");
+      setCcParentId("NONE");
+      setCcIsGroup(false);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al crear centro de costo");
+    },
+  });
+
+  const createBuMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+      const { error } = await supabase.from("business_units").insert({
+        entity_id: activeEntityId,
+        code: buCode.trim().toUpperCase(),
+        name: buName.trim(),
+        parent_id: buParentId === "NONE" ? null : buParentId,
+        is_group: buIsGroup,
+        active: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["business_units", activeEntityId] });
+      toast.success("Unidad / Sucursal registrada");
+      setNewBuOpen(false);
+      setBuCode("");
+      setBuName("");
+      setBuParentId("NONE");
+      setBuIsGroup(false);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al crear sucursal");
     },
   });
 
   const entities = entitiesQuery.data ?? [];
-  const currencies = currenciesQuery.data ?? [];
   const fiscalYears = fiscalYearsQuery.data ?? [];
   const series = seriesQuery.data ?? [];
+  const costCenters = costCentersQuery.data ?? [];
+  const businessUnits = businessUnitsQuery.data ?? [];
   const roles = rolesQuery.data ?? [];
+  const currencies = currenciesQuery.data ?? [];
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -263,8 +357,8 @@ function SetupPage() {
             entitiesQuery.refetch();
             fiscalYearsQuery.refetch();
             seriesQuery.refetch();
-            rolesQuery.refetch();
-            refetchCompanies();
+            costCentersQuery.refetch();
+            businessUnitsQuery.refetch();
           }}
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -273,22 +367,34 @@ function SetupPage() {
       </div>
 
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2">
-          <Settings className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Configuración del Sistema</h1>
+      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Settings className="h-4 w-4" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Configuración del Sistema</h1>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gestión de empresas, centros de costo, unidades/sucursales, ejercicios contables y series.
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gestión de entidades legales, años fiscales, correlativos y catálogo de seguridad.
-        </p>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="entities" className="space-y-6">
-        <TabsList>
+      <Tabs defaultValue="entities" className="space-y-4">
+        <TabsList className="flex flex-wrap h-auto p-1">
           <TabsTrigger value="entities" className="flex items-center gap-1.5">
             <Building className="h-4 w-4" />
-            <span>Empresas / Entidades ({entities.length})</span>
+            <span>Empresas ({entities.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="cost_centers" className="flex items-center gap-1.5">
+            <PieChart className="h-4 w-4" />
+            <span>Centros de Costo ({costCenters.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="business_units" className="flex items-center gap-1.5">
+            <Network className="h-4 w-4" />
+            <span>Sucursales / Unidades ({businessUnits.length})</span>
           </TabsTrigger>
           <TabsTrigger value="fiscal" className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
@@ -296,7 +402,7 @@ function SetupPage() {
           </TabsTrigger>
           <TabsTrigger value="series" className="flex items-center gap-1.5">
             <Layers className="h-4 w-4" />
-            <span>Correlativos ({series.length})</span>
+            <span>Series ({series.length})</span>
           </TabsTrigger>
           <TabsTrigger value="roles" className="flex items-center gap-1.5">
             <Shield className="h-4 w-4" />
@@ -447,6 +553,274 @@ function SetupPage() {
                           </TableRow>
                         );
                       })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab Cost Centers */}
+        <TabsContent value="cost_centers">
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <div className="p-6 pb-3 flex flex-row items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold">Centros de Costo</h3>
+                <p className="text-xs text-muted-foreground">
+                  Dimensiones jerárquicas para imputación de gastos, costos e ingresos en {activeEntity?.name || "la empresa"}.
+                </p>
+              </div>
+              <Dialog open={newCcOpen} onOpenChange={setNewCcOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" disabled={!activeEntityId}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Nuevo Centro de Costo
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Crear Centro de Costo</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-3">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="ccCode" className="text-right">Código</Label>
+                      <Input
+                        id="ccCode"
+                        placeholder="ej. CC-ADM"
+                        value={ccCode}
+                        onChange={(e) => setCcCode(e.target.value)}
+                        className="col-span-3 font-mono"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="ccName" className="text-right">Nombre</Label>
+                      <Input
+                        id="ccName"
+                        placeholder="ej. Administración Central"
+                        value={ccName}
+                        onChange={(e) => setCcName(e.target.value)}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="ccParent" className="text-right">Depende de</Label>
+                      <div className="col-span-3">
+                        <Select value={ccParentId} onValueChange={setCcParentId}>
+                          <SelectTrigger id="ccParent">
+                            <SelectValue placeholder="Centro de costo padre" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NONE">Ninguno (Nivel Principal)</SelectItem>
+                            {costCenters.map((cc) => (
+                              <SelectItem key={cc.id} value={cc.id}>
+                                {cc.code} - {cc.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="ccGroup" className="text-right">¿Es Grupo?</Label>
+                      <div className="col-span-3 flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="ccGroup"
+                          checked={ccIsGroup}
+                          onChange={(e) => setCcIsGroup(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        <label htmlFor="ccGroup" className="text-xs text-muted-foreground">
+                          Agrupador de sub-centros (no recibe asientos directos)
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      onClick={() => createCcMutation.mutate()}
+                      disabled={createCcMutation.isPending || !ccCode || !ccName}
+                    >
+                      Guardar Centro de Costo
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <div className="p-6 pt-0">
+              {!activeEntityId ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  Selecciona una empresa activa para gestionar sus centros de costo.
+                </div>
+              ) : costCenters.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  No hay centros de costo registrados para esta empresa.
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[140px]">Código</TableHead>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead className="text-center">Tipo</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {costCenters.map((cc) => (
+                        <TableRow key={cc.id}>
+                          <TableCell className="font-mono font-medium text-xs text-primary">{cc.code}</TableCell>
+                          <TableCell className="text-xs font-semibold">
+                            <span className={cc.parent_id ? "pl-4 text-muted-foreground" : ""}>
+                              {cc.parent_id && "&bull; "} {cc.name}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={cc.is_group ? "secondary" : "outline"} className="text-xs">
+                              {cc.is_group ? "Grupo" : "Imputable"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={`inline-block h-2 w-2 rounded-full ${cc.active ? "bg-emerald-500" : "bg-red-500"}`} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab Business Units */}
+        <TabsContent value="business_units">
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <div className="p-6 pb-3 flex flex-row items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold">Unidades de Negocio & Sucursales</h3>
+                <p className="text-xs text-muted-foreground">
+                  Estructura geográfica y operativa para segmentación de resultados.
+                </p>
+              </div>
+              <Dialog open={newBuOpen} onOpenChange={setNewBuOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" disabled={!activeEntityId}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Nueva Sucursal / Unidad
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Crear Unidad / Sucursal</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-3">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="buCode" className="text-right">Código</Label>
+                      <Input
+                        id="buCode"
+                        placeholder="ej. SUC-STGO"
+                        value={buCode}
+                        onChange={(e) => setBuCode(e.target.value)}
+                        className="col-span-3 font-mono"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="buName" className="text-right">Nombre</Label>
+                      <Input
+                        id="buName"
+                        placeholder="ej. Sucursal Santiago Centro"
+                        value={buName}
+                        onChange={(e) => setBuName(e.target.value)}
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="buParent" className="text-right">Depende de</Label>
+                      <div className="col-span-3">
+                        <Select value={buParentId} onValueChange={setBuParentId}>
+                          <SelectTrigger id="buParent">
+                            <SelectValue placeholder="Unidad padre" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NONE">Ninguna (Nivel Principal)</SelectItem>
+                            {businessUnits.map((bu) => (
+                              <SelectItem key={bu.id} value={bu.id}>
+                                {bu.code} - {bu.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="buGroup" className="text-right">¿Es Grupo?</Label>
+                      <div className="col-span-3 flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="buGroup"
+                          checked={buIsGroup}
+                          onChange={(e) => setBuIsGroup(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        <label htmlFor="buGroup" className="text-xs text-muted-foreground">
+                          Agrupador de sucursales (no recibe asientos directos)
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      onClick={() => createBuMutation.mutate()}
+                      disabled={createBuMutation.isPending || !buCode || !buName}
+                    >
+                      Guardar Sucursal
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <div className="p-6 pt-0">
+              {!activeEntityId ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  Selecciona una empresa activa para gestionar sus sucursales.
+                </div>
+              ) : businessUnits.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  No hay unidades o sucursales registradas para esta empresa.
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[140px]">Código</TableHead>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead className="text-center">Tipo</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {businessUnits.map((bu) => (
+                        <TableRow key={bu.id}>
+                          <TableCell className="font-mono font-medium text-xs text-primary">{bu.code}</TableCell>
+                          <TableCell className="text-xs font-semibold">
+                            <span className={bu.parent_id ? "pl-4 text-muted-foreground" : ""}>
+                              {bu.parent_id && "&bull; "} {bu.name}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={bu.is_group ? "secondary" : "outline"} className="text-xs">
+                              {bu.is_group ? "Grupo" : "Imputable"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={`inline-block h-2 w-2 rounded-full ${bu.active ? "bg-emerald-500" : "bg-red-500"}`} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>

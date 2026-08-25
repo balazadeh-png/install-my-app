@@ -24,15 +24,16 @@ import {
   CheckCircle2,
   AlertCircle,
   RotateCcw,
-  DollarSign,
+  PieChart,
+  Network,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/accounting")({
   component: AccountingPage,
   head: () => ({
     meta: [
-      { title: "Contabilidad & Multimoneda | EasyERP" },
-      { name: "description", content: "Plan de cuentas multimoneda, comprobantes contables por partida doble y libro mayor." },
+      { title: "Contabilidad, Multimoneda & Centros de Costo | EasyERP" },
+      { name: "description", content: "Plan de cuentas, centros de costo, sucursales y comprobantes contables por partida doble." },
     ],
   }),
 });
@@ -40,8 +41,10 @@ export const Route = createFileRoute("/_authenticated/accounting")({
 interface JournalLineForm {
   account_id: string;
   party_id?: string;
-  debit: string; // Monto en moneda de cuenta o base
-  credit: string; // Monto en moneda de cuenta o base
+  cost_center_id?: string;
+  business_unit_id?: string;
+  debit: string;
+  credit: string;
   memo: string;
 }
 
@@ -58,6 +61,8 @@ function AccountingPage() {
   const [accountName, setAccountName] = useState("");
   const [accountType, setAccountType] = useState("Asset");
   const [accountCurrency, setAccountCurrency] = useState<string>("DEFAULT");
+  const [requiresCc, setRequiresCc] = useState(false);
+  const [requiresBu, setRequiresBu] = useState(false);
   const [isGroup, setIsGroup] = useState(false);
 
   // Form State para Nuevo Comprobante Contable
@@ -72,7 +77,7 @@ function AccountingPage() {
 
   const baseCurrency = activeEntity?.base_currency_code || "CLP";
 
-  // Query: Monedas disponibles
+  // Queries
   const currenciesQuery = useQuery({
     queryKey: ["currencies"],
     queryFn: async () => {
@@ -82,7 +87,6 @@ function AccountingPage() {
     },
   });
 
-  // Query: Tasas de cambio registradas
   const exchangeRatesQuery = useQuery({
     queryKey: ["exchange_rates"],
     queryFn: async () => {
@@ -95,7 +99,6 @@ function AccountingPage() {
     },
   });
 
-  // Query: Cuentas Contables
   const accountsQuery = useQuery({
     queryKey: ["accounts", activeEntityId],
     queryFn: async () => {
@@ -111,7 +114,38 @@ function AccountingPage() {
     enabled: !!activeEntityId,
   });
 
-  // Query: Libros de Tesorería
+  const costCentersQuery = useQuery({
+    queryKey: ["cost_centers", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("cost_centers")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .eq("active", true)
+        .order("code");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  const businessUnitsQuery = useQuery({
+    queryKey: ["business_units", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("business_units")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .eq("active", true)
+        .order("code");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
   const booksQuery = useQuery({
     queryKey: ["books", activeEntityId],
     queryFn: async () => {
@@ -127,7 +161,6 @@ function AccountingPage() {
     enabled: !!activeEntityId,
   });
 
-  // Query: Terceros (Parties)
   const partiesQuery = useQuery({
     queryKey: ["parties", activeEntityId],
     queryFn: async () => {
@@ -143,7 +176,6 @@ function AccountingPage() {
     enabled: !!activeEntityId,
   });
 
-  // Query: Comprobantes Contables (journal_entries con detalle multimoneda)
   const journalEntriesQuery = useQuery({
     queryKey: ["journal_entries", activeEntityId],
     queryFn: async () => {
@@ -158,6 +190,8 @@ function AccountingPage() {
             line_no,
             account_id,
             party_id,
+            cost_center_id,
+            business_unit_id,
             currency_code,
             exchange_rate,
             debit_account_currency,
@@ -166,7 +200,9 @@ function AccountingPage() {
             credit,
             memo,
             accounts(code, name, currency_code),
-            parties(name, tax_id)
+            parties(name, tax_id),
+            cost_centers(code, name),
+            business_units(code, name)
           )
         `)
         .eq("entity_id", activeEntityId)
@@ -181,11 +217,13 @@ function AccountingPage() {
   const currencies = currenciesQuery.data ?? [];
   const exchangeRates = exchangeRatesQuery.data ?? [];
   const accounts = accountsQuery.data ?? [];
+  const costCenters = costCentersQuery.data ?? [];
+  const businessUnits = businessUnitsQuery.data ?? [];
   const books = booksQuery.data ?? [];
   const parties = partiesQuery.data ?? [];
   const journalEntries = journalEntriesQuery.data ?? [];
 
-  // Helper para buscar tasa de cambio exacta
+  // Helper tasa de cambio
   const findExchangeRate = (fromCurr: string, toCurr: string, dateStr: string): number | null => {
     if (!fromCurr || !toCurr || fromCurr === toCurr) return 1.0;
     const direct = exchangeRates.find(
@@ -212,6 +250,8 @@ function AccountingPage() {
         name: accountName.trim(),
         account_type: accountType,
         currency_code: finalCurrency,
+        requires_cost_center: requiresCc,
+        requires_business_unit: requiresBu,
         is_group: isGroup,
         active: true,
       });
@@ -224,6 +264,8 @@ function AccountingPage() {
       setAccountCode("");
       setAccountName("");
       setAccountCurrency("DEFAULT");
+      setRequiresCc(false);
+      setRequiresBu(false);
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al crear la cuenta");
@@ -255,7 +297,7 @@ function AccountingPage() {
     },
   });
 
-  // Helper para modificar líneas
+  // Helpers para modificar líneas
   const handleAddLine = () => {
     setLines([...lines, { account_id: "", debit: "", credit: "", memo: "" }]);
   };
@@ -279,12 +321,13 @@ function AccountingPage() {
     setLines(updated);
   };
 
-  // Cálculos dinámicos en moneda funcional para las líneas del borrador
+  // Cálculos dinámicos en moneda funcional y validaciones analíticas
   const computedLines = useMemo(() => {
     let missingRate = false;
     let missingCurrency = "";
+    let missingDimensionMsg = "";
 
-    const calculated = lines.map((line) => {
+    const calculated = lines.map((line, idx) => {
       const acc = accounts.find((a) => a.id === line.account_id);
       const accCurrency = acc?.currency_code || baseCurrency;
       const isForeign = accCurrency !== baseCurrency;
@@ -304,11 +347,20 @@ function AccountingPage() {
         }
       }
 
+      // Validar requerimientos analíticos
+      if (acc?.requires_cost_center && !line.cost_center_id) {
+        missingDimensionMsg = `Línea ${idx + 1}: La cuenta "${acc.name}" exige Centro de Costo obligatorio.`;
+      }
+      if (acc?.requires_business_unit && !line.business_unit_id) {
+        missingDimensionMsg = `Línea ${idx + 1}: La cuenta "${acc.name}" exige Unidad/Sucursal obligatoria.`;
+      }
+
       const functionalDebit = isForeign ? Math.round(rawDebit * rate) : rawDebit;
       const functionalCredit = isForeign ? Math.round(rawCredit * rate) : rawCredit;
 
       return {
         ...line,
+        account: acc,
         accCurrency,
         isForeign,
         rate,
@@ -322,7 +374,7 @@ function AccountingPage() {
     const totalDebitCalc = calculated.reduce((sum, l) => sum + l.functionalDebit, 0);
     const totalCreditCalc = calculated.reduce((sum, l) => sum + l.functionalCredit, 0);
     const difference = Math.abs(totalDebitCalc - totalCreditCalc);
-    const isBalanced = totalDebitCalc > 0 && difference < 0.01 && !missingRate;
+    const isBalanced = totalDebitCalc > 0 && difference < 0.01 && !missingRate && !missingDimensionMsg;
 
     return {
       calculated,
@@ -332,6 +384,7 @@ function AccountingPage() {
       isBalanced,
       missingRate,
       missingCurrency,
+      missingDimensionMsg,
     };
   }, [lines, accounts, baseCurrency, exchangeRates, voucherDate]);
 
@@ -342,12 +395,15 @@ function AccountingPage() {
       if (computedLines.missingRate) {
         throw new Error(`Falta registrar la tasa de cambio para ${computedLines.missingCurrency} en la fecha ${voucherDate}`);
       }
+      if (computedLines.missingDimensionMsg) {
+        throw new Error(computedLines.missingDimensionMsg);
+      }
       if (!computedLines.isBalanced) {
         throw new Error("El comprobante no cuadra: Total Débito debe ser igual a Total Crédito en moneda base");
       }
       if (lines.length < 2) throw new Error("Se requieren al menos dos líneas contables");
 
-      // 1. Crear cabecera en draft
+      // 1. Cabecera
       const { data: header, error: headerError } = await supabase
         .from("journal_entries")
         .insert({
@@ -363,12 +419,14 @@ function AccountingPage() {
 
       if (headerError) throw headerError;
 
-      // 2. Insertar líneas multimoneda
+      // 2. Líneas con dimensiones analíticas
       const linesToInsert = computedLines.calculated.map((line, idx) => ({
         journal_entry_id: header.id,
         line_no: idx + 1,
         account_id: line.account_id,
         party_id: line.party_id || null,
+        cost_center_id: line.cost_center_id || null,
+        business_unit_id: line.business_unit_id || null,
         currency_code: line.accCurrency,
         exchange_rate: line.rate,
         debit_account_currency: line.rawDebit,
@@ -384,7 +442,7 @@ function AccountingPage() {
 
       if (linesError) throw linesError;
 
-      // 3. Postear mediante función SQL atómica de verificación
+      // 3. Postear comprobante
       const { data: postRes, error: postError } = await supabase.rpc("post_journal_entry", {
         _journal_entry_id: header.id,
       });
@@ -454,6 +512,8 @@ function AccountingPage() {
             accountsQuery.refetch();
             journalEntriesQuery.refetch();
             exchangeRatesQuery.refetch();
+            costCentersQuery.refetch();
+            businessUnitsQuery.refetch();
           }}
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -471,7 +531,7 @@ function AccountingPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Módulo de Contabilidad</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Motor de partida doble, catálogo multimoneda ({baseCurrency}), comprobantes inmutables y libro mayor.
+            Motor de partida doble, catálogo multimoneda ({baseCurrency}), centros de costo, sucursales y libro mayor.
           </p>
         </div>
 
@@ -488,7 +548,7 @@ function AccountingPage() {
               <DialogHeader>
                 <DialogTitle>Agregar Cuenta Contable</DialogTitle>
                 <DialogDescription>
-                  Crea una nueva cuenta o grupo en el catálogo de cuentas de la empresa.
+                  Crea una nueva cuenta en el catálogo con reglas analíticas de centros de costo o sucursal.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-3">
@@ -496,7 +556,7 @@ function AccountingPage() {
                   <Label htmlFor="code" className="text-right">Código</Label>
                   <Input
                     id="code"
-                    placeholder="ej. 1.1.01.002"
+                    placeholder="ej. 5.1.01.001"
                     value={accountCode}
                     onChange={(e) => setAccountCode(e.target.value)}
                     className="col-span-3 font-mono"
@@ -506,7 +566,7 @@ function AccountingPage() {
                   <Label htmlFor="name" className="text-right">Nombre</Label>
                   <Input
                     id="name"
-                    placeholder="ej. Banco Santander USD"
+                    placeholder="ej. Gastos de Publicidad y Marketing"
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value)}
                     className="col-span-3"
@@ -549,18 +609,44 @@ function AccountingPage() {
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="isGroup" className="text-right">¿Es Grupo?</Label>
-                  <div className="col-span-3 flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isGroup"
-                      checked={isGroup}
-                      onChange={(e) => setIsGroup(e.target.checked)}
-                      className="rounded border-gray-300"
-                    />
-                    <label htmlFor="isGroup" className="text-xs text-muted-foreground">
-                      Marcar si agrupa subcuentas (no asienta movimientos)
-                    </label>
+                  <Label className="text-right">Requerimientos</Label>
+                  <div className="col-span-3 space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="reqCc"
+                        checked={requiresCc}
+                        onChange={(e) => setRequiresCc(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor="reqCc" className="text-xs text-foreground font-medium">
+                        Exigir Centro de Costo al asentar
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="reqBu"
+                        checked={requiresBu}
+                        onChange={(e) => setRequiresBu(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor="reqBu" className="text-xs text-foreground font-medium">
+                        Exigir Sucursal / Unidad al asentar
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="isGroup"
+                        checked={isGroup}
+                        onChange={(e) => setIsGroup(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      <label htmlFor="isGroup" className="text-xs text-muted-foreground">
+                        Marcar como cuenta de grupo (agrupadora)
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -583,11 +669,11 @@ function AccountingPage() {
                 Nuevo Comprobante
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Nuevo Comprobante Contable</DialogTitle>
                 <DialogDescription>
-                  Ingresa la cabecera y las partidas contables. Soporta cuentas en moneda extranjera con conversión automática a {baseCurrency}.
+                  Ingresa las partidas contables con imputación a Centros de Costo y Sucursales.
                 </DialogDescription>
               </DialogHeader>
 
@@ -652,7 +738,7 @@ function AccountingPage() {
                   <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     <span>
-                      No existe tasa de cambio registrada para <strong>{computedLines.missingCurrency} &rarr; {baseCurrency}</strong> en la fecha <strong>{voucherDate}</strong>.
+                      No existe tasa de cambio para <strong>{computedLines.missingCurrency} &rarr; {baseCurrency}</strong> en la fecha <strong>{voucherDate}</strong>.
                     </span>
                   </div>
                   <Button
@@ -667,11 +753,19 @@ function AccountingPage() {
                 </div>
               )}
 
+              {/* Alerta de Dimensión Faltante */}
+              {computedLines.missingDimensionMsg && (
+                <div className="p-3 rounded-md bg-red-500/10 border border-red-500/30 flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{computedLines.missingDimensionMsg}</span>
+                </div>
+              )}
+
               {/* Tabla de Líneas Contables */}
               <div className="py-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Partidas Contables (Mínimo 2 líneas)
+                    Partidas Contables & Dimensiones Analíticas
                   </span>
                   <Button type="button" variant="outline" size="sm" onClick={handleAddLine}>
                     <Plus className="h-3.5 w-3.5 mr-1" />
@@ -683,11 +777,13 @@ function AccountingPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[28%]">Cuenta Contable</TableHead>
-                        <TableHead className="w-[18%]">Tercero / RUT</TableHead>
-                        <TableHead className="w-[22%] text-right">Débito</TableHead>
-                        <TableHead className="w-[22%] text-right">Crédito</TableHead>
-                        <TableHead className="w-[10%] text-center">Acción</TableHead>
+                        <TableHead className="w-[22%]">Cuenta Contable</TableHead>
+                        <TableHead className="w-[14%]">Centro de Costo</TableHead>
+                        <TableHead className="w-[14%]">Sucursal / Unidad</TableHead>
+                        <TableHead className="w-[14%]">Tercero / RUT</TableHead>
+                        <TableHead className="w-[16%] text-right">Débito</TableHead>
+                        <TableHead className="w-[16%] text-right">Crédito</TableHead>
+                        <TableHead className="w-[4%] text-center"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -712,24 +808,72 @@ function AccountingPage() {
                               </SelectContent>
                             </Select>
                           </TableCell>
+
+                          {/* Centro de Costo */}
+                          <TableCell className="p-2">
+                            <Select
+                              value={line.cost_center_id || ""}
+                              onValueChange={(val) => handleLineChange(idx, "cost_center_id", val)}
+                            >
+                              <SelectTrigger className={`h-8 text-xs ${line.account?.requires_cost_center && !line.cost_center_id ? "border-red-500" : ""}`}>
+                                <SelectValue placeholder={line.account?.requires_cost_center ? "Obligatorio *" : "Opcional"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Sin Centro de Costo</SelectItem>
+                                {costCenters
+                                  .filter((cc) => !cc.is_group)
+                                  .map((cc) => (
+                                    <SelectItem key={cc.id} value={cc.id}>
+                                      {cc.code} - {cc.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+
+                          {/* Unidad / Sucursal */}
+                          <TableCell className="p-2">
+                            <Select
+                              value={line.business_unit_id || ""}
+                              onValueChange={(val) => handleLineChange(idx, "business_unit_id", val)}
+                            >
+                              <SelectTrigger className={`h-8 text-xs ${line.account?.requires_business_unit && !line.business_unit_id ? "border-red-500" : ""}`}>
+                                <SelectValue placeholder={line.account?.requires_business_unit ? "Obligatorio *" : "Opcional"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Sin Sucursal</SelectItem>
+                                {businessUnits
+                                  .filter((bu) => !bu.is_group)
+                                  .map((bu) => (
+                                    <SelectItem key={bu.id} value={bu.id}>
+                                      {bu.code} - {bu.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+
+                          {/* Tercero */}
                           <TableCell className="p-2">
                             <Select
                               value={line.party_id || ""}
                               onValueChange={(val) => handleLineChange(idx, "party_id", val)}
                             >
                               <SelectTrigger className="h-8 text-xs">
-                                <SelectValue placeholder="Sin tercero" />
+                                <SelectValue placeholder="Opcional" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="">Sin tercero</SelectItem>
                                 {parties.map((p) => (
                                   <SelectItem key={p.id} value={p.id}>
-                                    {p.name} ({p.tax_id || "Sin RUT"})
+                                    {p.name}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </TableCell>
+
+                          {/* Débito */}
                           <TableCell className="p-2">
                             <div className="space-y-1">
                               <div className="flex items-center gap-1">
@@ -748,12 +892,14 @@ function AccountingPage() {
                                 )}
                               </div>
                               {line.isForeign && line.rawDebit > 0 && (
-                                <div className="text-[11px] text-right font-mono text-muted-foreground">
-                                  &asymp; $ {line.functionalDebit.toLocaleString("es-CL")} {baseCurrency} (T.C: {line.rate})
+                                <div className="text-[10px] text-right font-mono text-muted-foreground">
+                                  &asymp; $ {line.functionalDebit.toLocaleString("es-CL")} {baseCurrency}
                                 </div>
                               )}
                             </div>
                           </TableCell>
+
+                          {/* Crédito */}
                           <TableCell className="p-2">
                             <div className="space-y-1">
                               <div className="flex items-center gap-1">
@@ -772,12 +918,13 @@ function AccountingPage() {
                                 )}
                               </div>
                               {line.isForeign && line.rawCredit > 0 && (
-                                <div className="text-[11px] text-right font-mono text-muted-foreground">
-                                  &asymp; $ {line.functionalCredit.toLocaleString("es-CL")} {baseCurrency} (T.C: {line.rate})
+                                <div className="text-[10px] text-right font-mono text-muted-foreground">
+                                  &asymp; $ {line.functionalCredit.toLocaleString("es-CL")} {baseCurrency}
                                 </div>
                               )}
                             </div>
                           </TableCell>
+
                           <TableCell className="p-2 text-center">
                             <Button
                               type="button"
@@ -795,7 +942,7 @@ function AccountingPage() {
                   </Table>
                 </div>
 
-                {/* Barra de Totales y Validación de Partida Doble */}
+                {/* Barra de Totales y Validación */}
                 <div className="mt-3 flex flex-col sm:flex-row items-center justify-between p-3 rounded-lg bg-muted/60 border text-xs gap-3">
                   <div className="flex items-center gap-2">
                     {computedLines.isBalanced ? (
@@ -806,7 +953,9 @@ function AccountingPage() {
                     ) : (
                       <Badge variant="destructive" className="flex items-center gap-1">
                         <AlertCircle className="h-3.5 w-3.5" />
-                        {computedLines.missingRate
+                        {computedLines.missingDimensionMsg
+                          ? "Falta completar dimensiones requeridas"
+                          : computedLines.missingRate
                           ? "Falta tasa de cambio"
                           : `Descuadre de $ ${computedLines.difference.toLocaleString("es-CL")} ${baseCurrency}`}
                       </Badge>
@@ -844,7 +993,7 @@ function AccountingPage() {
               <DialogHeader>
                 <DialogTitle>Registrar Tasa Oficial del Día</DialogTitle>
                 <DialogDescription>
-                  Ingresa el valor del Dólar Observado o tipo de cambio oficial para el <strong>{voucherDate}</strong>.
+                  Ingresa el valor del Dólar Observado para el <strong>{voucherDate}</strong>.
                 </DialogDescription>
               </DialogHeader>
               <div className="py-3 space-y-3">
@@ -892,9 +1041,9 @@ function AccountingPage() {
           <Card>
             <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <CardTitle className="text-base font-semibold">Comprobantes de Diario (Partida Doble & Multimoneda)</CardTitle>
+                <CardTitle className="text-base font-semibold">Comprobantes de Diario (Partida Doble, Multimoneda & CC)</CardTitle>
                 <CardDescription>
-                  Asientos contables con soporte de moneda extranjera convertida a {baseCurrency}.
+                  Comprobantes inmutables con trazabilidad por Centro de Costo y Sucursal.
                 </CardDescription>
               </div>
               <div className="flex items-center gap-4 text-xs font-mono">
@@ -992,24 +1141,27 @@ function AccountingPage() {
                           <Table>
                             <TableHeader>
                               <TableRow className="bg-muted/40">
-                                <TableHead className="w-[8%] text-xs py-1.5">Línea</TableHead>
-                                <TableHead className="w-[32%] text-xs py-1.5">Cuenta Contable</TableHead>
-                                <TableHead className="w-[20%] text-xs py-1.5">Tercero / RUT</TableHead>
-                                <TableHead className="w-[20%] text-right text-xs py-1.5">Débito ({baseCurrency})</TableHead>
-                                <TableHead className="w-[20%] text-right text-xs py-1.5">Crédito ({baseCurrency})</TableHead>
+                                <TableHead className="w-[6%] text-xs py-1.5">Línea</TableHead>
+                                <TableHead className="w-[28%] text-xs py-1.5">Cuenta Contable</TableHead>
+                                <TableHead className="w-[18%] text-xs py-1.5">Centro Costo / Sucursal</TableHead>
+                                <TableHead className="w-[16%] text-xs py-1.5">Tercero / RUT</TableHead>
+                                <TableHead className="w-[16%] text-right text-xs py-1.5">Débito ({baseCurrency})</TableHead>
+                                <TableHead className="w-[16%] text-right text-xs py-1.5">Crédito ({baseCurrency})</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {linesArr.map((line: any, idx: number) => {
                                 const acc = line.accounts;
                                 const prt = line.parties;
+                                const cc = line.cost_centers;
+                                const bu = line.business_units;
                                 const isForeign = line.currency_code && line.currency_code !== baseCurrency;
 
                                 return (
                                   <TableRow key={line.id || idx}>
                                     <TableCell className="text-xs font-mono py-1.5 text-muted-foreground">{idx + 1}</TableCell>
                                     <TableCell className="text-xs font-medium py-1.5">
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
                                         <span>{acc ? `${acc.code} - ${acc.name}` : line.account_id}</span>
                                         {acc?.currency_code && acc.currency_code !== baseCurrency && (
                                           <Badge variant="outline" className="text-[10px] h-4 font-mono">
@@ -1018,8 +1170,23 @@ function AccountingPage() {
                                         )}
                                       </div>
                                     </TableCell>
+                                    <TableCell className="text-xs py-1.5">
+                                      <div className="flex flex-col gap-0.5">
+                                        {cc && (
+                                          <span className="text-[11px] font-mono text-primary flex items-center gap-1">
+                                            <PieChart className="h-3 w-3 inline" /> {cc.code}
+                                          </span>
+                                        )}
+                                        {bu && (
+                                          <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
+                                            <Network className="h-3 w-3 inline" /> {bu.code}
+                                          </span>
+                                        )}
+                                        {!cc && !bu && <span className="text-muted-foreground">-</span>}
+                                      </div>
+                                    </TableCell>
                                     <TableCell className="text-xs text-muted-foreground py-1.5">
-                                      {prt ? `${prt.name} (${prt.tax_id || "Sin RUT"})` : "-"}
+                                      {prt ? `${prt.name}` : "-"}
                                     </TableCell>
                                     <TableCell className="text-right font-mono text-xs font-medium py-1.5">
                                       {Number(line.debit) > 0 ? (
@@ -1071,7 +1238,7 @@ function AccountingPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Catálogo Jerárquico de Cuentas</CardTitle>
               <CardDescription>
-                Estructura contable para el registro y clasificación de operaciones financieras.
+                Estructura contable con reglas de imputación analítica y centros de costo.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1093,10 +1260,11 @@ function AccountingPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[160px]">Código</TableHead>
+                        <TableHead className="w-[140px]">Código</TableHead>
                         <TableHead>Nombre de la Cuenta</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead className="text-center">Moneda</TableHead>
+                        <TableHead className="text-center">Dimensiones Exigidas</TableHead>
                         <TableHead className="text-center">Clasificación</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
                       </TableRow>
@@ -1104,7 +1272,7 @@ function AccountingPage() {
                     <TableBody>
                       {accounts.map((acc) => (
                         <TableRow key={acc.id}>
-                          <TableCell className="font-mono font-medium">{acc.code}</TableCell>
+                          <TableCell className="font-mono font-medium text-xs">{acc.code}</TableCell>
                           <TableCell className={acc.is_group ? "font-semibold text-foreground" : "text-muted-foreground"}>
                             {acc.name}
                           </TableCell>
@@ -1123,6 +1291,23 @@ function AccountingPage() {
                                 {baseCurrency} (Base)
                               </span>
                             )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-1 flex-wrap">
+                              {acc.requires_cost_center && (
+                                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-400">
+                                  Exige CC
+                                </Badge>
+                              )}
+                              {acc.requires_business_unit && (
+                                <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-400">
+                                  Exige Sucursal
+                                </Badge>
+                              )}
+                              {!acc.requires_cost_center && !acc.requires_business_unit && (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-center">
                             {acc.is_group ? (

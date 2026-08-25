@@ -5,18 +5,18 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 ---
 
 ## 1. Contabilidad & Multimoneda ([`/accounting`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx))
-* **Catálogo Multimoneda de Cuentas**:
+* **Catálogo Multimoneda & Reglas Analíticas**:
   * Estructura jerárquica con código numérico (ej. `1.1.01.001`), nombre y tipo de cuenta (`Asset`, `Liability`, `Equity`, `Income`, `Expense`, `Cost of Goods Sold`).
   * Asignación de moneda propia por cuenta (`currency_code`), permitiendo cuentas en USD o divisas extranjeras conviviendo con la moneda base CLP.
-  * Distinción entre cuentas de grupo (agrupadoras) y cuentas de detalle (asentables).
+  * Reglas de obligatoriedad de imputación analítica: `requires_cost_center` y `requires_business_unit` para forzar la selección de Centro de Costo y Sucursal en cuentas de resultado (gastos e ingresos).
 * **Motor de Comprobantes por Partida Doble & Conversión Automática**:
   * Formulario de comprobantes contables con cabecera (fecha, tipo de comprobante, libro opcional, glosa) y tabla de $N$ líneas contables.
-  * Soporte multimoneda en cada línea: registra el monto en la moneda de la cuenta (`debit_account_currency`, `credit_account_currency`) y realiza la conversión en tiempo real al equivalente en moneda base funcional mediante la tasa del día (`exchange_rate`).
+  * Imputación analítica por línea: selector de **Centro de Costo** (`cost_center_id`) y **Sucursal / Unidad** (`business_unit_id`).
   * Validación de existencia de tasa de cambio oficial para la fecha exacta del comprobante con modal de alta rápida integrado.
-  * Validación en tiempo real del cuadre de partida doble ($\sum \text{Débitos} = \sum \text{Créditos}$) y bloqueo de guardado en caso de descuadre.
+  * Validación en tiempo real del cuadre de partida doble ($\sum \text{Débitos} = \sum \text{Créditos}$) y bloqueo de guardado en caso de descuadre o falta de dimensiones requeridas.
   * Asignación atómica de número correlativo oficial (`ASI-000001`) mediante `get_next_entry_number` y `naming_series`.
   * **Inmutabilidad estricta**: Los comprobantes en estado `posted` no admiten modificación ni eliminación (`trg_journal_entries_immutability`).
-  * **Mecanismo de Reversión**: Acción de anulación/reversión que genera automáticamente un contra-asiento invertido (`reversal_of`) manteniendo la integridad y la trazabilidad de auditoría.
+  * **Mecanismo de Reversión**: Acción de anulación/reversión que genera automáticamente un contra-asiento invertido (`reversal_of`).
 
 ---
 
@@ -56,15 +56,18 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 6. Reportes Financieros ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
+## 6. Reportes Financieros & Analíticos ([`/reports`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/reports.tsx))
+* **Filtros Analíticos**: Selector para segmentar estados financieros por **Centro de Costo** específico o por **Sucursal / Unidad**.
 * **Balanza de Comprobación**: Sumas de débitos y créditos y saldo neto para cada cuenta del catálogo calculados directamente desde comprobantes posteados en `$ CLP`.
 * **Balance General**: Desglose clasificado de Activos, Pasivos, Patrimonio y verificación de la ecuación contable.
-* **Estado de Resultados (P&L)**: Resumen de ingresos operacionales, costos de venta, gastos y cálculo de la utilidad/pérdida neta del ejercicio.
+* **Estado de Resultados (P&L)**: Resumen de ingresos operacionales, costos de venta, gastos y cálculo de la utilidad/pérdida neta del ejercicio, con capacidad de ver el P&L de una sucursal o centro de costo particular.
 
 ---
 
 ## 7. Configuración General ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
 * **Empresas / Entidades (`entities`)**: Registro de razones sociales y sucursales con RUT y moneda base CLP.
+* **Centros de Costo (`cost_centers`)**: Estructura analítica jerárquica para distribución de gastos e ingresos.
+* **Unidades de Negocio & Sucursales (`business_units`)**: Gestión de sedes y filiales.
 * **Años Fiscales (`fiscal_years`)**: Gestión de ejercicios contables anuales.
 * **Correlativos y Series (`naming_series`)**: Prefijos y numeraciones automáticas para facturas y comprobantes.
 * **Roles del Sistema (`roles`)**: Catálogo de roles de seguridad y permisos.
