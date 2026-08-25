@@ -245,13 +245,21 @@ function AssetsPage() {
       if (!gainLossAccId) throw new Error("Seleccione la cuenta de resultado (Ganancia/Pérdida en baja)");
       const dVal = parseFloat(dispValue || "0");
 
-      const { data, error } = await supabase.rpc("dispose_fixed_asset", {
+      const disposeArgs: {
+        _asset_id: string;
+        _disposal_date: string;
+        _disposal_value: number;
+        _gain_loss_account_id: string;
+        _bank_account_id?: string;
+      } = {
         _asset_id: selectedAssetForDisposal.id,
         _disposal_date: dispDate,
         _disposal_value: dVal,
         _gain_loss_account_id: gainLossAccId,
-        _bank_account_id: dVal > 0 && dispBankAccId ? dispBankAccId : undefined,
-      });
+      };
+      if (dVal > 0 && dispBankAccId) disposeArgs._bank_account_id = dispBankAccId;
+
+      const { data, error } = await supabase.rpc("dispose_fixed_asset", disposeArgs);
 
       if (error) throw error;
       return data;
