@@ -26,6 +26,7 @@ import {
   ChevronDown,
   Building2,
   Check,
+  Plus,
   Factory,
   Store,
   FileSpreadsheet,
