@@ -709,7 +709,9 @@ function PosPage() {
                           value={p.payment_method}
                           onValueChange={(val: any) => {
                             const updated = [...payments];
-                            updated[idx].payment_method = val;
+                            const current = updated[idx];
+                            if (!current) return;
+                            updated[idx] = { ...current, payment_method: val };
                             setPayments(updated);
                           }}
                         >
