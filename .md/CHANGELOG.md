@@ -4,23 +4,31 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 14: Reorganización del Dashboard por Grupos Temáticos] - 2026-08-25
+
+### Añadido
+* **Migración SQL de Organización del Dashboard** ([`supabase/migrations/20260825000013_sprint14_organizacion_dashboard.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000013_sprint14_organizacion_dashboard.sql)):
+  * Nuevas columnas en `modules`: `group_name`, `group_sort_order` y `sort_order`.
+  * Asignación jerárquica y ordenada de los 13 módulos del sistema en 4 grupos oficiales:
+    1. **Finanzas**: Contabilidad (`accounting`), Bancos/Tesorería (`cash`), Activos Fijos (`assets`), Reportes (`reports`).
+    2. **Operaciones**: Compras (`purchases`), Ventas (`sales`), Inventario (`inventory`), Producción (`production`), Punto de Venta (`pos`).
+    3. **Impuestos**: Declaraciones Juradas SII (`declaraciones_juradas`), Libros Legales SII (`sii_books`), Impuestos F29/F22 (`taxes`).
+    4. **Configuración**: Configuración (`setup`), preparado para futuros módulos de auditoría y permisos granulares.
+* **Backend y Función del Servidor ([`auth.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/auth.functions.ts))**:
+  * Actualización de `getModules()` para ordenar en el backend por `group_sort_order ASC`, `sort_order ASC` y `label ASC`.
+* **Frontend ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx))**:
+  * Reemplazo de la lista plana alfabética por **Secciones Temáticas** con encabezados, íconos temáticos distintivos y badges de cantidad de módulos operativos.
+
+---
+
 ## [Sprint 13: Declaraciones Juradas SII (DDJJ)] - 2026-08-25
 
 ### Añadido
 * **Migración SQL del Motor de Declaraciones Juradas** ([`supabase/migrations/20260825000012_sprint13_declaraciones_juradas.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000012_sprint13_declaraciones_juradas.sql)):
   * Enum `dj_generation_status` (`draft`, `reviewed`, `filed`).
-  * Tabla `dj_definitions`: Catálogo dinámico de declaraciones juradas con esquema extensible de campos `field_schema` jsonb.
-  * Tabla `dj_field_mappings`: Configuración por empresa para asociar casillas oficiales a cuentas contables del plan de cuentas.
-  * Tabla `dj_generations`: Liquidaciones anuales con persistencia estructurada de valores calculados en `generated_values` jsonb.
-  * Función `public.generate_dj()`: Extrae automáticamente los saldos del año comercial desde los comprobantes posteados en las cuentas mapeadas.
-  * Función `public.update_dj_status()`: Flujo de aprobación tributaria (`draft` $\rightarrow$ `reviewed` $\rightarrow$ `filed`).
-  * Semilla inicial con las DJs más utilizadas en Chile: **DJ 1879** (Honorarios), **DJ 1887** (Sueldos y Retenciones de 2da Categoría) y **DJ 1947** (Renta Atribuida Pro Pyme Transparente 14 D8).
-  * Registro del módulo `declaraciones_juradas` en la tabla `modules`.
-* **Interfaz de Usuario (UI) en [`declaraciones-juradas.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/declaraciones-juradas.tsx)**:
-  * Pestaña "Resultado Generado" con visualización de casillas oficiales, selector de Año Tributario y botón de **Descarga en CSV**.
-  * Pestaña "Mapeo de Cuentas Contables" para enlazar cada campo de la DJ al catálogo contable de la empresa activa.
-  * Pestaña "Catálogo Oficial de DJs" con modal para crear nuevas definiciones de DJ sin tocar código.
-  * Integración en el menú superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)) y en el Dashboard ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+  * Tabla `dj_definitions`, `dj_field_mappings`, `dj_generations`.
+  * Semilla inicial con **DJ 1879** (Honorarios), **DJ 1887** (Sueldos) y **DJ 1947** (Pro Pyme Transparente).
+* Módulo interactivo en `declaraciones-juradas.tsx`.
 
 ---
 

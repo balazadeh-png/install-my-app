@@ -133,6 +133,23 @@ function Dashboard() {
   const modules = modulesQuery.data ?? [];
   const roles = rolesQuery.data ?? [];
 
+  const groupIcons: Record<string, React.ReactNode> = {
+    Finanzas: <Landmark className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
+    Operaciones: <Factory className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
+    Impuestos: <FileBadge2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />,
+    Configuración: <Settings className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
+    Configuracion: <Settings className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
+    Otros: <LayoutDashboard className="h-5 w-5 text-muted-foreground" />,
+  };
+
+  // Agrupar módulos respetando el orden proveniente del servidor
+  const groupedModules = modules.reduce<Record<string, typeof modules>>((acc, mod) => {
+    const grp = (mod as any).group_name || "Otros";
+    if (!acc[grp]) acc[grp] = [];
+    acc[grp].push(mod);
+    return acc;
+  }, {});
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Welcome Banner */}
@@ -216,50 +233,65 @@ function Dashboard() {
         </Card>
       </div>
 
-      {/* Modules Grid */}
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-foreground">Módulos del Sistema</h2>
-        <span className="text-xs text-muted-foreground">Acceso directo</span>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {modules.map((module) => {
-          const config = moduleConfig[module.name] || {
-            icon: <LayoutDashboard className="h-5 w-5" />,
-            path: `/${module.name}`,
-            description: `Accede a la gestión de ${module.label.toLowerCase()}.`,
-          };
-
-          return (
-            <Card
-              key={module.id}
-              className="group hover:border-primary/50 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-            >
-              <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  {config.icon}
+      {/* Secciones Temáticas de Módulos */}
+      <div className="space-y-10">
+        {Object.entries(groupedModules).map(([groupName, groupMods]) => (
+          <section key={groupName} className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/60 border shadow-xs">
+                  {groupIcons[groupName] || groupIcons.Otros}
                 </div>
                 <div>
-                  <CardTitle className="text-base font-semibold">{module.label}</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">Módulo operativo</p>
+                  <h2 className="text-lg font-bold tracking-tight text-foreground">{groupName}</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {groupMods.length} {groupMods.length === 1 ? "módulo operativo" : "módulos operativos"}
+                  </p>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-2 flex-1 flex flex-col justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {config.description}
-                </p>
-                <div className="mt-4 pt-3 border-t">
-                  <Button asChild variant="outline" size="sm" className="w-full justify-between group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Link to={config.path}>
-                      <span>Abrir módulo</span>
-                      <ArrowRight className="h-3.5 w-3.5 ml-1 transition-transform group-hover:translate-x-1" />
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {groupMods.map((module) => {
+                const config = moduleConfig[module.name] || {
+                  icon: <LayoutDashboard className="h-5 w-5" />,
+                  path: `/${module.name}`,
+                  description: `Accede a la gestión de ${module.label.toLowerCase()}.`,
+                };
+
+                return (
+                  <Card
+                    key={module.id}
+                    className="group hover:border-primary/50 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                  >
+                    <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                        {config.icon}
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-semibold">{module.label}</CardTitle>
+                        <p className="text-xs text-muted-foreground mt-0.5">{groupName}</p>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-2 flex-1 flex flex-col justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        {config.description}
+                      </p>
+                      <div className="mt-4 pt-3 border-t">
+                        <Button asChild variant="outline" size="sm" className="w-full justify-between group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                          <Link to={config.path}>
+                            <span>Abrir módulo</span>
+                            <ArrowRight className="h-3.5 w-3.5 ml-1 transition-transform group-hover:translate-x-1" />
+                          </Link>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </main>
   );

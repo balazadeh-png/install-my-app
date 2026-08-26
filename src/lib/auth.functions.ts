@@ -108,7 +108,9 @@ export const getModules = createServerFn({ method: "GET" })
       .from("modules")
       .select("*")
       .eq("active", true)
-      .order("label");
+      .order("group_sort_order" as any, { ascending: true })
+      .order("sort_order" as any, { ascending: true })
+      .order("label", { ascending: true });
 
     if (error) throw new Error(error.message);
     return data ?? [];
