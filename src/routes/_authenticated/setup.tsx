@@ -33,6 +33,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  verifyApiPymeToken,
+  saveApiPymeConnection,
+  getApiPymeConnectionStatus,
+} from "@/lib/sii-sync.functions";
 import {
   Settings,
   Building,
@@ -43,6 +49,7 @@ import {
   ArrowLeft,
   RefreshCw,
   CheckCircle,
+  CheckCircle2,
   Building2,
   PieChart,
   Network,
@@ -50,6 +57,11 @@ import {
   RotateCcw,
   Lock,
   Sparkles,
+  CloudLightning,
+  Key,
+  AlertTriangle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -125,6 +137,67 @@ function SetupPage() {
   const [defLoss, setDefLoss] = useState<string>("NONE");
   const [defUnrealizedGain, setDefUnrealizedGain] = useState<string>("NONE");
   const [defUnrealizedLoss, setDefUnrealizedLoss] = useState<string>("NONE");
+
+  // ApiPyme Integration
+  const [apiPymeToken, setApiPymeToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<{
+    valid: boolean;
+    business_name?: string;
+    rut?: string;
+    is_active?: boolean;
+    message?: string;
+  } | null>(null);
+
+  const fetchVerifyApiPyme = useServerFn(verifyApiPymeToken);
+  const fetchSaveApiPyme = useServerFn(saveApiPymeConnection);
+  const fetchConnectionStatus = useServerFn(getApiPymeConnectionStatus);
+
+  const connectionStatusQuery = useQuery({
+    queryKey: ["apipyme_connection_status", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return { connected: false, last_synced_at: null };
+      return await fetchConnectionStatus({ data: { entity_id: activeEntityId } });
+    },
+    enabled: !!activeEntityId,
+  });
+
+  const verifyTokenMutation = useMutation({
+    mutationFn: async () => {
+      if (!apiPymeToken.trim()) throw new Error("Ingresa un token para verificar.");
+      return await fetchVerifyApiPyme({ data: { token: apiPymeToken.trim() } });
+    },
+    onSuccess: (res) => {
+      setVerificationResult(res);
+      if (res.valid) {
+        toast.success(`Token válido para: ${res.business_name}`);
+      } else {
+        toast.error(res.message || "Token inválido");
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al verificar token");
+    },
+  });
+
+  const saveTokenMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+      if (!apiPymeToken.trim()) throw new Error("Ingresa un token de ApiPyme");
+      return await fetchSaveApiPyme({
+        data: { entity_id: activeEntityId, company_token: apiPymeToken.trim() },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["apipyme_connection_status", activeEntityId] });
+      toast.success("Conexión ApiPyme guardada de forma segura para esta empresa");
+      setApiPymeToken("");
+      setVerificationResult(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al guardar conexión ApiPyme");
+    },
+  });
 
   // Queries
   const currenciesQuery = useQuery({
@@ -619,6 +692,10 @@ function SetupPage() {
           <TabsTrigger value="roles" className="flex items-center gap-1.5">
             <Shield className="h-4 w-4" />
             <span>Roles ({roles.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="apipyme" className="flex items-center gap-1.5">
+            <CloudLightning className="h-4 w-4 text-amber-500" />
+            <span>Conexión SII (ApiPyme)</span>
           </TabsTrigger>
         </TabsList>
 
@@ -1639,33 +1716,183 @@ function SetupPage() {
           </div>
         </TabsContent>
 
-        {/* Tab Roles */}
-        <TabsContent value="roles">
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-            <div className="p-6 pb-3">
-              <h3 className="text-base font-semibold">Roles y Permisos del Sistema</h3>
-              <p className="text-xs text-muted-foreground">
-                Perfiles de seguridad disponibles para asignación a usuarios.
-              </p>
-            </div>
-            <div className="p-6 pt-0">
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre del Rol</TableHead>
-                      <TableHead>Descripción</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {roles.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-mono text-xs font-semibold text-primary">{r.name}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{r.description || "-"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+        {/* Tab Conexión SII (ApiPyme) */}
+        <TabsContent value="apipyme">
+          <div className="space-y-6">
+            <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+              <div className="p-6 pb-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CloudLightning className="h-5 w-5 text-amber-500" />
+                    <h3 className="text-base font-semibold">Integración SII Oficial vía ApiPyme</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Conexión automatizada para sincronizar el Registro de Compras y Ventas (RCV), DTEs y Boletas Electrónicas de {activeEntity?.name || "la empresa"}.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {connectionStatusQuery.data?.connected ? (
+                    <Badge className="bg-emerald-600 text-white gap-1 py-1 px-2.5 text-xs font-semibold">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Conexión Activa
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground gap-1 py-1 px-2.5 text-xs">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      Sin Conexión
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {!activeEntityId ? (
+                  <div className="py-8 text-center text-muted-foreground text-sm">
+                    Selecciona una empresa activa para configurar su conexión con el SII.
+                  </div>
+                ) : (
+                  <>
+                    {/* Estado de sincronización previa */}
+                    {connectionStatusQuery.data?.connected && (
+                      <div className="p-4 rounded-lg bg-muted/40 border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div>
+                          <span className="font-semibold text-foreground">Proveedor: </span>
+                          <span className="uppercase font-mono font-bold text-primary">ApiPyme (SII Chile)</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Última sincronización: </span>
+                          <span className="font-mono font-medium">
+                            {connectionStatusQuery.data.last_synced_at
+                              ? new Date(connectionStatusQuery.data.last_synced_at).toLocaleString("es-CL")
+                              : "Nunca"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Formulario de Token */}
+                    <div className="space-y-4 max-w-2xl">
+                      <div>
+                        <Label className="text-xs font-bold">Token de Empresa ApiPyme (X-Company-Token) *</Label>
+                        <p className="text-[11px] text-muted-foreground mb-1.5">
+                          Ingresa el token exclusivo proporcionado en el panel de control de ApiPyme para esta empresa.
+                        </p>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Input
+                              type={showToken ? "text" : "password"}
+                              placeholder="ej. apipyme_live_76123456k_..."
+                              value={apiPymeToken}
+                              onChange={(e) => {
+                                setApiPymeToken(e.target.value);
+                                setVerificationResult(null);
+                              }}
+                              className="font-mono text-xs pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowToken(!showToken)}
+                              className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                            >
+                              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => verifyTokenMutation.mutate()}
+                            disabled={verifyTokenMutation.isPending || !apiPymeToken.trim()}
+                          >
+                            <Key className="mr-1.5 h-3.5 w-3.5" />
+                            {verifyTokenMutation.isPending ? "Verificando..." : "Verificar Conexión"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Resultado de la verificación */}
+                      {verificationResult && (
+                        <div
+                          className={`p-4 rounded-lg border text-xs space-y-1.5 ${
+                            verificationResult.valid
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-300"
+                              : "bg-destructive/10 border-destructive/30 text-destructive"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 font-bold">
+                            {verificationResult.valid ? (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                <span>Token Validado Correctamente ante ApiPyme</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="h-4 w-4 text-destructive" />
+                                <span>Error de Validación: {verificationResult.message}</span>
+                              </>
+                            )}
+                          </div>
+                          {verificationResult.valid && (
+                            <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
+                              <div>
+                                <span className="font-semibold">Razón Social: </span>
+                                {verificationResult.business_name}
+                              </div>
+                              <div>
+                                <span className="font-semibold">RUT: </span>
+                                {verificationResult.rut || activeEntity?.tax_id || "-"}
+                              </div>
+                              <div>
+                                <span className="font-semibold">Estado Licencia: </span>
+                                <Badge className="bg-emerald-600 text-white text-[10px]">
+                                  {verificationResult.is_active ? "Activa" : "Inactiva"}
+                                </Badge>
+                              </div>
+                              {verificationResult.expires_at && (
+                                <div>
+                                  <span className="font-semibold">Vencimiento: </span>
+                                  {new Date(verificationResult.expires_at).toLocaleDateString("es-CL")}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="pt-2">
+                        <Button
+                          onClick={() => saveTokenMutation.mutate()}
+                          disabled={saveTokenMutation.isPending || !apiPymeToken.trim()}
+                          className="font-bold"
+                        >
+                          {saveTokenMutation.isPending ? "Guardando..." : "Guardar Conexión de Empresa"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Información técnica y de seguridad */}
+                    <div className="rounded-lg border p-4 bg-muted/20 space-y-3 text-xs">
+                      <div className="flex items-center gap-2 font-bold text-foreground">
+                        <Lock className="h-4 w-4 text-primary" />
+                        <span>Seguridad y Webhook Receiver</span>
+                      </div>
+                      <p className="text-muted-foreground">
+                        El token se almacena de forma aislada en la tabla <code className="font-mono bg-muted px-1 py-0.5 rounded">sii_api_connections</code> bajo políticas RLS restrictivas que bloquean lecturas desde el cliente. Las extracciones se realizan estrictamente en el backend mediante funciones seguras.
+                      </p>
+                      <div className="pt-1 border-t">
+                        <span className="font-semibold text-foreground">URL del Webhook (para configurar en ApiPyme): </span>
+                        <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-primary font-bold">
+                          /api/webhooks/apipyme
+                        </code>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Cuando una extracción responda con código 202 (asíncrona), el webhook recibirá automáticamente la notificación de finalización y completará la sincronización sin esperas ni bloqueos.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

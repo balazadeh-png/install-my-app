@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { useServerFn } from "@tanstack/react-start";
+import { syncSiiDocuments } from "@/lib/sii-sync.functions";
 import { toast } from "sonner";
 import {
   FileSpreadsheet,
@@ -28,6 +30,10 @@ import {
   Scale,
   DollarSign,
   Layers,
+  CloudLightning,
+  Clock,
+  Sparkles,
+  Receipt,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/sii-books")({
@@ -59,6 +65,15 @@ function SiiBooksPage() {
   const [rcvPartyName, setRcvPartyName] = useState("");
   const [rcvTotalAmount, setRcvTotalAmount] = useState("");
   const [rcvDate, setRcvDate] = useState<string>(new Date().toISOString().slice(0, 10));
+
+  // State Sincronización ApiPyme
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncPeriod, setSyncPeriod] = useState(
+    `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}`
+  );
+  const [syncDocType, setSyncDocType] = useState<"venta" | "compra">("venta");
+
+  const fetchSyncSiiFn = useServerFn(syncSiiDocuments);
 
   const baseCurrency = activeEntity?.base_currency_code || "CLP";
 
@@ -95,9 +110,78 @@ function SiiBooksPage() {
     enabled: !!activeEntityId,
   });
 
+  // Query: Resumen de Boletas Electrónicas del período
+  const boletasSummaryQuery = useQuery({
+    queryKey: ["sii_boletas_summary", activeEntityId, syncPeriod],
+    queryFn: async () => {
+      if (!activeEntityId) return null;
+      const { data, error } = await supabase
+        .from("sii_boletas_summary" as any)
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .eq("period", syncPeriod)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!activeEntityId,
+  });
+
+  // Query: Jobs de extracción de ApiPyme
+  const syncJobsQuery = useQuery({
+    queryKey: ["sii_sync_jobs", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("sii_sync_jobs" as any)
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .order("requested_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  // Mutation: Sincronizar desde SII
+  const syncSiiMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+      return await fetchSyncSiiFn({
+        data: {
+          entity_id: activeEntityId,
+          document_type: syncDocType,
+          period: syncPeriod.trim(),
+        },
+      });
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["sii_boletas_summary", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["sii_sync_jobs", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["sii_book_data", activeEntityId] });
+
+      if (res.status === "pending") {
+        toast.info(
+          `Extracción en curso en ApiPyme (Tarea: ${res.task_id}). Se completará automáticamente vía Webhook.`
+        );
+      } else {
+        toast.success(
+          `Sincronización completada: ${res.count} documentos de ${syncDocType}s actualizados.`
+        );
+      }
+      setSyncModalOpen(false);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al sincronizar con el SII vía ApiPyme");
+    },
+  });
+
   const bookRows = bookDataQuery.data ?? [];
   const rcvRuns = rcvRunsQuery.data ?? [];
   const latestRun = rcvRuns[0];
+  const boletasSummary = boletasSummaryQuery.data;
+  const syncJobs = syncJobsQuery.data ?? [];
 
   // Mutation para agregar documento RCV para conciliar
   const reconcileSingleDocMutation = useMutation({
@@ -178,13 +262,87 @@ function SiiBooksPage() {
             Volver al Dashboard
           </Link>
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Dialog open={syncModalOpen} onOpenChange={setSyncModalOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shadow-sm">
+                <CloudLightning className="h-3.5 w-3.5" />
+                <span>Sincronizar desde SII (ApiPyme)</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CloudLightning className="h-5 w-5 text-amber-500" />
+                  <span>Sincronización RCV Oficial (ApiPyme)</span>
+                </DialogTitle>
+                <DialogDescription>
+                  Extrae facturas, notas y boletas electrónicas directamente desde el SII para {activeEntity?.name || "la empresa"}.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-3 text-xs">
+                <div>
+                  <Label className="text-xs font-semibold">Período Fiscal (Formato YYYYMM) *</Label>
+                  <Input
+                    placeholder="ej. 202608"
+                    value={syncPeriod}
+                    onChange={(e) => setSyncPeriod(e.target.value)}
+                    className="mt-1 font-mono text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Año y mes de los documentos a descargar (ejemplo: Agosto 2026 = 202608).
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-semibold">Módulo de Documentos *</Label>
+                  <Select value={syncDocType} onValueChange={(val: any) => setSyncDocType(val)}>
+                    <SelectTrigger className="mt-1 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="venta">Libro de Ventas (Emitidos & Boletas)</SelectItem>
+                      <SelectItem value="compra">Libro de Compras (Recibidos)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="rounded-lg border bg-muted/40 p-3 text-[11px] space-y-1">
+                  <div className="font-semibold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    <span>Paginación y Extracción Asíncrona</span>
+                  </div>
+                  <p className="text-muted-foreground">
+                    Soporta paginación completa (hasta 5.000 docs/página). Si el SII demora en procesar, la extracción responderá en segundo plano y se completará automáticamente vía Webhook.
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setSyncModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => syncSiiMutation.mutate()}
+                  disabled={syncSiiMutation.isPending || !syncPeriod.trim() || !activeEntityId}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold"
+                >
+                  {syncSiiMutation.isPending ? "Sincronizando..." : "Iniciar Sincronización"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
               bookDataQuery.refetch();
               rcvRunsQuery.refetch();
+              boletasSummaryQuery.refetch();
+              syncJobsQuery.refetch();
             }}
           >
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -368,35 +526,99 @@ function SiiBooksPage() {
                 </div>
               ) : (
                 /* Libro Compras / Ventas */
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fecha Emisión</TableHead>
-                        <TableHead>Folio / N°</TableHead>
-                        <TableHead>Tipo Documento</TableHead>
-                        <TableHead>RUT</TableHead>
-                        <TableHead>Razón Social</TableHead>
-                        <TableHead className="text-right">Monto Neto</TableHead>
-                        <TableHead className="text-right">IVA (19%)</TableHead>
-                        <TableHead className="text-right">Monto Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {bookRows.map((r, i) => (
-                        <TableRow key={i} className="text-xs">
-                          <TableCell className="font-mono">{r.issue_date}</TableCell>
-                          <TableCell className="font-mono font-bold text-primary">{r.invoice_number}</TableCell>
-                          <TableCell>{r.doc_type_name}</TableCell>
-                          <TableCell className="font-mono">{r.customer_rut || r.supplier_rut || "-"}</TableCell>
-                          <TableCell className="font-medium">{r.customer_name || r.supplier_name}</TableCell>
-                          <TableCell className="text-right font-mono">$ {Number(r.monto_neto || 0).toLocaleString("es-CL")}</TableCell>
-                          <TableCell className="text-right font-mono text-muted-foreground">$ {Number(r.iva_debito_19 || r.iva_credito_19 || 0).toLocaleString("es-CL")}</TableCell>
-                          <TableCell className="text-right font-mono font-bold text-foreground">$ {Number(r.monto_total || 0).toLocaleString("es-CL")}</TableCell>
+                <div>
+                  {selectedBook === "libro_ventas" && (
+                    <div className="p-4 bg-muted/20 border-b">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          <Receipt className="h-4 w-4 text-primary" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                            Resumen Oficial de Boletas Electrónicas (SII)
+                          </span>
+                        </div>
+                        {boletasSummary && (
+                          <Badge variant="outline" className="text-[10px] font-mono gap-1 text-emerald-600 border-emerald-500/30">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Sincronizado vía ApiPyme • {boletasSummary.period}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {boletasSummary ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                          <div className="p-2.5 rounded-md bg-card border">
+                            <div className="text-[11px] text-muted-foreground">Cantidad Boletas</div>
+                            <div className="text-base font-bold font-mono text-foreground">
+                              {Number(boletasSummary.cantidad_documentos || 0).toLocaleString("es-CL")}
+                            </div>
+                          </div>
+                          <div className="p-2.5 rounded-md bg-card border">
+                            <div className="text-[11px] text-muted-foreground">Monto Neto</div>
+                            <div className="text-base font-bold font-mono text-foreground">
+                              $ {Number(boletasSummary.monto_neto || 0).toLocaleString("es-CL")}
+                            </div>
+                          </div>
+                          <div className="p-2.5 rounded-md bg-card border">
+                            <div className="text-[11px] text-muted-foreground">Monto Exento</div>
+                            <div className="text-base font-bold font-mono text-foreground">
+                              $ {Number(boletasSummary.monto_exento || 0).toLocaleString("es-CL")}
+                            </div>
+                          </div>
+                          <div className="p-2.5 rounded-md bg-card border">
+                            <div className="text-[11px] text-muted-foreground">IVA Débito (19%)</div>
+                            <div className="text-base font-bold font-mono text-primary">
+                              $ {Number(boletasSummary.monto_iva || 0).toLocaleString("es-CL")}
+                            </div>
+                          </div>
+                          <div className="p-2.5 rounded-md bg-card border bg-primary/5">
+                            <div className="text-[11px] text-muted-foreground font-semibold">Total Boletas</div>
+                            <div className="text-base font-bold font-mono text-primary">
+                              $ {Number(boletasSummary.monto_total || 0).toLocaleString("es-CL")}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between p-3 rounded-md bg-card border text-xs text-muted-foreground">
+                          <span>Sin boletas descargadas para el período {syncPeriod}. Puedes sincronizarlas con el botón superior.</span>
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setSyncModalOpen(true)}>
+                            <CloudLightning className="h-3 w-3 text-amber-500" />
+                            Sincronizar Boletas
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Fecha Emisión</TableHead>
+                          <TableHead>Folio / N°</TableHead>
+                          <TableHead>Tipo Documento</TableHead>
+                          <TableHead>RUT</TableHead>
+                          <TableHead>Razón Social</TableHead>
+                          <TableHead className="text-right">Monto Neto</TableHead>
+                          <TableHead className="text-right">IVA (19%)</TableHead>
+                          <TableHead className="text-right">Monto Total</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {bookRows.map((r, i) => (
+                          <TableRow key={i} className="text-xs">
+                            <TableCell className="font-mono">{r.issue_date}</TableCell>
+                            <TableCell className="font-mono font-bold text-primary">{r.invoice_number}</TableCell>
+                            <TableCell>{r.doc_type_name}</TableCell>
+                            <TableCell className="font-mono">{r.customer_rut || r.supplier_rut || "-"}</TableCell>
+                            <TableCell className="font-medium">{r.customer_name || r.supplier_name}</TableCell>
+                            <TableCell className="text-right font-mono">$ {Number(r.monto_neto || 0).toLocaleString("es-CL")}</TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">$ {Number(r.iva_debito_19 || r.iva_credito_19 || 0).toLocaleString("es-CL")}</TableCell>
+                            <TableCell className="text-right font-mono font-bold text-foreground">$ {Number(r.monto_total || 0).toLocaleString("es-CL")}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -520,6 +742,56 @@ function SiiBooksPage() {
               </DialogContent>
             </Dialog>
           </div>
+
+          {/* Historial de Extracciones ApiPyme */}
+          {syncJobs.length > 0 && (
+            <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CloudLightning className="h-4 w-4 text-amber-500" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    Historial de Extracciones ApiPyme / SII
+                  </span>
+                </div>
+                <span className="text-[11px] text-muted-foreground">Últimas sincronizaciones</span>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {syncJobs.map((job) => (
+                  <div key={job.id} className="p-2.5 rounded-md bg-card border text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold capitalize text-foreground">
+                        {job.module} ({job.period})
+                      </span>
+                      <Badge
+                        className={
+                          job.status === "SUCCESS"
+                            ? "bg-emerald-600 text-white text-[10px]"
+                            : job.status === "FAILED"
+                            ? "bg-destructive text-white text-[10px]"
+                            : "bg-amber-500 text-white text-[10px]"
+                        }
+                      >
+                        {job.status === "PENDING" ? (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 animate-spin" /> En Curso
+                          </span>
+                        ) : (
+                          job.status
+                        )}
+                      </Badge>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground flex justify-between">
+                      <span>
+                        Extraídos: <strong>{job.rows_extracted || 0}</strong> docs
+                      </span>
+                      <span>{new Date(job.requested_at).toLocaleDateString("es-CL")}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* KPIs de la última corrida */}
           {latestRun && (

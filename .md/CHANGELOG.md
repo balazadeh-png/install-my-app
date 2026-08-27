@@ -4,30 +4,44 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 15: Integración SII vía ApiPyme (Registro de Ventas, Compras y Boletas)] - 2026-08-27
+
+### Añadido
+* **Migración SQL de Conexión y Sincronización ApiPyme** ([`supabase/migrations/20260825000014_sprint15_integracion_apipyme.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000014_sprint15_integracion_apipyme.sql)):
+  * `sii_api_connections`: almacenamiento seguro del token `X-Company-Token` con política RLS restrictiva `no_client_access` (`USING (false)`), gestionado exclusivamente desde el backend con Service Role Key.
+  * Enum `sii_document_type` (`venta`, `compra`) y enum `sii_sync_status` (`PENDING`, `RUNNING`, `SUCCESS`, `FAILED`).
+  * `sii_synced_documents`: tabla para almacenar facturas (33), exentas (34), notas de débito (56) y notas de crédito (61) descargadas del SII, con índice único por `(entity_id, document_type, period, sii_doc_type, folio, party_tax_id)`.
+  * `sii_boletas_summary`: tabla para el agregado oficial de boletas electrónicas por período (`cantidad_documentos`, `monto_neto`, `monto_exento`, `monto_iva`, `monto_total`).
+  * `sii_sync_jobs`: trazabilidad de tareas de extracción asíncronas y webhooks con `apipyme_task_id`.
+* **Funciones de Servidor Seguras ([`sii-sync.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/sii-sync.functions.ts))**:
+  * `verifyApiPymeToken`: validación en vivo contra `GET https://apipyme.cl/api/v1/empresa/` retornando razón social, RUT y estado de licencia antes de guardar.
+  * `saveApiPymeConnection`: persistencia server-side aislada del token.
+  * `getApiPymeConnectionStatus`: consulta de estado de conexión sin exponer el token al navegador.
+  * `fetchAllPages`: paginación completa en lotes de hasta 5.000 documentos con soporte de código HTTP 202 (asíncrono).
+  * `syncSiiDocuments`: función de sincronización para usuarios con validación de acceso multiempresa.
+* **Webhook Receiver Oficial ([`src/routes/api/webhooks/apipyme.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/api/webhooks/apipyme.ts))**:
+  * Endpoint HTTP POST `/api/webhooks/apipyme` para recibir notificaciones automáticas de extracción de ApiPyme con validación del header `X-Webhook-Secret`.
+* **Interfaz de Configuración ([`setup.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))**:
+  * Pestaña "Conexión SII (ApiPyme)" con verificación interactiva del token, datos de empresa autorizada en el SII y guardado seguro.
+* **Módulo de Libros Legales SII ([`sii-books.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/sii-books.tsx))**:
+  * Modal y botón de "Sincronizar desde SII (ApiPyme)" por período fiscal (`YYYYMM`).
+  * Visualización del **Resumen Oficial de Boletas Electrónicas (`sii_boletas_summary`)** en el Libro de Ventas.
+  * Panel de historial de extracciones con estados (`PENDING`, `RUNNING`, `SUCCESS`, `FAILED`).
+
+---
+
 ## [Sprint 14: Reorganización del Dashboard por Grupos Temáticos] - 2026-08-25
 
 ### Añadido
-* **Migración SQL de Organización del Dashboard** ([`supabase/migrations/20260825000013_sprint14_organizacion_dashboard.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000013_sprint14_organizacion_dashboard.sql)):
-  * Nuevas columnas en `modules`: `group_name`, `group_sort_order` y `sort_order`.
-  * Asignación jerárquica y ordenada de los 13 módulos del sistema en 4 grupos oficiales:
-    1. **Finanzas**: Contabilidad (`accounting`), Bancos/Tesorería (`cash`), Activos Fijos (`assets`), Reportes (`reports`).
-    2. **Operaciones**: Compras (`purchases`), Ventas (`sales`), Inventario (`inventory`), Producción (`production`), Punto de Venta (`pos`).
-    3. **Impuestos**: Declaraciones Juradas SII (`declaraciones_juradas`), Libros Legales SII (`sii_books`), Impuestos F29/F22 (`taxes`).
-    4. **Configuración**: Configuración (`setup`), preparado para futuros módulos de auditoría y permisos granulares.
-* **Backend y Función del Servidor ([`auth.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/auth.functions.ts))**:
-  * Actualización de `getModules()` para ordenar en el backend por `group_sort_order ASC`, `sort_order ASC` y `label ASC`.
-* **Frontend ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx))**:
-  * Reemplazo de la lista plana alfabética por **Secciones Temáticas** con encabezados, íconos temáticos distintivos y badges de cantidad de módulos operativos.
+* **Migración SQL de Organización del Dashboard** ([`supabase/migrations/20260825000013_sprint14_organizacion_dashboard.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000013_sprint14_organizacion_dashboard.sql)).
+* Reorganización en 4 grupos temáticos: Finanzas, Operaciones, Impuestos y Configuración.
 
 ---
 
 ## [Sprint 13: Declaraciones Juradas SII (DDJJ)] - 2026-08-25
 
 ### Añadido
-* **Migración SQL del Motor de Declaraciones Juradas** ([`supabase/migrations/20260825000012_sprint13_declaraciones_juradas.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000012_sprint13_declaraciones_juradas.sql)):
-  * Enum `dj_generation_status` (`draft`, `reviewed`, `filed`).
-  * Tabla `dj_definitions`, `dj_field_mappings`, `dj_generations`.
-  * Semilla inicial con **DJ 1879** (Honorarios), **DJ 1887** (Sueldos) y **DJ 1947** (Pro Pyme Transparente).
+* **Migración SQL del Motor de Declaraciones Juradas** ([`supabase/migrations/20260825000012_sprint13_declaraciones_juradas.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260825000012_sprint13_declaraciones_juradas.sql)).
 * Módulo interactivo en `declaraciones-juradas.tsx`.
 
 ---
