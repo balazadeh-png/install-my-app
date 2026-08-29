@@ -144,6 +144,26 @@ function SiiBooksPage() {
     enabled: !!activeEntityId,
   });
 
+  // Query: Documentos oficiales descargados del SII (ApiPyme)
+  const syncedDocsQuery = useQuery({
+    queryKey: ["sii_synced_documents", activeEntityId, selectedBook, startDate, endDate],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const docType = selectedBook === "libro_compras" ? "compra" : "venta";
+      const { data, error } = await supabase
+        .from("sii_synced_documents" as any)
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .eq("document_type", docType)
+        .gte("issue_date", startDate)
+        .lte("issue_date", endDate)
+        .order("issue_date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!activeEntityId && (selectedBook === "libro_ventas" || selectedBook === "libro_compras"),
+  });
+
   // Mutation: Sincronizar desde SII
   const syncSiiMutation = useMutation({
     mutationFn: async () => {
