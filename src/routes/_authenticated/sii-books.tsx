@@ -180,6 +180,7 @@ function SiiBooksPage() {
       queryClient.invalidateQueries({ queryKey: ["sii_boletas_summary", activeEntityId] });
       queryClient.invalidateQueries({ queryKey: ["sii_sync_jobs", activeEntityId] });
       queryClient.invalidateQueries({ queryKey: ["sii_book_data", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["sii_synced_documents", activeEntityId] });
 
       if (res.status === "pending") {
         toast.info(
@@ -202,6 +203,7 @@ function SiiBooksPage() {
   const latestRun = rcvRuns[0];
   const boletasSummary = boletasSummaryQuery.data;
   const syncJobs = syncJobsQuery.data ?? [];
+  const syncedDocs = syncedDocsQuery.data ?? [];
 
   // Mutation para agregar documento RCV para conciliar
   const reconcileSingleDocMutation = useMutation({
