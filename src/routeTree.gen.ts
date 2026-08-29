@@ -26,6 +26,7 @@ import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
 import { Route as AuthenticatedSiiBooksRouteImport } from './routes/_authenticated/sii-books'
 import { Route as AuthenticatedTaxesRouteImport } from './routes/_authenticated/taxes'
+import { Route as ApiWebhooksApipymeRouteImport } from './routes/api/webhooks/apipyme'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -112,6 +113,11 @@ const AuthenticatedTaxesRoute = AuthenticatedTaxesRouteImport.update({
   path: '/taxes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiWebhooksApipymeRoute = ApiWebhooksApipymeRouteImport.update({
+  id: '/api/webhooks/apipyme',
+  path: '/api/webhooks/apipyme',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof AuthenticatedSetupRoute
   '/sii-books': typeof AuthenticatedSiiBooksRoute
   '/taxes': typeof AuthenticatedTaxesRoute
+  '/api/webhooks/apipyme': typeof ApiWebhooksApipymeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/setup': typeof AuthenticatedSetupRoute
   '/sii-books': typeof AuthenticatedSiiBooksRoute
   '/taxes': typeof AuthenticatedTaxesRoute
+  '/api/webhooks/apipyme': typeof ApiWebhooksApipymeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/setup': typeof AuthenticatedSetupRoute
   '/_authenticated/sii-books': typeof AuthenticatedSiiBooksRoute
   '/_authenticated/taxes': typeof AuthenticatedTaxesRoute
+  '/api/webhooks/apipyme': typeof ApiWebhooksApipymeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/sii-books'
     | '/taxes'
+    | '/api/webhooks/apipyme'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/sii-books'
     | '/taxes'
+    | '/api/webhooks/apipyme'
   id:
     | '__root__'
     | '/'
@@ -225,12 +236,14 @@ export interface FileRouteTypes {
     | '/_authenticated/setup'
     | '/_authenticated/sii-books'
     | '/_authenticated/taxes'
+    | '/api/webhooks/apipyme'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiWebhooksApipymeRoute: typeof ApiWebhooksApipymeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -354,6 +367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTaxesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/webhooks/apipyme': {
+      id: '/api/webhooks/apipyme'
+      path: '/api/webhooks/apipyme'
+      fullPath: '/api/webhooks/apipyme'
+      preLoaderRoute: typeof ApiWebhooksApipymeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -399,6 +419,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiWebhooksApipymeRoute: ApiWebhooksApipymeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

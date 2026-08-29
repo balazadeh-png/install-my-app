@@ -34,13 +34,13 @@ export const verifyApiPymeToken = createServerFn({ method: "POST" })
       });
 
       if (res.status === 401) {
-        return { valid: false, message: "Token ApiPyme inválido o no autorizado." };
+        return { valid: false, message: "Token ApiPyme inválido o no autorizado.", expires_at: null };
       }
       if (res.status === 403) {
-        return { valid: false, message: "Licencia de ApiPyme inactiva o suspendida." };
+        return { valid: false, message: "Licencia de ApiPyme inactiva o suspendida.", expires_at: null };
       }
       if (!res.ok) {
-        return { valid: false, message: `Error del servidor ApiPyme (${res.status}).` };
+        return { valid: false, message: `Error del servidor ApiPyme (${res.status}).`, expires_at: null };
       }
 
       const body = await res.json();
@@ -52,7 +52,7 @@ export const verifyApiPymeToken = createServerFn({ method: "POST" })
         expires_at: body.expires_at ?? null,
       };
     } catch (err: any) {
-      return { valid: false, message: err.message || "Error al conectar con ApiPyme" };
+      return { valid: false, message: err.message || "Error al conectar con ApiPyme", expires_at: null };
     }
   });
 

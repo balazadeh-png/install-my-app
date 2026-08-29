@@ -240,7 +240,7 @@ function Dashboard() {
             <div className="flex items-center justify-between pb-2 border-b">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/60 border shadow-xs">
-                  {groupIcons[groupName] || groupIcons.Otros}
+                  {groupIcons[groupName] || groupIcons["Otros"]}
                 </div>
                 <div>
                   <h2 className="text-lg font-bold tracking-tight text-foreground">{groupName}</h2>

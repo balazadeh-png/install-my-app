@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -1714,23 +1714,32 @@ export type Database = {
         Row: {
           active: boolean | null
           created_at: string
+          group_name: string | null
+          group_sort_order: number
           id: string
           label: string
           name: string
+          sort_order: number
         }
         Insert: {
           active?: boolean | null
           created_at?: string
+          group_name?: string | null
+          group_sort_order?: number
           id?: string
           label: string
           name: string
+          sort_order?: number
         }
         Update: {
           active?: boolean | null
           created_at?: string
+          group_name?: string | null
+          group_sort_order?: number
           id?: string
           label?: string
           name?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -2737,6 +2746,91 @@ export type Database = {
           },
         ]
       }
+      sii_api_connections: {
+        Row: {
+          active: boolean
+          company_token: string
+          created_at: string
+          entity_id: string
+          id: string
+          last_synced_at: string | null
+          provider: string
+        }
+        Insert: {
+          active?: boolean
+          company_token: string
+          created_at?: string
+          entity_id: string
+          id?: string
+          last_synced_at?: string | null
+          provider?: string
+        }
+        Update: {
+          active?: boolean
+          company_token?: string
+          created_at?: string
+          entity_id?: string
+          id?: string
+          last_synced_at?: string | null
+          provider?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sii_api_connections_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: true
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sii_boletas_summary: {
+        Row: {
+          cantidad_documentos: number | null
+          entity_id: string
+          extracted_at: string | null
+          id: string
+          monto_exento: number | null
+          monto_iva: number | null
+          monto_neto: number | null
+          monto_total: number | null
+          period: string
+          synced_at: string
+        }
+        Insert: {
+          cantidad_documentos?: number | null
+          entity_id: string
+          extracted_at?: string | null
+          id?: string
+          monto_exento?: number | null
+          monto_iva?: number | null
+          monto_neto?: number | null
+          monto_total?: number | null
+          period: string
+          synced_at?: string
+        }
+        Update: {
+          cantidad_documentos?: number | null
+          entity_id?: string
+          extracted_at?: string | null
+          id?: string
+          monto_exento?: number | null
+          monto_iva?: number | null
+          monto_neto?: number | null
+          monto_total?: number | null
+          period?: string
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sii_boletas_summary_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sii_book_exports: {
         Row: {
           book_type: Database["public"]["Enums"]["sii_book_type"]
@@ -2783,6 +2877,118 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "sii_book_exports_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sii_sync_jobs: {
+        Row: {
+          apipyme_task_id: string | null
+          completed_at: string | null
+          entity_id: string
+          error_message: string | null
+          id: string
+          module: string
+          period: string
+          requested_at: string
+          rows_extracted: number | null
+          status: Database["public"]["Enums"]["sii_sync_status"]
+        }
+        Insert: {
+          apipyme_task_id?: string | null
+          completed_at?: string | null
+          entity_id: string
+          error_message?: string | null
+          id?: string
+          module: string
+          period: string
+          requested_at?: string
+          rows_extracted?: number | null
+          status?: Database["public"]["Enums"]["sii_sync_status"]
+        }
+        Update: {
+          apipyme_task_id?: string | null
+          completed_at?: string | null
+          entity_id?: string
+          error_message?: string | null
+          id?: string
+          module?: string
+          period?: string
+          requested_at?: string
+          rows_extracted?: number | null
+          status?: Database["public"]["Enums"]["sii_sync_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sii_sync_jobs_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sii_synced_documents: {
+        Row: {
+          document_type: Database["public"]["Enums"]["sii_document_type"]
+          entity_id: string
+          exempt_amount: number | null
+          extracted_at: string | null
+          folio: string | null
+          id: string
+          issue_date: string | null
+          net_amount: number | null
+          party_name: string | null
+          party_tax_id: string | null
+          period: string
+          raw_payload: Json
+          sii_doc_type: string | null
+          synced_at: string
+          tax_amount: number | null
+          total_amount: number | null
+        }
+        Insert: {
+          document_type: Database["public"]["Enums"]["sii_document_type"]
+          entity_id: string
+          exempt_amount?: number | null
+          extracted_at?: string | null
+          folio?: string | null
+          id?: string
+          issue_date?: string | null
+          net_amount?: number | null
+          party_name?: string | null
+          party_tax_id?: string | null
+          period: string
+          raw_payload?: Json
+          sii_doc_type?: string | null
+          synced_at?: string
+          tax_amount?: number | null
+          total_amount?: number | null
+        }
+        Update: {
+          document_type?: Database["public"]["Enums"]["sii_document_type"]
+          entity_id?: string
+          exempt_amount?: number | null
+          extracted_at?: string | null
+          folio?: string | null
+          id?: string
+          issue_date?: string | null
+          net_amount?: number | null
+          party_name?: string | null
+          party_tax_id?: string | null
+          period?: string
+          raw_payload?: Json
+          sii_doc_type?: string | null
+          synced_at?: string
+          tax_amount?: number | null
+          total_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sii_synced_documents_entity_id_fkey"
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "entities"
@@ -3379,6 +3585,8 @@ export type Database = {
         | "balance_tributario_8_columnas"
         | "libro_compras"
         | "libro_ventas"
+      sii_document_type: "venta" | "compra"
+      sii_sync_status: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED"
       stock_movement_type:
         | "receipt"
         | "issue"
@@ -3560,6 +3768,8 @@ export const Constants = {
         "libro_compras",
         "libro_ventas",
       ],
+      sii_document_type: ["venta", "compra"],
+      sii_sync_status: ["PENDING", "RUNNING", "SUCCESS", "FAILED"],
       stock_movement_type: [
         "receipt",
         "issue",

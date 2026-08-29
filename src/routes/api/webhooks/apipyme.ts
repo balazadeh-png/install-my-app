@@ -1,4 +1,4 @@
-import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { createFileRoute } from "@tanstack/react-router";
 import { syncSiiDocumentsInternal } from "@/lib/sii-sync.functions";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -20,8 +20,10 @@ function normalizeRut(rut: string): string {
   return (rut || "").replace(/[^0-9kK]/g, "").toUpperCase();
 }
 
-export const APIRoute = createAPIFileRoute("/api/webhooks/apipyme")({
-  POST: async ({ request }) => {
+export const Route = createFileRoute("/api/webhooks/apipyme")({
+  server: {
+    handlers: {
+      POST: async ({ request }: { request: Request }) => {
     try {
       // 1. Validar Webhook Secret
       const expectedSecret =
@@ -101,5 +103,7 @@ export const APIRoute = createAPIFileRoute("/api/webhooks/apipyme")({
         }
       );
     }
+    },
+    },
   },
 });
