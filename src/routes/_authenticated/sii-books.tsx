@@ -447,7 +447,13 @@ function SiiBooksPage() {
               </div>
 
               <div>
-                <Button className="w-full text-xs" onClick={() => bookDataQuery.refetch()}>
+                <Button
+                  className="w-full text-xs"
+                  onClick={() => {
+                    bookDataQuery.refetch();
+                    syncedDocsQuery.refetch();
+                  }}
+                >
                   <Search className="mr-1.5 h-3.5 w-3.5" />
                   Consultar Libro
                 </Button>
@@ -470,7 +476,7 @@ function SiiBooksPage() {
             <CardContent className="p-0">
               {bookDataQuery.isLoading ? (
                 <div className="py-16 text-center text-muted-foreground text-sm">Cargando libro contable...</div>
-              ) : bookRows.length === 0 ? (
+              ) : bookRows.length === 0 && selectedBook !== "libro_ventas" && selectedBook !== "libro_compras" ? (
                 <div className="py-16 text-center text-muted-foreground text-sm">
                   No hay movimientos o comprobantes registrados para este libro en el período seleccionado.
                 </div>
