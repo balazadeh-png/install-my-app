@@ -103,5 +103,6 @@ export const Route = createFileRoute("/api/webhooks/apipyme")({
         }
       );
     }
+    },
   },
 });
