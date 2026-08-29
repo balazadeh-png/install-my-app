@@ -641,6 +641,79 @@ function SiiBooksPage() {
                       </TableBody>
                     </Table>
                   </div>
+
+                  {/* Documentos oficiales descargados del SII (ApiPyme) */}
+                  <div className="border-t p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <CloudLightning className="h-4 w-4 text-amber-500" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                          Documentos Oficiales SII Sincronizados ({selectedBook === "libro_ventas" ? "Ventas" : "Compras"})
+                        </span>
+                      </div>
+                      {syncedDocs.length > 0 && (
+                        <Badge variant="outline" className="text-[10px] font-mono gap-1 text-emerald-600 border-emerald-500/30">
+                          <CheckCircle2 className="h-3 w-3" />
+                          {syncedDocs.length} documentos descargados del SII
+                        </Badge>
+                      )}
+                    </div>
+
+                    {syncedDocs.length === 0 ? (
+                      <div className="flex items-center justify-between p-3 rounded-md bg-card border text-xs text-muted-foreground">
+                        <span>No hay documentos {selectedBook === "libro_ventas" ? "de venta" : "de compra"} sincronizados desde el SII en este rango de fechas.</span>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setSyncModalOpen(true)}>
+                          <CloudLightning className="h-3 w-3 text-amber-500" />
+                          Sincronizar desde SII
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/40">
+                              <TableHead>Fecha Emisión</TableHead>
+                              <TableHead>Tipo DTE</TableHead>
+                              <TableHead>Folio</TableHead>
+                              <TableHead>RUT Contraparte</TableHead>
+                              <TableHead>Razón Social</TableHead>
+                              <TableHead className="text-right">Neto</TableHead>
+                              <TableHead className="text-right">Exento</TableHead>
+                              <TableHead className="text-right">IVA</TableHead>
+                              <TableHead className="text-right">Total</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {syncedDocs.map((d: any, i: number) => {
+                              const dteNames: Record<string, string> = {
+                                "33": "Factura Electrónica",
+                                "34": "Factura Exenta",
+                                "39": "Boleta Electrónica",
+                                "56": "Nota de Débito",
+                                "61": "Nota de Crédito",
+                              };
+                              return (
+                                <TableRow key={d.id ?? i} className="text-xs">
+                                  <TableCell className="font-mono">{d.issue_date}</TableCell>
+                                  <TableCell>
+                                    {dteNames[String(d.sii_doc_type)] ?? `DTE ${d.sii_doc_type}`}
+                                    <span className="text-muted-foreground"> ({d.sii_doc_type})</span>
+                                  </TableCell>
+                                  <TableCell className="font-mono font-bold text-primary">{d.folio}</TableCell>
+                                  <TableCell className="font-mono">{d.party_tax_id || "-"}</TableCell>
+                                  <TableCell className="font-medium">{d.party_name || "-"}</TableCell>
+                                  <TableCell className="text-right font-mono">$ {Number(d.net_amount || 0).toLocaleString("es-CL")}</TableCell>
+                                  <TableCell className="text-right font-mono text-muted-foreground">$ {Number(d.exempt_amount || 0).toLocaleString("es-CL")}</TableCell>
+                                  <TableCell className="text-right font-mono text-muted-foreground">$ {Number(d.tax_amount || 0).toLocaleString("es-CL")}</TableCell>
+                                  <TableCell className="text-right font-mono font-bold text-foreground">$ {Number(d.total_amount || 0).toLocaleString("es-CL")}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
