@@ -143,3 +143,9 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 * **Cierre de Períodos Contables (`accounting_periods`, `close_accounting_period`)**: Flujo de validación previa de borradores y cierre de mes que bloquea nuevos posteos.
 * **Revalorización Cambiaria de Cierre (`exchange_revaluations`, `run_exchange_revaluation`)**: Ajuste automático del saldo en libros de cuentas en moneda extranjera (USD) contra la tasa de cierre del mes.
 * **Empresas (`entities`)**, **Centros de Costo (`cost_centers`)**, **Sucursales (`business_units`)**, **Años Fiscales (`fiscal_years`)**, **Series (`naming_series`)** y **Roles (`roles`)**.
+
+## Guías de Despacho 3PL (`/dispatch`) — Sprint 16
+* **Guías**: listado de guías de despacho (estado borrador).
+* **Nueva guía**: cliente 3PL, bodega (filtrada a las asignadas), transportista, RUT, patente, tipo de traslado, origen/destino, salida/llegada y líneas (ítem, cantidad, unidad, peso, volumen, valor unitario). Sin emisión al SII aún (depende de integración DTE).
+* **Clientes 3PL**: marcar un tercero como "Cliente 3PL" y asignarle bodegas.
+* **Inventario → Saldos por Bodega**: nuevo filtro y columna "Propietario" (propio vs. cada cliente 3PL).

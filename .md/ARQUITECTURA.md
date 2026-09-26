@@ -56,3 +56,4 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
   * Triggers `trg_consume_fifo_layers` y `trg_create_fifo_layer`.
   * Función `create_warehouse_transfer()`.
 * **Terceros**: `parties` (con RUT y `entity_id`), `contacts`, `addresses`.
+* **Vertical 3PL (Sprint 16)**: `parties.is_3pl_client`, `party_warehouses` (bodegas por cliente 3PL), `stock_ledger_entries.party_id` (null = inventario propio; no nulo = mercadería en custodia), `stock_balances` agrupado por `party_id`, `dispatch_notes` / `dispatch_note_lines` (Guías de Despacho Res. 154, solo borrador; emisión DTE pendiente). RLS vía `user_has_company_access()`.
