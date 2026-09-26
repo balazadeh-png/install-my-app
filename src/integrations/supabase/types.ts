@@ -690,6 +690,139 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatch_note_lines: {
+        Row: {
+          dispatch_note_id: string
+          id: string
+          item_id: string
+          qty: number
+          unit_value: number | null
+          uom: string | null
+          volume_m3: number | null
+          weight_kg: number | null
+        }
+        Insert: {
+          dispatch_note_id: string
+          id?: string
+          item_id: string
+          qty: number
+          unit_value?: number | null
+          uom?: string | null
+          volume_m3?: number | null
+          weight_kg?: number | null
+        }
+        Update: {
+          dispatch_note_id?: string
+          id?: string
+          item_id?: string
+          qty?: number
+          unit_value?: number | null
+          uom?: string | null
+          volume_m3?: number | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_note_lines_dispatch_note_id_fkey"
+            columns: ["dispatch_note_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_note_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_notes: {
+        Row: {
+          arrival_at: string | null
+          carrier_name: string
+          carrier_tax_id: string
+          created_at: string
+          created_by: string | null
+          departure_at: string
+          destination_address: string
+          dispatch_number: string | null
+          entity_id: string
+          id: string
+          notes: string | null
+          origin_address: string
+          party_id: string
+          status: Database["public"]["Enums"]["dispatch_status"]
+          transfer_type: Database["public"]["Enums"]["dispatch_transfer_type"]
+          updated_at: string
+          vehicle_plate: string
+          warehouse_id: string
+        }
+        Insert: {
+          arrival_at?: string | null
+          carrier_name: string
+          carrier_tax_id: string
+          created_at?: string
+          created_by?: string | null
+          departure_at: string
+          destination_address: string
+          dispatch_number?: string | null
+          entity_id: string
+          id?: string
+          notes?: string | null
+          origin_address: string
+          party_id: string
+          status?: Database["public"]["Enums"]["dispatch_status"]
+          transfer_type: Database["public"]["Enums"]["dispatch_transfer_type"]
+          updated_at?: string
+          vehicle_plate: string
+          warehouse_id: string
+        }
+        Update: {
+          arrival_at?: string | null
+          carrier_name?: string
+          carrier_tax_id?: string
+          created_at?: string
+          created_by?: string | null
+          departure_at?: string
+          destination_address?: string
+          dispatch_number?: string | null
+          entity_id?: string
+          id?: string
+          notes?: string | null
+          origin_address?: string
+          party_id?: string
+          status?: Database["public"]["Enums"]["dispatch_status"]
+          transfer_type?: Database["public"]["Enums"]["dispatch_transfer_type"]
+          updated_at?: string
+          vehicle_plate?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_notes_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_notes_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_notes_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dj_definitions: {
         Row: {
           active: boolean
@@ -1790,6 +1923,7 @@ export type Database = {
           entity_id: string | null
           group_id: string | null
           id: string
+          is_3pl_client: boolean | null
           name: string
           party_type: string | null
           tax_id: string | null
@@ -1803,6 +1937,7 @@ export type Database = {
           entity_id?: string | null
           group_id?: string | null
           id?: string
+          is_3pl_client?: boolean | null
           name: string
           party_type?: string | null
           tax_id?: string | null
@@ -1816,6 +1951,7 @@ export type Database = {
           entity_id?: string | null
           group_id?: string | null
           id?: string
+          is_3pl_client?: boolean | null
           name?: string
           party_type?: string | null
           tax_id?: string | null
@@ -1861,6 +1997,52 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      party_warehouses: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          id: string
+          party_id: string
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          party_id: string
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          party_id?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_warehouses_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_warehouses_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_warehouses_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       period_close_checks: {
         Row: {
@@ -3005,6 +3187,7 @@ export type Database = {
           item_id: string
           memo: string | null
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
+          party_id: string | null
           posting_date: string
           qty_change: number
           transfer_pair_id: string | null
@@ -3021,6 +3204,7 @@ export type Database = {
           item_id: string
           memo?: string | null
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
+          party_id?: string | null
           posting_date: string
           qty_change: number
           transfer_pair_id?: string | null
@@ -3037,6 +3221,7 @@ export type Database = {
           item_id?: string
           memo?: string | null
           movement_type?: Database["public"]["Enums"]["stock_movement_type"]
+          party_id?: string | null
           posting_date?: string
           qty_change?: number
           transfer_pair_id?: string | null
@@ -3058,6 +3243,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
             referencedColumns: ["id"]
           },
           {
@@ -3394,6 +3586,9 @@ export type Database = {
           item_code: string | null
           item_id: string | null
           item_name: string | null
+          party_id: string | null
+          party_name: string | null
+          party_tax_id: string | null
           qty_on_hand: number | null
           value_on_hand: number | null
           warehouse_code: string | null
@@ -3413,6 +3608,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
             referencedColumns: ["id"]
           },
           {
@@ -3558,6 +3760,13 @@ export type Database = {
         | "viewer"
       asset_status: "active" | "fully_depreciated" | "disposed"
       depreciation_method: "linea_recta" | "acelerada"
+      dispatch_status: "draft" | "issued" | "cancelled"
+      dispatch_transfer_type:
+        | "venta"
+        | "traslado_interno"
+        | "consignacion"
+        | "exportacion"
+        | "otro"
       dj_generation_status: "draft" | "reviewed" | "filed"
       invoice_status:
         | "draft"
@@ -3615,12 +3824,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3644,11 +3853,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3669,11 +3878,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3694,11 +3903,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3711,11 +3920,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3737,6 +3946,14 @@ export const Constants = {
       ],
       asset_status: ["active", "fully_depreciated", "disposed"],
       depreciation_method: ["linea_recta", "acelerada"],
+      dispatch_status: ["draft", "issued", "cancelled"],
+      dispatch_transfer_type: [
+        "venta",
+        "traslado_interno",
+        "consignacion",
+        "exportacion",
+        "otro",
+      ],
       dj_generation_status: ["draft", "reviewed", "filed"],
       invoice_status: [
         "draft",
