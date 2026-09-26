@@ -76,6 +76,7 @@ function InventoryPage() {
 
   // Filtros de vista
   const [filterWarehouse, setFilterWarehouse] = useState<string>("ALL");
+  const [filterOwner, setFilterOwner] = useState<string>("ALL");
 
   const baseCurrency = activeEntity?.base_currency_code || "CLP";
 
@@ -306,8 +307,15 @@ function InventoryPage() {
   const balances = balancesQuery.data ?? [];
   const movements = movementsQuery.data ?? [];
 
+  const ownerOptions = Array.from(
+    new Map(
+      balances.filter((b) => b.party_id).map((b) => [b.party_id, b.party_name ?? b.party_tax_id ?? "Cliente"]),
+    ).entries(),
+  );
   const filteredBalances = balances.filter((b) => {
     if (filterWarehouse !== "ALL" && b.warehouse_id !== filterWarehouse) return false;
+    if (filterOwner === "OWN" && b.party_id) return false;
+    if (filterOwner !== "ALL" && filterOwner !== "OWN" && b.party_id !== filterOwner) return false;
     return true;
   });
 
@@ -832,6 +840,21 @@ function InventoryPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Label className="text-xs text-muted-foreground">Propietario:</Label>
+                <Select value={filterOwner} onValueChange={setFilterOwner}>
+                  <SelectTrigger className="w-[200px] h-8 text-xs">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Todos</SelectItem>
+                    <SelectItem value="OWN">Inventario propio</SelectItem>
+                    {ownerOptions.map(([id, name]) => (
+                      <SelectItem key={id} value={id}>
+                        3PL: {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent>
@@ -856,6 +879,7 @@ function InventoryPage() {
                         <TableHead className="w-[140px]">SKU / Código</TableHead>
                         <TableHead>Artículo</TableHead>
                         <TableHead>Bodega</TableHead>
+                        <TableHead>Propietario</TableHead>
                         <TableHead className="text-right">Cantidad en Stock</TableHead>
                         <TableHead className="text-right">Costo Promedio Unitario</TableHead>
                         <TableHead className="text-right">Valorización Total ({baseCurrency})</TableHead>
@@ -872,6 +896,13 @@ function InventoryPage() {
                             <Badge variant="outline" className="text-xs">
                               {b.warehouse_code} - {b.warehouse_name}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {b.party_id ? (
+                              <Badge variant="secondary" className="text-xs">3PL: {b.party_name ?? b.party_tax_id}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">Propio</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs font-bold">
                             {Number(b.qty_on_hand).toLocaleString("es-CL")}
