@@ -182,3 +182,16 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Tarjetas KPI en tiempo real: Total Operaciones (desglose Export vs Import), Pendientes SICEX, Total Certificados y Despachos Vinculados.
   * Filtros por cliente 3PL, tipo de operación y estado aduanero.
 
+---
+
+## 16. Vertical 3PL — Validación de Cumplimiento & Puesta en Producción ([`PRODUCCION-3PL.md`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/.md/PRODUCCION-3PL.md))
+* **Certificación de No-Contaminación Contable**:
+  * Las guías de despacho (`dispatch_notes`) y movimientos en custodia (`stock_ledger_entries` con `party_id`) operan de forma 100% aislada de los libros oficiales (`sii_synced_documents`, `sales_invoices`, `gl_entries`), protegiendo la integridad del Libro de Ventas, Compras y cálculo de F29 (Sprint 15 / ApiPyme).
+* **Cuadratura y Segregación de Inventario**:
+  * Vista `stock_balances` agrupada por `party_id` con `security_invoker = true`, discriminando stock de la compañía (`party_id IS NULL`) y de clientes en custodia (`party_id IS NOT NULL`).
+* **Matriz de Auditoría RLS Multiempresa**:
+  * Confirmación de políticas activas en `party_warehouses`, `dispatch_notes`, `dispatch_note_lines`, `foreign_trade_operations` y `foreign_trade_certificates`.
+* **Bloqueantes de Negocio Registrados**:
+  * Emisor DTE (timbrado CAF y firma de Guías Electrónicas Tipo 52 / Res. 154) y Habilitación de credenciales API en portal SICEX.
+* **Cierre de Fase 1**: Habilitación formal para la Fase 2 (Operación WMS/TMS a partir del Sprint 19).
+

@@ -53,17 +53,17 @@ Extender EasyERP con una vertical funcional para empresas 3PL (bodegaje y transp
 
 ## Estado de los prompts
 
-Los 13 sprints (16–28) ya tienen su archivo de prompt listo en `.md/`, verificados contra el esquema real del repo (`entities`, `parties`, `warehouses`, `stock_ledger_entries`, `sales_invoices`). El Sprint 16 ya se implementó y se verificó su RLS (septiembre 2026).
+Los 13 sprints (16–28) tienen su archivo de especificación en `.md/`. La **Fase 1 (Cumplimiento: Sprints 16, 17 y 18)** se encuentra completamente implementada y validada (septiembre 2026), con certificación de no-contaminación contable en `.md/PRODUCCION-3PL.md`.
 
-| # | Archivo | Depende de |
-|---|---|---|
-| 16 | sprint-16-modelo-datos-3pl-guia-despacho-res154.md | — (implementado) |
-| 17 | sprint-17-sicex-comercio-exterior.md | 16 |
-| 18 | sprint-18-libros-validacion-cumplimiento.md | 15, 16, 17 |
-| 19 | sprint-19-wms-recepcion-ubicacion.md | 16 |
-| 20 | sprint-20-wms-picking-packing-trazabilidad.md | 19 |
-| 21 | sprint-21-tms-rutas-flota.md | 16 |
-| 22 | sprint-22-tms-tracking-couriers.md | 21 |
+| # | Archivo | Depende de | Estado |
+|---|---|---|:---:|
+| 16 | sprint-16-modelo-datos-3pl-guia-despacho-res154.md | — | ✅ Implementado |
+| 17 | sprint-17-sicex-comercio-exterior.md | 16 | ✅ Implementado |
+| 18 | sprint-18-libros-validacion-cumplimiento.md | 15, 16, 17 | ✅ Validado (`PRODUCCION-3PL.md`) |
+| 19 | sprint-19-wms-recepcion-ubicacion.md | 16 | ⏳ Siguiente (Fase 2) |
+| 20 | sprint-20-wms-picking-packing-trazabilidad.md | 19 | Pendiente |
+| 21 | sprint-21-tms-rutas-flota.md | 16 | Pendiente |
+| 22 | sprint-22-tms-tracking-couriers.md | 21 | Pendiente |
 | 23 | sprint-23-oms-pedidos-multicanal.md | 16, 20 |
 | 24 | sprint-24-portal-cliente.md | 16 |
 | 25 | sprint-25-contratos-tarifarios.md | 16 |

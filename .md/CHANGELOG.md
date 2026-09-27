@@ -2,6 +2,20 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 18: Libros Heredados y Validación de Cumplimiento 3PL] - 2026-09-27
+
+### Añadido & Validado
+* **Documento de Validación y Puesta en Producción ([`PRODUCCION-3PL.md`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/.md/PRODUCCION-3PL.md))**:
+  * Certificación de **no-contaminación contable**: comprobado que las guías de despacho internas (`dispatch_notes`, estado `draft`) no se insertan en el Libro de Ventas (`sii_synced_documents`) ni en los asientos contables de partida doble (`gl_entries`), manteniendo intacta la conciliación RCV y F29 provista por ApiPyme (Sprint 15).
+  * Validación matemática y lógica de **cuadratura de inventario (`stock_balances`)**: comprobado que la agrupación por `party_id` segrega con precisión el stock propio (`party_id IS NULL`) del inventario en custodia de terceros (`party_id IS NOT NULL`), cuadrando exactamente con el acumulado de `qty_change` de `stock_ledger_entries`.
+  * **Auditoría de Políticas RLS**: verificación de que `party_warehouses`, `dispatch_notes`, `dispatch_note_lines`, `foreign_trade_operations` y `foreign_trade_certificates` aplican Row Level Security estricto con `user_has_company_access(auth.uid(), entity_id)`.
+  * **Registro explícito de bloqueantes de negocio pre-operación**:
+    1. **Motor Emisor DTE (Sprint 16/26)**: Selección e integración de proveedor para timbrado CAF y generación de DTE Tipo 52 exigido por Res. Ex. N° 154 SII a contar del 1 de noviembre de 2026.
+    2. **Habilitación SICEX (Sprint 17)**: Gestión de certificado digital y credenciales ante el Servicio Nacional de Aduanas para consumo de API y webhooks en vivo.
+  * **Cierre oficial de la Fase 1 (Cumplimiento)** y autorización para avanzar a la Fase 2 (Operación: WMS / TMS).
+
+---
+
 ## [Sprint 17: Comercio Exterior (SICEX)] - 2026-09-27
 
 ### Añadido
