@@ -51,6 +51,24 @@ Extender EasyERP con una vertical funcional para empresas 3PL (bodegaje y transp
 
 ---
 
-## Próximo paso
+## Estado de los prompts
 
-Prompt del **Sprint 16** listo (`sprint-16-modelo-datos-3pl-guia-despacho-res154.md`), corregido contra el esquema real del repo (`parties`, `stock_ledger_entries`, `warehouses`). Antes de pegarlo en Lovable, vale la pena resolver la decisión de emisor DTE — es un bloqueante compartido con el Sprint 6 original, no algo nuevo de esta vertical.
+Los 13 sprints (16–28) ya tienen su archivo de prompt listo en `.md/`, verificados contra el esquema real del repo (`entities`, `parties`, `warehouses`, `stock_ledger_entries`, `sales_invoices`). El Sprint 16 ya se implementó y se verificó su RLS (septiembre 2026).
+
+| # | Archivo | Depende de |
+|---|---|---|
+| 16 | sprint-16-modelo-datos-3pl-guia-despacho-res154.md | — (implementado) |
+| 17 | sprint-17-sicex-comercio-exterior.md | 16 |
+| 18 | sprint-18-libros-validacion-cumplimiento.md | 15, 16, 17 |
+| 19 | sprint-19-wms-recepcion-ubicacion.md | 16 |
+| 20 | sprint-20-wms-picking-packing-trazabilidad.md | 19 |
+| 21 | sprint-21-tms-rutas-flota.md | 16 |
+| 22 | sprint-22-tms-tracking-couriers.md | 21 |
+| 23 | sprint-23-oms-pedidos-multicanal.md | 16, 20 |
+| 24 | sprint-24-portal-cliente.md | 16 |
+| 25 | sprint-25-contratos-tarifarios.md | 16 |
+| 26 | sprint-26-facturacion-servicios.md | 6, 25 |
+| 27 | sprint-27-bi-kpis-operacionales.md | 16, 19, 20, 21 |
+| 28 | sprint-28-bi-kpis-comerciales.md | 26, 27 |
+
+Dependencias externas que ningún sprint resuelve por sí solo (siguen abiertas, cada una marcada en su archivo): emisor DTE (16/26), habilitación SICEX (17), integración específica de couriers/GPS (22), integración específica de canal de e-commerce (23).
