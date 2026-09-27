@@ -60,6 +60,17 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
 
 ---
 
+## [Sprint 16: Modelo de datos 3PL + Guía de Despacho (Res. 154)] - 2026-09-26
+
+### Añadido
+* `parties.is_3pl_client`, tabla `party_warehouses`, `stock_ledger_entries.party_id`, vista `stock_balances` con `party_id`.
+* Enums `dispatch_transfer_type` y `dispatch_status`; tablas `dispatch_notes` y `dispatch_note_lines` con RLS multiempresa.
+* Pantalla **Guías de Despacho 3PL** (`dispatch.tsx`): alta de guías en borrador y gestión de clientes 3PL con selector multi-bodega.
+* Filtro/columna de propietario (propio / cliente 3PL) en "Saldos por Bodega".
+* Sin botón de emisión al SII: pendiente de la decisión de emisor DTE.
+
+---
+
 ## [Sprint 15: Integración SII vía ApiPyme (Registro de Ventas, Compras y Boletas)] - 2026-08-27
 
 ### Añadido

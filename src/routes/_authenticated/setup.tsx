@@ -164,6 +164,7 @@ function SetupPage() {
     rut?: string;
     is_active?: boolean;
     message?: string;
+    expires_at?: string | null;
   } | null>(null);
 
   const fetchVerifyApiPyme = useServerFn(verifyApiPymeToken);

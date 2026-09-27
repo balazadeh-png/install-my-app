@@ -81,6 +81,7 @@ function InventoryPage() {
   const [filterParty, setFilterParty] = useState<string>("ALL");
   const [movPartyId, setMovPartyId] = useState<string>("NONE");
 
+
   const baseCurrency = activeEntity?.base_currency_code || "CLP";
 
   // Query: Items
@@ -330,6 +331,11 @@ function InventoryPage() {
   const movements = movementsQuery.data ?? [];
   const parties3pl = parties3plQuery.data ?? [];
 
+  const ownerOptions = Array.from(
+    new Map(
+      balances.filter((b) => b.party_id).map((b) => [b.party_id, b.party_name ?? b.party_tax_id ?? "Cliente"]),
+    ).entries(),
+  );
   const filteredBalances = balances.filter((b) => {
     if (filterWarehouse !== "ALL" && b.warehouse_id !== filterWarehouse) return false;
     if (filterParty === "OWN" && b.party_id !== null) return false;

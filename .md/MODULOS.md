@@ -151,7 +151,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 14. Vertical 3PL — Guías de Despacho Res. 154 SII ([`/dispatch-notes`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch-notes.tsx))
+## 14. Vertical 3PL — Guías de Despacho Res. 154 SII ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
 * **Cumplimiento Obligatorio Resolución Exenta N° 154 del SII** (vigente 1 de noviembre de 2026):
   * **Datos del Transportista**: Nombre o razón social (`carrier_name`) y RUT (`carrier_tax_id`).
   * **Datos del Vehículo**: Patente en formato oficial (`vehicle_plate`).
@@ -168,7 +168,7 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 15. Vertical 3PL — Comercio Exterior (SICEX / Aduanas) ([`/dispatch-notes`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch-notes.tsx))
+## 15. Vertical 3PL — Comercio Exterior (SICEX / Aduanas) ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
 * **Carpetas y Expedientes Aduaneros (`foreign_trade_operations`)**:
   * Registro de operaciones de exportación (salida de Chile / DUS) e importación (ingreso a Chile / DIN) para clientes 3PL.
   * Captura de país de origen/destino, N° DUS / DIN aduanero, conocimiento de embarque / Bill of Lading (BL) / Booking y notas operacionales.
