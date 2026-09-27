@@ -38,9 +38,9 @@ ALTER TABLE public.stock_ledger_entries ADD COLUMN IF NOT EXISTS qc_notes text;
 
 ## Criterios de aceptación
 
-- [ ] Se pueden crear ubicaciones dentro de una bodega existente.
-- [ ] Una recepción genera un `stock_ledger_entries` con `movement_type='receipt'`, `party_id` del cliente, `location_id` y `lot_number` opcional.
-- [ ] El saldo por ubicación es consultable (no solo por bodega/cliente como en el Sprint 16).
+- [x] Se pueden crear ubicaciones dentro de una bodega existente.
+- [x] Una recepción genera un `stock_ledger_entries` con `movement_type='receipt'`, `party_id` del cliente, `location_id` y `lot_number` opcional.
+- [x] El saldo por ubicación es consultable (no solo por bodega/cliente como en el Sprint 16).
 
 ---
 

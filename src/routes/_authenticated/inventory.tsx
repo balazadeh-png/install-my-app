@@ -27,6 +27,7 @@ import {
   Boxes,
   Building2,
   Truck,
+  MapPin,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
@@ -63,6 +64,9 @@ function InventoryPage() {
   const [movType, setMovType] = useState<"receipt" | "issue" | "adjustment">("receipt");
   const [movItemId, setMovItemId] = useState("");
   const [movWarehouseId, setMovWarehouseId] = useState("");
+  const [movLocationId, setMovLocationId] = useState<string>("NONE");
+  const [movLotNumber, setMovLotNumber] = useState("");
+  const [movQcNotes, setMovQcNotes] = useState("");
   const [movQty, setMovQty] = useState("");
   const [movRate, setMovRate] = useState("");
   const [movDate, setMovDate] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -78,6 +82,7 @@ function InventoryPage() {
 
   // Filtros de vista
   const [filterWarehouse, setFilterWarehouse] = useState<string>("ALL");
+  const [filterLocation, setFilterLocation] = useState<string>("ALL");
   const [filterParty, setFilterParty] = useState<string>("ALL");
   const [movPartyId, setMovPartyId] = useState<string>("NONE");
 
@@ -158,7 +163,7 @@ function InventoryPage() {
       if (!activeEntityId) return [];
       const { data, error } = await supabase
         .from("stock_ledger_entries" as any)
-        .select("*, items(code, name), warehouses(code, name)")
+        .select("*, items(code, name), warehouses(code, name), warehouse_locations(code, name)")
         .eq("entity_id", activeEntityId)
         .order("posting_date", { ascending: false })
         .order("created_at", { ascending: false });
@@ -181,6 +186,22 @@ function InventoryPage() {
         .order("name");
       if (error) throw error;
       return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  // Query: Ubicaciones WMS (warehouse_locations)
+  const locationsQuery = useQuery({
+    queryKey: ["warehouse_locations", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("warehouse_locations" as any)
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .order("code");
+      if (error) throw error;
+      return (data ?? []) as any[];
     },
     enabled: !!activeEntityId,
   });
@@ -262,11 +283,14 @@ function InventoryPage() {
         item_id: movItemId,
         warehouse_id: movWarehouseId,
         party_id: movPartyId && movPartyId !== "NONE" ? movPartyId : null,
+        location_id: movLocationId && movLocationId !== "NONE" ? movLocationId : null,
+        lot_number: movLotNumber.trim() || null,
+        qc_notes: movQcNotes.trim() || null,
         movement_type: movType,
         qty_change: finalQty,
         valuation_rate: isExit ? 0 : rate, // El trigger FIFO calcula el rate en salidas
         posting_date: movDate,
-        memo: movMemo.trim() || `Movimiento de ${movType === "receipt" ? "Entrada" : movType === "issue" ? "Salida" : "Ajuste"}`,
+        memo: movMemo.trim() || `Movimiento de ${movType === "receipt" ? "Entrada" : movType === "issue" ? "Salida" : "Ajuste"}${movLotNumber ? ` - Lote ${movLotNumber}` : ""}`,
       });
 
       if (error) throw error;
@@ -280,6 +304,9 @@ function InventoryPage() {
       setMovRate("");
       setMovMemo("");
       setMovPartyId("NONE");
+      setMovLocationId("NONE");
+      setMovLotNumber("");
+      setMovQcNotes("");
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al procesar movimiento");
@@ -327,6 +354,7 @@ function InventoryPage() {
   const categories = categoriesQuery.data ?? [];
   const uoms = uomQuery.data ?? [];
   const warehouses = warehousesQuery.data ?? [];
+  const locations = locationsQuery.data ?? [];
   const balances = balancesQuery.data ?? [];
   const movements = movementsQuery.data ?? [];
   const parties3pl = parties3plQuery.data ?? [];
@@ -340,6 +368,7 @@ function InventoryPage() {
     if (filterWarehouse !== "ALL" && b.warehouse_id !== filterWarehouse) return false;
     if (filterParty === "OWN" && b.party_id !== null) return false;
     if (filterParty !== "ALL" && filterParty !== "OWN" && b.party_id !== filterParty) return false;
+    if (filterLocation !== "ALL" && b.location_id !== filterLocation) return false;
     return true;
   });
 
@@ -714,6 +743,55 @@ function InventoryPage() {
                     Selecciona un cliente 3PL si la mercadería ingresa o sale en custodia de un tercero.
                   </p>
                 </div>
+
+                <div>
+                  <Label className="text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      Ubicación WMS (Pasillo / Rack / Posición)
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">Opcional</Badge>
+                  </Label>
+                  <Select value={movLocationId} onValueChange={setMovLocationId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Sin ubicación / General" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">Sin ubicación (General)</SelectItem>
+                      {locations
+                        .filter((l) => !movWarehouseId || l.warehouse_id === movWarehouseId)
+                        .map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.code} {l.name ? `(${l.name})` : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {movType === "receipt" && (
+                  <div className="grid grid-cols-2 gap-3 p-2.5 rounded-lg border bg-muted/20">
+                    <div>
+                      <Label className="text-xs">N° Lote (Trazabilidad)</Label>
+                      <Input
+                        placeholder="ej. LOT-2026-X01"
+                        value={movLotNumber}
+                        onChange={(e) => setMovLotNumber(e.target.value)}
+                        className="mt-1 font-mono text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Control Calidad / QC</Label>
+                      <Input
+                        placeholder="ej. Sellos OK, temp 4°C"
+                        value={movQcNotes}
+                        onChange={(e) => setMovQcNotes(e.target.value)}
+                        className="mt-1 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Cantidad</Label>
@@ -906,6 +984,25 @@ function InventoryPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Ubicación WMS:</Label>
+                  <Select value={filterLocation} onValueChange={setFilterLocation}>
+                    <SelectTrigger className="w-[180px] h-8 text-xs">
+                      <SelectValue placeholder="Todas las ubicaciones" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todas las ubicaciones</SelectItem>
+                      {locations
+                        .filter((l) => filterWarehouse === "ALL" || l.warehouse_id === filterWarehouse)
+                        .map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.code} {l.name ? `- ${l.name}` : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -930,6 +1027,7 @@ function InventoryPage() {
                         <TableHead className="w-[130px]">SKU / Código</TableHead>
                         <TableHead>Artículo</TableHead>
                         <TableHead>Bodega</TableHead>
+                        <TableHead>Ubicación (WMS)</TableHead>
                         <TableHead>Propietario / Cliente 3PL</TableHead>
                         <TableHead className="text-right">Cantidad en Stock</TableHead>
                         <TableHead className="text-right">Costo Promedio Unitario</TableHead>
@@ -938,7 +1036,7 @@ function InventoryPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredBalances.map((b, idx) => (
-                        <TableRow key={`${b.item_id}-${b.warehouse_id}-${b.party_id || 'own'}-${idx}`}>
+                        <TableRow key={`${b.item_id}-${b.warehouse_id}-${b.location_id || 'noloc'}-${b.party_id || 'own'}-${idx}`}>
                           <TableCell className="font-mono text-xs font-semibold text-primary">
                             {b.item_code}
                           </TableCell>
@@ -947,6 +1045,23 @@ function InventoryPage() {
                             <Badge variant="outline" className="text-xs">
                               {b.warehouse_code} - {b.warehouse_name}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {b.location_code ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30 flex items-center gap-1 w-fit font-mono"
+                                title={b.location_name || undefined}
+                              >
+                                <MapPin className="h-3 w-3 text-slate-500" />
+                                <span>{b.location_code}</span>
+                                {b.location_name && (
+                                  <span className="opacity-70 text-[10px]">({b.location_name})</span>
+                                )}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs italic">General</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-xs">
                             {b.party_id ? (
@@ -1010,7 +1125,7 @@ function InventoryPage() {
                         <TableHead className="w-[100px]">Fecha</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead>Artículo</TableHead>
-                        <TableHead>Bodega</TableHead>
+                        <TableHead>Bodega / Ubicación</TableHead>
                         <TableHead className="text-right">Cantidad</TableHead>
                         <TableHead className="text-right">Costo Unitario FIFO</TableHead>
                         <TableHead className="text-right">Total Movimiento</TableHead>
@@ -1057,7 +1172,15 @@ function InventoryPage() {
                               {m.items ? `${m.items.code} - ${m.items.name}` : m.item_id}
                             </TableCell>
                             <TableCell className="text-xs">
-                              {m.warehouses?.name || m.warehouse_id}
+                              <div className="flex flex-col gap-0.5">
+                                <span>{m.warehouses?.name || m.warehouse_id}</span>
+                                {m.warehouse_locations && (
+                                  <span className="font-mono text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                    <MapPin className="h-2.5 w-2.5 text-slate-500" />
+                                    {m.warehouse_locations.code}
+                                  </span>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className={`text-right font-mono text-xs font-bold ${isEntry ? "text-emerald-600" : "text-destructive"}`}>
                               {isEntry ? `+${Number(m.qty_change).toLocaleString("es-CL")}` : Number(m.qty_change).toLocaleString("es-CL")}
@@ -1069,7 +1192,21 @@ function InventoryPage() {
                               $ {totalVal.toLocaleString("es-CL")}
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
-                              {m.memo || "-"}
+                              <div className="flex flex-col gap-0.5">
+                                <span>{m.memo || "-"}</span>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  {m.lot_number && (
+                                    <Badge variant="outline" className="text-[10px] font-mono px-1 py-0 h-4">
+                                      Lote: {m.lot_number}
+                                    </Badge>
+                                  )}
+                                  {m.qc_notes && (
+                                    <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4" title={m.qc_notes}>
+                                      QC: {m.qc_notes}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );

@@ -195,3 +195,19 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Emisor DTE (timbrado CAF y firma de Guías Electrónicas Tipo 52 / Res. 154) y Habilitación de credenciales API en portal SICEX.
 * **Cierre de Fase 1**: Habilitación formal para la Fase 2 (Operación WMS/TMS a partir del Sprint 19).
 
+---
+
+## 17. Vertical 3PL — WMS: Recepción y Ubicación (Slotting / Racks / Pasillos) ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
+* **Gestión de Ubicaciones Físicas (`warehouse_locations`)**:
+  * Mapeo granular de la bodega en sub-ubicaciones con código único (`code`, ej. `A-01-01`, `RACK-B-N2`) y nombre referencial.
+  * Aislamiento multiempresa mediante RLS por `entity_id` y relación directa con `warehouses`.
+  * Modal interactivo "+ Nueva Ubicación" para aprovisionar posiciones sin interrumpir el proceso de recepción física.
+* **Recepción en Custodia con Trazabilidad y Calidad (`stock_ledger_entries`)**:
+  * Registro de ingresos con `movement_type = 'receipt'`, vinculados al cliente 3PL propietario (`party_id`), bodega autorizada (`party_warehouses`) y ubicación de guardado (`location_id`).
+  * Captura de N° de Lote (`lot_number`) para trazabilidad de lote/partida y control de calidad (`qc_notes`) con observaciones técnicas al ingreso.
+  * Generación automática de capas FIFO (`stock_valuation_layers`) para valorización de inventario.
+* **Consulta y Filtrado Granular de Existencias ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))**:
+  * Vista `stock_balances` (`security_invoker = true`) enriquecida con `location_id`, `location_code` y `location_name`.
+  * Filtro interactivo por ubicación WMS y visualización de badges por código de posición física en "Saldos por Bodega".
+  * Integración en Kardex de movimientos mostrando la bodega, ubicación y lote asociado a cada operación.
+

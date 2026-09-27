@@ -65,4 +65,12 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
   * `foreign_trade_operations`: Carpeta aduanera vinculada a cliente 3PL (`party_id`), tipo (`exportacion`, `importacion`), país, N° DUS/DIN (`dus_number`), booking/BL (`booking_number`), estado aduanero (`ft_customs_status`: `pendiente`, `tramitando`, `autorizado`, `rechazado`) y vínculo opcional con `dispatch_notes`.
   * `foreign_trade_certificates`: Repositorio aduanero de certificados asociados a la operación (fitosanitarios SAG, zoosanitarios SAG/SERNAPESCA, certificados de origen SOFOFA/Cámara de Comercio, ISP) con número, emisor y fecha de vigencia (`valid_until`).
   * Políticas de Row Level Security (RLS) multiempresa con `user_has_company_access(auth.uid(), entity_id)` y roles autorizados.
+* **Vertical 3PL — WMS: Recepción y Ubicación (Slotting / Racks / Pasillos)**:
+  * `warehouse_locations`: Catálogo granular de sub-ubicaciones dentro de cada bodega (`warehouse_id`, `code` único por bodega, `name`, `entity_id`, `is_active`) con políticas RLS multiempresa.
+  * Extensión en `stock_ledger_entries`:
+    * `location_id`: Clave foránea opcional a `warehouse_locations(id)` para slotting de mercaderías.
+    * `lot_number`: Trazabilidad por número de lote/partida en los movimientos de inventario.
+    * `qc_notes`: Registro de control de calidad e inspección técnica al momento de la recepción.
+  * Vista `stock_balances`: Agrupación y consulta de saldos consolidados por ítem, bodega, cliente 3PL propietario y ubicación física (`location_id`, `location_code`, `location_name`), con `security_invoker = true`.
+
 

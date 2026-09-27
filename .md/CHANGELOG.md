@@ -2,6 +2,38 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 19: WMS — Recepción y Ubicación por Pasillo/Rack/Posición] - 2026-09-27
+
+### Añadido
+* **Migración SQL de Ubicaciones WMS (Slotting) y Control de Lotes/Calidad** ([`supabase/migrations/20260927000018_sprint19_wms_recepcion_ubicacion.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000018_sprint19_wms_recepcion_ubicacion.sql)):
+  * `warehouse_locations`: sub-ubicaciones físicas dentro de una bodega (`warehouse_id`, `code`, `name`, `entity_id`, `is_active`) con clave única compuesta `(warehouse_id, code)` y RLS multiempresa.
+  * Extensión en `stock_ledger_entries`:
+    * `location_id`: clave foránea opcional a `warehouse_locations(id)`.
+    * `lot_number`: número de lote para trazabilidad básica de partida.
+    * `qc_notes`: observaciones y checklist de control de calidad al momento del ingreso.
+  * Redefinición de la vista `stock_balances` (`security_invoker = true`):
+    * Incorporación de `location_id`, `location_code` y `location_name` en `SELECT` y `GROUP BY`, permitiendo consultar saldos consolidados por ubicación física además de por bodega y cliente 3PL.
+* **Pestaña "Recepción WMS" en Operaciones 3PL ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Formulario completo para registrar recepciones físicas de mercadería en custodia:
+    * Selector de cliente 3PL y bodega autorizada (`party_warehouses`).
+    * Selector de ubicación física con botón modal rápido "+ Nueva Ubicación" para crear pasillo/rack sin salir del flujo.
+    * Selector de artículo, cantidad y valorización unitaria para generación automática de la capa FIFO.
+    * Captura de N° de Lote opcional y observaciones de Control de Calidad (QC).
+  * Tarjetas KPI en tiempo real: Total Recepciones WMS, Unidades Recibidas en Custodia, Ubicaciones Activas Registradas y Bodegas de Acopio.
+  * Panel histórico de recepciones recientes con badges de cliente, bodega, ubicación (`MapPin`), lote y notas de inspección técnica.
+* **Filtro y Columna de Ubicación en Inventario ([`inventory.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))**:
+  * Pestaña "Saldos por Bodega":
+    * Nuevo filtro interactivo por "Ubicación WMS" contextualizado a la bodega seleccionada.
+    * Nueva columna "Ubicación (WMS)" con badges visuales por código de rack/pasillo.
+  * Modal "Registrar Movimiento":
+    * Selector opcional de ubicación WMS filtrado por la bodega destino.
+    * Campos opcionales de N° de Lote y Control de Calidad (QC) en entradas de inventario.
+  * Pestaña "Kardex de Movimientos": visualización de ubicación física y lote en cada movimiento registrado.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Definición tipada de la tabla `warehouse_locations`, extensión de `stock_ledger_entries` y vista `stock_balances`.
+
+---
+
 ## [Sprint 18: Libros Heredados y Validación de Cumplimiento 3PL] - 2026-09-27
 
 ### Añadido & Validado

@@ -3339,10 +3339,13 @@ export type Database = {
           entity_id: string
           id: string
           item_id: string
+          location_id: string | null
+          lot_number: string | null
           memo: string | null
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
           party_id: string | null
           posting_date: string
+          qc_notes: string | null
           qty_change: number
           transfer_pair_id: string | null
           valuation_rate: number
@@ -3356,10 +3359,13 @@ export type Database = {
           entity_id: string
           id?: string
           item_id: string
+          location_id?: string | null
+          lot_number?: string | null
           memo?: string | null
           movement_type: Database["public"]["Enums"]["stock_movement_type"]
           party_id?: string | null
           posting_date: string
+          qc_notes?: string | null
           qty_change: number
           transfer_pair_id?: string | null
           valuation_rate?: number
@@ -3373,10 +3379,13 @@ export type Database = {
           entity_id?: string
           id?: string
           item_id?: string
+          location_id?: string | null
+          lot_number?: string | null
           memo?: string | null
           movement_type?: Database["public"]["Enums"]["stock_movement_type"]
           party_id?: string | null
           posting_date?: string
+          qc_notes?: string | null
           qty_change?: number
           transfer_pair_id?: string | null
           valuation_rate?: number
@@ -3397,6 +3406,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_locations"
             referencedColumns: ["id"]
           },
           {
@@ -3651,6 +3667,51 @@ export type Database = {
           },
         ]
       }
+      warehouse_locations: {
+        Row: {
+          code: string
+          created_at: string
+          entity_id: string
+          id: string
+          is_active: boolean
+          name: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          entity_id: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          entity_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_locations_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_locations_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       purchase_invoice_balances: {
@@ -3740,6 +3801,9 @@ export type Database = {
           item_code: string | null
           item_id: string | null
           item_name: string | null
+          location_code: string | null
+          location_id: string | null
+          location_name: string | null
           party_id: string | null
           party_name: string | null
           party_tax_id: string | null
