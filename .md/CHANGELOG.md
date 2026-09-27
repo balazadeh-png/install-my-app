@@ -2,6 +2,41 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 20: WMS — Picking, Packing y Trazabilidad de Lotes] - 2026-09-27
+
+### Añadido
+* **Migración SQL de Picking, Packing y Trazabilidad** ([`supabase/migrations/20260927000019_sprint20_wms_picking_packing_trazabilidad.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000019_sprint20_wms_picking_packing_trazabilidad.sql)):
+  * Nuevas columnas en `dispatch_note_lines`:
+    * `location_id`: sub-ubicación física de bodega desde donde se retira el ítem (`warehouse_locations(id)` ON DELETE SET NULL).
+    * `lot_number`: número de lote registrado para la partida específica pickeada.
+    * `picked`: indicador booleano de avance físico de picking (`DEFAULT false NOT NULL`).
+    * `packed`: indicador booleano de avance físico de embalaje (`DEFAULT false NOT NULL`).
+    * `picked_at`: marca temporal de confirmación del picking.
+    * `packed_at`: marca temporal de confirmación del embalaje.
+  * Índices dedicados en `(location_id)`, `(lot_number)`, `(picked)` y `(packed)` para búsquedas de alta concurrencia y consultas de auditoría de trazabilidad.
+* **Ciclo Operativo de Picking con Salida Automática de Inventario ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Botón "Detalle & Picking" por cada guía de despacho registrada:
+    * Modal completo de detalle con información del transporte, origen, destino, cliente 3PL y bodega.
+    * Contadores de progreso en tiempo real de Picking (`X/Total`) y Packing (`X/Total`).
+    * Botón "Pickear" por línea que despliega el formulario contextual:
+      * Selección de la sub-ubicación física filtrada por la bodega de la guía.
+      * Ingreso del número de lote.
+      * Confirmación de picking que marca `picked = true` e inserta automáticamente una salida de inventario (`stock_ledger_entries`, `movement_type = 'issue'`, `valuation_rate = 0` calculada por FIFO en base de datos, `voucher_type = 'dispatch_note'`, `voucher_id = guide.id`), cerrando la brecha entre la guía documental y el stock real en custodia.
+* **Flujo de Packing y Estado "Lista para Despacho" ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Checkbox interactivo "Empacada" por línea en el modal de detalle, condicionado a que la línea esté previamente pickeada (`picked = true`).
+  * Al completar el 100% de las líneas empacadas:
+    * Se activa el badge visual "Lista para despacho" (`CheckCircle2`).
+    * Se despliega un banner de confirmación física indicando que el pedido puede cargarse al camión asignado (el estado DTE tributario se preserva en `draft` para no contaminar libros hasta la emisión oficial).
+* **Pestaña de Trazabilidad 360° por Lote ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Buscador interactivo por número de lote.
+  * Reporte dual consolidado:
+    1. **Salidas en Guías de Despacho**: número de guía, cliente 3PL, ítem, cantidad despachada, ubicación física de picking, fecha de salida, destino, transportista y estado de packing.
+    2. **Historial Kardex del Lote**: trazabilidad de entradas (recepciones), notas de control de calidad (QC), ajustes y salidas previas registradas para el lote consultado.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Tipado de `dispatch_notes`, `dispatch_note_lines` (con `location_id`, `lot_number`, `picked`, `packed`, etc.), `warehouse_locations`, `foreign_trade_operations` y `party_warehouses`.
+
+---
+
 ## [Sprint 19: WMS — Recepción y Ubicación por Pasillo/Rack/Posición] - 2026-09-27
 
 ### Añadido

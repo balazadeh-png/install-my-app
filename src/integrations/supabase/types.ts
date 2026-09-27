@@ -3794,6 +3794,360 @@ export type Database = {
           },
         ]
       }
+      warehouse_locations: {
+        Row: {
+          code: string
+          created_at: string
+          entity_id: string
+          id: string
+          is_active: boolean
+          name: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          entity_id: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          entity_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_locations_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warehouse_locations_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_warehouses: {
+        Row: {
+          created_at: string
+          entity_id: string
+          id: string
+          party_id: string
+          warehouse_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          id?: string
+          party_id: string
+          warehouse_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          id?: string
+          party_id?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_warehouses_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_warehouses_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "party_warehouses_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_notes: {
+        Row: {
+          arrival_at: string | null
+          carrier_name: string
+          carrier_tax_id: string
+          created_at: string
+          created_by: string | null
+          departure_at: string
+          destination_address: string
+          dispatch_number: string | null
+          entity_id: string
+          id: string
+          notes: string | null
+          origin_address: string
+          party_id: string
+          status: Database["public"]["Enums"]["dispatch_status"]
+          transfer_type: Database["public"]["Enums"]["dispatch_transfer_type"]
+          updated_at: string
+          vehicle_plate: string
+          warehouse_id: string
+        }
+        Insert: {
+          arrival_at?: string | null
+          carrier_name: string
+          carrier_tax_id: string
+          created_at?: string
+          created_by?: string | null
+          departure_at: string
+          destination_address: string
+          dispatch_number?: string | null
+          entity_id: string
+          id?: string
+          notes?: string | null
+          origin_address: string
+          party_id: string
+          status?: Database["public"]["Enums"]["dispatch_status"]
+          transfer_type: Database["public"]["Enums"]["dispatch_transfer_type"]
+          updated_at?: string
+          vehicle_plate: string
+          warehouse_id: string
+        }
+        Update: {
+          arrival_at?: string | null
+          carrier_name?: string
+          carrier_tax_id?: string
+          created_at?: string
+          created_by?: string | null
+          departure_at?: string
+          destination_address?: string
+          dispatch_number?: string | null
+          entity_id?: string
+          id?: string
+          notes?: string | null
+          origin_address?: string
+          party_id?: string
+          status?: Database["public"]["Enums"]["dispatch_status"]
+          transfer_type?: Database["public"]["Enums"]["dispatch_transfer_type"]
+          updated_at?: string
+          vehicle_plate?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_notes_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_notes_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_notes_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_note_lines: {
+        Row: {
+          dispatch_note_id: string
+          id: string
+          item_id: string
+          location_id: string | null
+          lot_number: string | null
+          packed: boolean
+          packed_at: string | null
+          picked: boolean
+          picked_at: string | null
+          qty: number
+          unit_value: number | null
+          uom: string | null
+          volume_m3: number | null
+          weight_kg: number | null
+        }
+        Insert: {
+          dispatch_note_id: string
+          id?: string
+          item_id: string
+          location_id?: string | null
+          lot_number?: string | null
+          packed?: boolean
+          packed_at?: string | null
+          picked?: boolean
+          picked_at?: string | null
+          qty: number
+          unit_value?: number | null
+          uom?: string | null
+          volume_m3?: number | null
+          weight_kg?: number | null
+        }
+        Update: {
+          dispatch_note_id?: string
+          id?: string
+          item_id?: string
+          location_id?: string | null
+          lot_number?: string | null
+          packed?: boolean
+          packed_at?: string | null
+          picked?: boolean
+          picked_at?: string | null
+          qty?: number
+          unit_value?: number | null
+          uom?: string | null
+          volume_m3?: number | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_note_lines_dispatch_note_id_fkey"
+            columns: ["dispatch_note_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_note_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_note_lines_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      foreign_trade_operations: {
+        Row: {
+          booking_number: string | null
+          country_code: string | null
+          created_at: string
+          customs_status: Database["public"]["Enums"]["ft_customs_status"]
+          dispatch_note_id: string | null
+          dus_number: string | null
+          entity_id: string
+          id: string
+          notes: string | null
+          operation_type: Database["public"]["Enums"]["ft_operation_type"]
+          party_id: string
+          updated_at: string
+        }
+        Insert: {
+          booking_number?: string | null
+          country_code?: string | null
+          created_at?: string
+          customs_status?: Database["public"]["Enums"]["ft_customs_status"]
+          dispatch_note_id?: string | null
+          dus_number?: string | null
+          entity_id: string
+          id?: string
+          notes?: string | null
+          operation_type: Database["public"]["Enums"]["ft_operation_type"]
+          party_id: string
+          updated_at?: string
+        }
+        Update: {
+          booking_number?: string | null
+          country_code?: string | null
+          created_at?: string
+          customs_status?: Database["public"]["Enums"]["ft_customs_status"]
+          dispatch_note_id?: string | null
+          dus_number?: string | null
+          entity_id?: string
+          id?: string
+          notes?: string | null
+          operation_type?: Database["public"]["Enums"]["ft_operation_type"]
+          party_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "foreign_trade_operations_dispatch_note_id_fkey"
+            columns: ["dispatch_note_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "foreign_trade_operations_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "foreign_trade_operations_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      foreign_trade_certificates: {
+        Row: {
+          certificate_number: string | null
+          certificate_type: string
+          created_at: string
+          id: string
+          issued_by: string | null
+          operation_id: string
+          valid_until: string | null
+        }
+        Insert: {
+          certificate_number?: string | null
+          certificate_type: string
+          created_at?: string
+          id?: string
+          issued_by?: string | null
+          operation_id: string
+          valid_until?: string | null
+        }
+        Update: {
+          certificate_number?: string | null
+          certificate_type?: string
+          created_at?: string
+          id?: string
+          issued_by?: string | null
+          operation_id?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "foreign_trade_certificates_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "foreign_trade_operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_balances: {
         Row: {
           avg_rate: number | null

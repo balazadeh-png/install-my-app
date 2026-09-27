@@ -26,9 +26,9 @@ ALTER TABLE public.dispatch_note_lines ADD COLUMN IF NOT EXISTS packed boolean D
 
 ## Criterios de aceptación
 
-- [ ] Desde una guía en `draft`, se puede marcar cada línea como "pickeada" indicando ubicación y lote — esto crea el `stock_ledger_entries` de salida correspondiente.
-- [ ] Cuando todas las líneas de una guía están `packed`, la guía se puede marcar como lista para despacho (sigue en `status='draft'` a nivel de DTE — eso no cambia hasta el Sprint del emisor).
-- [ ] Dado un número de lote, se puede ver en qué guía(s) salió y para qué cliente.
+- [x] Desde una guía en `draft`, se puede marcar cada línea como "pickeada" indicando ubicación y lote — esto crea el `stock_ledger_entries` de salida correspondiente.
+- [x] Cuando todas las líneas de una guía están `packed`, la guía se puede marcar como lista para despacho (sigue en `status='draft'` a nivel de DTE — eso no cambia hasta el Sprint del emisor).
+- [x] Dado un número de lote, se puede ver en qué guía(s) salió y para qué cliente.
 
 ---
 

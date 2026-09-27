@@ -211,3 +211,20 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Filtro interactivo por ubicación WMS y visualización de badges por código de posición física en "Saldos por Bodega".
   * Integración en Kardex de movimientos mostrando la bodega, ubicación y lote asociado a cada operación.
 
+---
+
+## 18. Vertical 3PL — WMS: Picking, Packing y Trazabilidad de Lotes ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
+* **Ciclo Operativo de Picking con Descuento Automático de Inventario (`dispatch_note_lines`)**:
+  * Botón interactivo "Detalle & Picking" por cada guía de despacho registrada.
+  * Formulario de picking por línea: selección de sub-ubicación de retiro física (`warehouse_locations`) dentro de la bodega de la guía y especificación del número de lote (`lot_number`).
+  * Confirmación de picking que marca la línea como `picked = true` (`picked_at = now()`) y emite en tiempo real la salida de stock en `stock_ledger_entries` (`movement_type = 'issue'`, `valuation_rate = 0` calculada por FIFO en base de datos, `party_id` del cliente 3PL, `voucher_type = 'dispatch_note'`, `voucher_id = guide.id`).
+* **Flujo de Packing y Certificación de "Lista para Despacho"**:
+  * Checkbox interactivo "Empacada" (`packed = true`, `packed_at = now()`) por línea, habilitado estrictamente una vez completado el picking.
+  * Cuando el 100% de las líneas de una guía están empacadas, se activa el badge y banner "✓ Lista para despacho" indicando que la carga está embalada y lista para el transporte asignado (el DTE tributario se mantiene en `draft` para no alterar libros legales).
+* **Módulo de Trazabilidad 360° por Lote**:
+  * Búsqueda instantánea por código de lote (`lot_number`) en pestaña dedicada.
+  * Panel dual consolidado:
+    1. **Salidas en Guías de Despacho**: folio de guía, cliente 3PL, ítem, cantidad despachada, ubicación física de retiro, fecha de salida, destino, transportista y estado físico.
+    2. **Historial Kardex del Lote**: trazabilidad histórica de recepciones, notas de inspección técnica de calidad (QC), ajustes y salidas previas registradas para el lote.
+
+

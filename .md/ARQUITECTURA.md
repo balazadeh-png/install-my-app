@@ -72,5 +72,13 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
     * `lot_number`: Trazabilidad por número de lote/partida en los movimientos de inventario.
     * `qc_notes`: Registro de control de calidad e inspección técnica al momento de la recepción.
   * Vista `stock_balances`: Agrupación y consulta de saldos consolidados por ítem, bodega, cliente 3PL propietario y ubicación física (`location_id`, `location_code`, `location_name`), con `security_invoker = true`.
+* **Vertical 3PL — WMS: Picking, Packing y Trazabilidad de Lotes**:
+  * Extensión en `dispatch_note_lines`:
+    * `location_id`: Sub-ubicación física de bodega de donde se retira el producto (`warehouse_locations(id)`).
+    * `lot_number`: Número de lote asignado al retiro.
+    * `picked` / `picked_at`: Avance operativo de picking con inserción automática y sincrónica de salida en `stock_ledger_entries` (`movement_type = 'issue'`, `qty_change = -qty`, `party_id` de la guía, `valuation_rate = 0` liquidada por FIFO en base de datos, `voucher_type = 'dispatch_note'`).
+    * `packed` / `packed_at`: Avance operativo de embalaje/empaque, condicionado a la confirmación previa del picking.
+  * Indicador "Lista para despacho": Certificación física cuando todas las líneas de la guía están embaladas, manteniendo el estado documental `draft` hasta la emisión fiscal oficial del DTE.
+  * Trazabilidad 360° por lote: Búsqueda centralizada que audita todas las salidas en guías de despacho asociadas a un lote y su trazabilidad histórica de ingresos y controles de calidad en Kardex.
 
 
