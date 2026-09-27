@@ -2,6 +2,62 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 17: Comercio Exterior (SICEX)] - 2026-09-27
+
+### Añadido
+* **Migración SQL de Comercio Exterior y Certificados Sanitarios** ([`supabase/migrations/20260927000017_sprint17_sicex_comercio_exterior.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000017_sprint17_sicex_comercio_exterior.sql)):
+  * Enums de comercio exterior: `ft_operation_type` (`exportacion`, `importacion`) y `ft_customs_status` (`pendiente`, `tramitando`, `autorizado`, `rechazado`).
+  * `foreign_trade_operations`: registro de expedientes aduaneros para clientes 3PL (`entity_id`, `party_id`, `operation_type`, `country_code`, `dus_number`, `booking_number`, `customs_status` con valor predeterminado `'pendiente'`, notas y vínculo opcional con `dispatch_notes`).
+  * `foreign_trade_certificates`: repositorio de certificados fitosanitarios (SAG), zoosanitarios (SAG/SERNAPESCA), de origen (SOFOFA/Cámara de Comercio), registros sanitarios (ISP) u otros, con número, emisor y fecha de vigencia (`valid_until`), asociados en cascada a la operación.
+  * Políticas de seguridad RLS multiempresa en ambas tablas aplicando `public.user_has_company_access(auth.uid(), entity_id)` y roles autorizados (`admin`, `inventory`, `sales`, `accountant`).
+* **Pestaña de Comercio Exterior (SICEX) en el Módulo Logístico ([`dispatch-notes.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch-notes.tsx))**:
+  * Pestaña interactiva "Comercio Exterior (SICEX)" junto a "Guías de Despacho (Res. 154)".
+  * Formulario modal para registrar operaciones Comex vinculadas a clientes 3PL, país de destino/origen, N° DUS / DIN, BL/Booking y guía de despacho opcional, con opción de adjuntar certificado inicial.
+  * Modal dedicado de gestión de certificados aduaneros: visualización de vigencias (Vigente / Vencido), formulario para adjuntar nuevos certificados fito/zoo/origen y eliminación.
+  * Modal de inspección detallada del expediente de comercio exterior con control manual del estado aduanero interno.
+  * Tarjetas KPI Comex: Total Operaciones (con desglose Export vs. Import), Pendientes SICEX, Total Certificados Registrados y Operaciones con Guía Vinculada.
+  * Filtros por cliente 3PL, tipo de operación (Exportación/Importación) y estado aduanero (Pendiente, Tramitando, Autorizado, Rechazado).
+  * Banner normativo aclarando que las operaciones se mantienen en estado interno `pendiente` a la espera de la habilitación del certificado digital y usuario en el portal SICEX por parte del Servicio Nacional de Aduanas.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Definición tipada de `foreign_trade_operations`, `foreign_trade_certificates` y los enums `ft_operation_type` y `ft_customs_status`.
+
+---
+
+## [Sprint 16: Vertical 3PL — Modelo de Datos y Guía de Despacho (Res. Ex. N° 154 SII)] - 2026-09-26
+
+### Añadido
+* **Migración SQL de Soporte 3PL y Guías de Despacho** ([`supabase/migrations/20260926000016_sprint16_modelo_datos_3pl_guia_despacho.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260926000016_sprint16_modelo_datos_3pl_guia_despacho.sql)):
+  * `parties.is_3pl_client` (boolean default false) con índice parcial para marcar clientes terceros de bodegaje/3PL sin duplicar el directorio de entidades.
+  * `party_warehouses`: asignación explícita de bodega(s) de la empresa para cada cliente 3PL (`party_id`, `warehouse_id`, `entity_id`) con aislamiento RLS multiempresa.
+  * Segregación de inventario en custodia: columna nullable `party_id` en `stock_ledger_entries` (`null` = inventario propio, `not null` = custodia del cliente 3PL).
+  * Redefinición de la vista `stock_balances` (`SECURITY INVOKER = true`) incorporando `party_id`, `party_name` y `party_tax_id` tanto en `SELECT` como en `GROUP BY`.
+  * Enums de transporte y despacho: `dispatch_transfer_type` (`venta`, `traslado_interno`, `consignacion`, `exportacion`, `otro`) y `dispatch_status` (`draft`, `issued`, `cancelled`).
+  * `dispatch_notes`: cabecera de Guía de Despacho con los campos obligatorios de la Resolución Exenta N° 154 del SII (vigente 1 de noviembre de 2026):
+    * Identificación del transportista: nombre/razón social (`carrier_name`) y RUT (`carrier_tax_id`).
+    * Identificación vehicular: patente (`vehicle_plate`).
+    * Georreferenciación de ruta: dirección exacta de origen (`origin_address`) y destino (`destination_address`).
+    * Horarios exactos: fecha y hora de salida (`departure_at`) y llegada estimada (`arrival_at`).
+    * Folio de despacho (`dispatch_number`, borrador referencial hasta integración DTE) y estado (`draft`).
+  * `dispatch_note_lines`: detalle métrico por ítem despachado (`item_id`, `qty`, `uom`, `weight_kg`, `volume_m3`, `unit_value`).
+  * Políticas de seguridad RLS en `party_warehouses`, `dispatch_notes` y `dispatch_note_lines` aplicando `user_has_company_access(auth.uid(), entity_id)` y roles (`admin`, `inventory`, `sales`, `accountant`).
+* **Módulo y Pantalla de Guías de Despacho ([`dispatch-notes.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch-notes.tsx))**:
+  * Formulario integral para emitir guías en estado `draft` con selector de cliente 3PL (filtrado a `is_3pl_client = true`), bodega de origen autorizada (`party_warehouses`), transportista, patente, tipo de traslado y líneas de carga con cálculo de peso y volumen total.
+  * Tarjetas KPI en tiempo real: Total Guías 3PL, Clientes Activos, Peso Total (kg) y Volumen Total (m³).
+  * Modal de inspección y visualización detallada del documento.
+  * Banner normativo informativo sobre la Resolución Exenta N° 154 del SII.
+* **Gestión de Clientes 3PL en Configuración ([`setup.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))**:
+  * Nueva pestaña "Terceros & 3PL" para gestionar clientes y proveedores.
+  * Modal con toggle interactivo "¿Es Cliente 3PL?" y selector multi-bodega que persiste de forma atómica en `party_warehouses`.
+  * Filtros por clasificación y cliente 3PL.
+* **Segregación de Stock 3PL en Inventario ([`inventory.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))**:
+  * Pestaña "Saldos por Bodega": nuevo filtro por propietario (Todos, Propio Empresa, o cliente 3PL específico).
+  * Nueva columna "Propietario / Cliente 3PL" con badges diferenciados para mercadería en custodia vs. stock propio.
+  * Modal de registro de movimientos: selector opcional de "Propietario / Cliente 3PL" para asignar `party_id` a las entradas/salidas de inventario.
+* **Navegación Global ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx))**:
+  * Integración del módulo "Guías de Despacho (3PL)" con icono `Truck` en la barra de navegación y menú de módulos.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Actualización de tipos para `dispatch_notes`, `dispatch_note_lines`, `party_warehouses`, `parties.is_3pl_client`, `stock_ledger_entries.party_id`, `stock_balances` y enums correspondientes.
+
 ---
 
 ## [Sprint 15: Integración SII vía ApiPyme (Registro de Ventas, Compras y Boletas)] - 2026-08-27

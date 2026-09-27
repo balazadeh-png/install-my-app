@@ -51,8 +51,18 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
   * `sales_invoices` / `sales_invoice_lines` y `purchase_invoices` / `purchase_invoice_lines`.
   * `post_sales_invoice()` y `post_purchase_invoice()`.
   * `invoice_payments`, `sales_invoice_balances` y `purchase_invoice_balances`.
-* **Inventario & Motor FIFO Multibodega**:
-  * `items`, `warehouses`, `stock_ledger_entries`, `stock_valuation_layers`, `stock_balances`.
+* **Inventario, Motor FIFO Multibodega & Segregación 3PL**:
+  * `items`, `warehouses`, `stock_ledger_entries` (con `party_id` para inventario propio vs. mercadería en custodia de terceros), `stock_valuation_layers`, `stock_balances` (vista segregada por cliente 3PL).
   * Triggers `trg_consume_fifo_layers` y `trg_create_fifo_layer`.
   * Función `create_warehouse_transfer()`.
-* **Terceros**: `parties` (con RUT y `entity_id`), `contacts`, `addresses`.
+* **Terceros & Clientes 3PL**:
+  * `parties` (con RUT, `entity_id` y bandera `is_3pl_client`), `party_warehouses` (asignación de bodegas autorizadas por cliente 3PL), `contacts`, `addresses`.
+* **Vertical 3PL — Guías de Despacho (Res. Ex. N° 154 SII)**:
+  * `dispatch_notes`: Cabecera de Guía de Despacho con requisitos normativos del SII (transportista, RUT, patente, georreferenciación origen/destino, fechas y horas de salida/llegada, tipo de traslado y estado `draft`).
+  * `dispatch_note_lines`: Detalle de carga física por ítem (cantidad, unidad de medida, peso en kg, volumen en m³, valor unitario).
+  * Políticas de Row Level Security (RLS) multiempresa vinculadas a `user_has_company_access(auth.uid(), entity_id)`.
+* **Vertical 3PL — Comercio Exterior (SICEX / Aduanas)**:
+  * `foreign_trade_operations`: Carpeta aduanera vinculada a cliente 3PL (`party_id`), tipo (`exportacion`, `importacion`), país, N° DUS/DIN (`dus_number`), booking/BL (`booking_number`), estado aduanero (`ft_customs_status`: `pendiente`, `tramitando`, `autorizado`, `rechazado`) y vínculo opcional con `dispatch_notes`.
+  * `foreign_trade_certificates`: Repositorio aduanero de certificados asociados a la operación (fitosanitarios SAG, zoosanitarios SAG/SERNAPESCA, certificados de origen SOFOFA/Cámara de Comercio, ISP) con número, emisor y fecha de vigencia (`valid_until`).
+  * Políticas de Row Level Security (RLS) multiempresa con `user_has_company_access(auth.uid(), entity_id)` y roles autorizados.
+

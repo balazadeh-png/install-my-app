@@ -62,7 +62,12 @@ import {
   AlertTriangle,
   Eye,
   EyeOff,
+  Users,
+  Truck,
+  Edit,
+  Search,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/setup")({
@@ -123,6 +128,18 @@ function SetupPage() {
   const [buName, setBuName] = useState("");
   const [buParentId, setBuParentId] = useState<string>("NONE");
   const [buIsGroup, setBuIsGroup] = useState(false);
+
+  // Form State Terceros & 3PL
+  const [partyModalOpen, setPartyModalOpen] = useState(false);
+  const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
+  const [partyName, setPartyName] = useState("");
+  const [partyCommercialName, setPartyCommercialName] = useState("");
+  const [partyTaxId, setPartyTaxId] = useState("");
+  const [partyClassification, setPartyClassification] = useState<string>("customer");
+  const [partyIs3pl, setPartyIs3pl] = useState(false);
+  const [partySelectedWarehouses, setPartySelectedWarehouses] = useState<string[]>([]);
+  const [partySearchTerm, setPartySearchTerm] = useState("");
+  const [partyFilter3pl, setPartyFilter3pl] = useState("ALL");
 
   // Form Default Accounts
   const [defReceivable, setDefReceivable] = useState<string>("NONE");
@@ -608,6 +625,135 @@ function SetupPage() {
     },
   });
 
+  // Queries y Mutaciones de Terceros & 3PL (Sprint 16)
+  const partiesListQuery = useQuery({
+    queryKey: ["parties_setup", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("parties")
+        .select("*, party_warehouses(warehouse_id, warehouses(code, name))")
+        .eq("entity_id", activeEntityId)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  const setupWarehousesQuery = useQuery({
+    queryKey: ["setup_warehouses", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("warehouses")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  const savePartyMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Debes seleccionar una empresa primero");
+      if (!partyName.trim()) throw new Error("El nombre o razón social es obligatorio");
+
+      let targetPartyId = editingPartyId;
+
+      if (editingPartyId) {
+        const { error } = await supabase
+          .from("parties")
+          .update({
+            name: partyName.trim(),
+            commercial_name: partyCommercialName.trim() || null,
+            tax_id: partyTaxId.trim() || null,
+            classification: partyClassification,
+            is_3pl_client: partyIs3pl,
+          })
+          .eq("id", editingPartyId);
+        if (error) throw error;
+      } else {
+        const { data: newParty, error } = await supabase
+          .from("parties")
+          .insert({
+            entity_id: activeEntityId,
+            name: partyName.trim(),
+            commercial_name: partyCommercialName.trim() || null,
+            tax_id: partyTaxId.trim() || null,
+            classification: partyClassification,
+            is_3pl_client: partyIs3pl,
+            enabled: true,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        targetPartyId = (newParty as any).id;
+      }
+
+      // Sincronizar party_warehouses
+      if (targetPartyId) {
+        await supabase
+          .from("party_warehouses" as any)
+          .delete()
+          .eq("party_id", targetPartyId);
+
+        if (partyIs3pl && partySelectedWarehouses.length > 0) {
+          const rows = partySelectedWarehouses.map((wId) => ({
+            entity_id: activeEntityId,
+            party_id: targetPartyId,
+            warehouse_id: wId,
+          }));
+          const { error: pwError } = await supabase
+            .from("party_warehouses" as any)
+            .insert(rows);
+          if (pwError) throw pwError;
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["parties_setup", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["parties_3pl", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["party_warehouses", activeEntityId] });
+      toast.success(editingPartyId ? "Tercero actualizado exitosamente" : "Tercero registrado exitosamente");
+      setPartyModalOpen(false);
+      resetPartyForm();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al guardar tercero");
+    },
+  });
+
+  const resetPartyForm = () => {
+    setEditingPartyId(null);
+    setPartyName("");
+    setPartyCommercialName("");
+    setPartyTaxId("");
+    setPartyClassification("customer");
+    setPartyIs3pl(false);
+    setPartySelectedWarehouses([]);
+  };
+
+  const openCreateParty = () => {
+    resetPartyForm();
+    setPartyModalOpen(true);
+  };
+
+  const openEditParty = (p: any) => {
+    setEditingPartyId(p.id);
+    setPartyName(p.name || "");
+    setPartyCommercialName(p.commercial_name || "");
+    setPartyTaxId(p.tax_id || "");
+    setPartyClassification(p.classification || "customer");
+    setPartyIs3pl(Boolean(p.is_3pl_client));
+    const assignedWhs = (p.party_warehouses || []).map((pw: any) => pw.warehouse_id);
+    setPartySelectedWarehouses(assignedWhs);
+    setPartyModalOpen(true);
+  };
+
   const entities = entitiesQuery.data ?? [];
   const accounts = accountsQuery.data ?? [];
   const fiscalYears = fiscalYearsQuery.data ?? [];
@@ -617,6 +763,23 @@ function SetupPage() {
   const businessUnits = businessUnitsQuery.data ?? [];
   const roles = rolesQuery.data ?? [];
   const currencies = currenciesQuery.data ?? [];
+  const partiesList = partiesListQuery.data ?? [];
+  const setupWarehouses = setupWarehousesQuery.data ?? [];
+
+  const filteredParties = partiesList.filter((p) => {
+    const matchSearch =
+      p.name?.toLowerCase().includes(partySearchTerm.toLowerCase()) ||
+      p.tax_id?.toLowerCase().includes(partySearchTerm.toLowerCase()) ||
+      p.commercial_name?.toLowerCase().includes(partySearchTerm.toLowerCase());
+
+    if (!matchSearch) return false;
+
+    if (partyFilter3pl === "3PL") return Boolean(p.is_3pl_client);
+    if (partyFilter3pl === "CUSTOMER") return p.classification === "customer" || p.classification === "both";
+    if (partyFilter3pl === "SUPPLIER") return p.classification === "supplier" || p.classification === "both";
+
+    return true;
+  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -692,6 +855,10 @@ function SetupPage() {
           <TabsTrigger value="roles" className="flex items-center gap-1.5">
             <Shield className="h-4 w-4" />
             <span>Roles ({roles.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="parties" className="flex items-center gap-1.5">
+            <Users className="h-4 w-4" />
+            <span>Terceros & 3PL ({partiesList.length})</span>
           </TabsTrigger>
           <TabsTrigger value="apipyme" className="flex items-center gap-1.5">
             <CloudLightning className="h-4 w-4 text-amber-500" />
@@ -1896,6 +2063,293 @@ function SetupPage() {
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        {/* Tab Terceros y Clientes 3PL */}
+        <TabsContent value="parties">
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <div className="p-6 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-semibold">Directorio de Terceros y Clientes 3PL</h3>
+                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                    Sprint 16
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Gestiona clientes, proveedores y marca clientes 3PL con asignación de bodegas autorizadas para almacenamiento de mercadería en custodia.
+                </p>
+              </div>
+              <Button size="sm" onClick={openCreateParty} className="gap-1.5">
+                <Plus className="h-4 w-4" />
+                Nuevo Tercero / Cliente 3PL
+              </Button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Filtros */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="relative w-full sm:w-[280px]">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nombre o RUT..."
+                    value={partySearchTerm}
+                    onChange={(e) => setPartySearchTerm(e.target.value)}
+                    className="pl-8 text-xs h-8"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Label className="text-xs text-muted-foreground">Filtro:</Label>
+                  <Select value={partyFilter3pl} onValueChange={setPartyFilter3pl}>
+                    <SelectTrigger className="w-[180px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todos los terceros</SelectItem>
+                      <SelectItem value="3PL">Solo Clientes 3PL</SelectItem>
+                      <SelectItem value="CUSTOMER">Solo Clientes</SelectItem>
+                      <SelectItem value="SUPPLIER">Solo Proveedores</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Tabla de Terceros */}
+              {filteredParties.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <Users className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">No se encontraron terceros registrados.</p>
+                  <Button size="sm" variant="outline" onClick={openCreateParty} className="mt-3">
+                    Crear primer tercero
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-xs">
+                        <TableHead>Razón Social / Nombre</TableHead>
+                        <TableHead>RUT / Tax ID</TableHead>
+                        <TableHead>Clasificación</TableHead>
+                        <TableHead>¿Cliente 3PL?</TableHead>
+                        <TableHead>Bodegas Autorizadas</TableHead>
+                        <TableHead className="w-[100px] text-right">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredParties.map((p) => {
+                        const assignedWhs = p.party_warehouses || [];
+                        return (
+                          <TableRow key={p.id} className="text-xs hover:bg-muted/30">
+                            <TableCell>
+                              <div className="font-semibold text-foreground">{p.name}</div>
+                              {p.commercial_name && (
+                                <div className="text-[11px] text-muted-foreground">{p.commercial_name}</div>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">{p.tax_id || "Sin RUT"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize text-[10px]">
+                                {p.classification === "customer"
+                                  ? "Cliente"
+                                  : p.classification === "supplier"
+                                  ? "Proveedor"
+                                  : p.classification}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {p.is_3pl_client ? (
+                                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] gap-1">
+                                  <Truck className="h-3 w-3" />
+                                  Cliente 3PL
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-[10px] text-muted-foreground">
+                                  No
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {p.is_3pl_client ? (
+                                assignedWhs.length === 0 ? (
+                                  <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                    Todas las bodegas
+                                  </span>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1">
+                                    {assignedWhs.map((pw: any, i: number) => (
+                                      <Badge key={i} variant="outline" className="text-[10px]">
+                                        {pw.warehouses?.code || "Bodega"}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )
+                              ) : (
+                                <span className="text-muted-foreground text-[11px]">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => openEditParty(p)}
+                              >
+                                <Edit className="h-3.5 w-3.5 text-primary" />
+                                Editar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Modal Crear / Editar Tercero */}
+          <Dialog open={partyModalOpen} onOpenChange={setPartyModalOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-4 w-4 text-primary" />
+                  {editingPartyId ? "Editar Tercero" : "Nuevo Tercero"}
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Configura los datos del cliente o proveedor y activa la modalidad 3PL con asignación de bodegas.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3.5 py-2">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Razón Social / Nombre Oficial *</Label>
+                  <Input
+                    placeholder="Ej: Distribuidora Central SpA"
+                    value={partyName}
+                    onChange={(e) => setPartyName(e.target.value)}
+                    className="text-xs h-8"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nombre Comercial / Fantasía</Label>
+                    <Input
+                      placeholder="Ej: DisCentral"
+                      value={partyCommercialName}
+                      onChange={(e) => setPartyCommercialName(e.target.value)}
+                      className="text-xs h-8"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">RUT / Identificador Tributario</Label>
+                    <Input
+                      placeholder="Ej: 76.123.456-7"
+                      value={partyTaxId}
+                      onChange={(e) => setPartyTaxId(e.target.value)}
+                      className="text-xs h-8 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Clasificación</Label>
+                  <Select value={partyClassification} onValueChange={setPartyClassification}>
+                    <SelectTrigger className="text-xs h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="customer">Cliente</SelectItem>
+                      <SelectItem value="supplier">Proveedor</SelectItem>
+                      <SelectItem value="both">Cliente y Proveedor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Switch / Checkbox Cliente 3PL */}
+                <div className="rounded-lg border p-3 bg-muted/20 space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <Checkbox
+                      id="is3plClientCheckbox"
+                      checked={partyIs3pl}
+                      onCheckedChange={(checked) => setPartyIs3pl(Boolean(checked))}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <Label htmlFor="is3plClientCheckbox" className="text-xs font-semibold cursor-pointer flex items-center gap-1.5">
+                        <Truck className="h-3.5 w-3.5 text-primary" />
+                        Cliente 3PL (Almacenamiento de Mercadería de Terceros)
+                      </Label>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Permite segregar el inventario de este cliente en las bodegas de la empresa y emitir Guías de Despacho normadas (Res. 154).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Selector multi-bodega si es 3PL */}
+                  {partyIs3pl && (
+                    <div className="pt-2 border-t space-y-2">
+                      <Label className="text-xs font-semibold text-foreground block">
+                        Bodegas Asignadas para este Cliente 3PL (party_warehouses):
+                      </Label>
+                      {setupWarehouses.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No hay bodegas creadas en la empresa.</p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                          {setupWarehouses.map((wh) => {
+                            const isChecked = partySelectedWarehouses.includes(wh.id);
+                            return (
+                              <div
+                                key={wh.id}
+                                className="flex items-center gap-2 p-1.5 rounded hover:bg-background/80 transition-colors"
+                              >
+                                <Checkbox
+                                  id={`wh-${wh.id}`}
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setPartySelectedWarehouses([...partySelectedWarehouses, wh.id]);
+                                    } else {
+                                      setPartySelectedWarehouses(
+                                        partySelectedWarehouses.filter((id) => id !== wh.id)
+                                      );
+                                    }
+                                  }}
+                                />
+                                <Label htmlFor={`wh-${wh.id}`} className="text-xs cursor-pointer flex-1">
+                                  <span className="font-mono font-medium">{wh.code}</span> - {wh.name}
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <p className="text-[10px] text-muted-foreground">
+                        * Si no marcas ninguna bodega, el cliente podrá operar en cualquiera de las bodegas disponibles.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button size="sm" variant="outline" onClick={() => setPartyModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => savePartyMutation.mutate()}
+                  disabled={savePartyMutation.isPending || !partyName.trim()}
+                >
+                  {savePartyMutation.isPending ? "Guardando..." : "Guardar Tercero"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>

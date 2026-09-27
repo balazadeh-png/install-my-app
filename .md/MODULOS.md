@@ -115,12 +115,14 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 ## 10. Inventario & Multibodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx))
 * **Motor de Movimientos de Inventario (`stock_ledger_entries`)**:
   * Registro de entradas (`receipt`), salidas (`issue`), ajustes (`adjustment`) y traslados interbodega.
+  * **Segregación 3PL**: Columna `party_id` nullable para diferenciar mercadería propia de la empresa (`null`) vs. inventario en custodia de clientes terceros 3PL (`not null`).
 * **Capas de Valorización FIFO (`stock_valuation_layers`)**:
   * Creación y consumo de capas FIFO con bloqueo estricto de stocks negativos.
 * **Traslados Atómicos (`create_warehouse_transfer`)**:
   * Traslado entre bodegas preservando el costo unitario de origen.
 * **Saldos en Tiempo Real (`stock_balances`) & Kardex**:
-  * Existencias físicas y valorización total por bodega e ítem.
+  * Existencias físicas y valorización total por bodega, ítem y cliente 3PL.
+  * Filtro interactivo por propietario: permite visualizar saldos consolidados, solo propios, o por cliente 3PL específico.
 
 ---
 
@@ -139,7 +141,44 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 ---
 
 ## 13. Configuración General & Cierre de Período ([`/setup`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx))
+* **Directorio de Terceros & Clientes 3PL (`parties`, `party_warehouses`)**:
+  * Gestión centralizada de clientes y proveedores.
+  * Toggle "¿Cliente 3PL?" con selector multi-bodega para autorizar qué bodegas de la empresa alojan la carga del cliente.
 * **Cuentas Contables Predeterminadas (`company_default_accounts`)**: Mapeo obligatorio de cuentas contables para CxC, CxP, Ventas, Compras, IVA (19%), COGS, Inventario y Diferencia de Cambio No Realizada.
 * **Cierre de Períodos Contables (`accounting_periods`, `close_accounting_period`)**: Flujo de validación previa de borradores y cierre de mes que bloquea nuevos posteos.
 * **Revalorización Cambiaria de Cierre (`exchange_revaluations`, `run_exchange_revaluation`)**: Ajuste automático del saldo en libros de cuentas en moneda extranjera (USD) contra la tasa de cierre del mes.
 * **Empresas (`entities`)**, **Centros de Costo (`cost_centers`)**, **Sucursales (`business_units`)**, **Años Fiscales (`fiscal_years`)**, **Series (`naming_series`)** y **Roles (`roles`)**.
+
+---
+
+## 14. Vertical 3PL — Guías de Despacho Res. 154 SII ([`/dispatch-notes`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch-notes.tsx))
+* **Cumplimiento Obligatorio Resolución Exenta N° 154 del SII** (vigente 1 de noviembre de 2026):
+  * **Datos del Transportista**: Nombre o razón social (`carrier_name`) y RUT (`carrier_tax_id`).
+  * **Datos del Vehículo**: Patente en formato oficial (`vehicle_plate`).
+  * **Ruta de Despacho**: Direcciones exactas y georreferenciadas de origen (`origin_address`) y destino (`destination_address`).
+  * **Tiempos de Traslado**: Fecha y hora exacta de salida (`departure_at`) y fecha/hora estimada de llegada (`arrival_at`).
+  * **Detalle Métrico de Carga (`dispatch_note_lines`)**: Desglose por ítem con cantidad, unidad de medida (`uom`), peso neto/bruto en kilogramos (`weight_kg`), volumen en metros cúbicos (`volume_m3`) y valor unitario declarado (`unit_value`).
+* **Estados de Documento**:
+  * Emisión en estado `draft` (borrador interno) con aislamiento RLS multiempresa por `entity_id`.
+  * Diseñado como gancho (`dispatch_number`) para integración futura con motor emisor DTE (folio CAF y firma digital).
+* **Filtros y Métricas Operacionales**:
+  * Búsqueda ágil por transportista, patente o cliente.
+  * Tarjetas KPI en tiempo real: conteo de guías, clientes 3PL activos, peso y volumen total despachado.
+  * Modal de inspección completa de la guía y sus líneas.
+
+---
+
+## 15. Vertical 3PL — Comercio Exterior (SICEX / Aduanas) ([`/dispatch-notes`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch-notes.tsx))
+* **Carpetas y Expedientes Aduaneros (`foreign_trade_operations`)**:
+  * Registro de operaciones de exportación (salida de Chile / DUS) e importación (ingreso a Chile / DIN) para clientes 3PL.
+  * Captura de país de origen/destino, N° DUS / DIN aduanero, conocimiento de embarque / Bill of Lading (BL) / Booking y notas operacionales.
+  * Vinculación bidireccional opcional con Guías de Despacho de traslado local emitidas bajo Res. 154 SII.
+  * Ciclo de estado aduanero (`ft_customs_status`): `pendiente`, `tramitando`, `autorizado`, `rechazado`.
+  * Diseñado como gancho para conexión futura con la plataforma SICEX (Aduanas de Chile) una vez tramitadas las credenciales institucionales.
+* **Gestión de Certificados Sanitarios y de Origen (`foreign_trade_certificates`)**:
+  * Repositorio de certificados vinculados a la operación: Fitosanitarios (SAG), Zoosanitarios (SAG/SERNAPESCA), Certificados de Origen (SOFOFA / Cámara de Comercio), Registros de Uso y Consumo (ISP), Calidad y Libre Venta.
+  * Registro de N° oficial de certificado, entidad emisora y fecha de vencimiento (`valid_until`) con alerta visual de vigencia.
+* **Métricas y Control Operacional**:
+  * Tarjetas KPI en tiempo real: Total Operaciones (desglose Export vs Import), Pendientes SICEX, Total Certificados y Despachos Vinculados.
+  * Filtros por cliente 3PL, tipo de operación y estado aduanero.
+

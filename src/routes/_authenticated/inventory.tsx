@@ -25,6 +25,8 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Boxes,
+  Building2,
+  Truck,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
@@ -76,6 +78,8 @@ function InventoryPage() {
 
   // Filtros de vista
   const [filterWarehouse, setFilterWarehouse] = useState<string>("ALL");
+  const [filterParty, setFilterParty] = useState<string>("ALL");
+  const [movPartyId, setMovPartyId] = useState<string>("NONE");
 
   const baseCurrency = activeEntity?.base_currency_code || "CLP";
 
@@ -163,6 +167,23 @@ function InventoryPage() {
     enabled: !!activeEntityId,
   });
 
+  // Query: Clientes 3PL
+  const parties3plQuery = useQuery({
+    queryKey: ["parties_3pl", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("parties")
+        .select("*")
+        .eq("entity_id", activeEntityId)
+        .eq("is_3pl_client", true)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
   // Mutation: Crear Item
   const createItemMutation = useMutation({
     mutationFn: async () => {
@@ -239,6 +260,7 @@ function InventoryPage() {
         entity_id: activeEntityId,
         item_id: movItemId,
         warehouse_id: movWarehouseId,
+        party_id: movPartyId && movPartyId !== "NONE" ? movPartyId : null,
         movement_type: movType,
         qty_change: finalQty,
         valuation_rate: isExit ? 0 : rate, // El trigger FIFO calcula el rate en salidas
@@ -256,6 +278,7 @@ function InventoryPage() {
       setMovQty("");
       setMovRate("");
       setMovMemo("");
+      setMovPartyId("NONE");
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al procesar movimiento");
@@ -305,9 +328,12 @@ function InventoryPage() {
   const warehouses = warehousesQuery.data ?? [];
   const balances = balancesQuery.data ?? [];
   const movements = movementsQuery.data ?? [];
+  const parties3pl = parties3plQuery.data ?? [];
 
   const filteredBalances = balances.filter((b) => {
     if (filterWarehouse !== "ALL" && b.warehouse_id !== filterWarehouse) return false;
+    if (filterParty === "OWN" && b.party_id !== null) return false;
+    if (filterParty !== "ALL" && filterParty !== "OWN" && b.party_id !== filterParty) return false;
     return true;
   });
 
@@ -660,6 +686,28 @@ function InventoryPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label className="text-xs flex items-center justify-between">
+                    <span>Propietario / Cliente 3PL (Custodia)</span>
+                    <Badge variant="outline" className="text-[10px]">Opcional</Badge>
+                  </Label>
+                  <Select value={movPartyId} onValueChange={setMovPartyId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Propio de la empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">Propio (Empresa - Uso Interno)</SelectItem>
+                      {parties3pl.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          3PL: {p.name} {p.tax_id ? `(${p.tax_id})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Selecciona un cliente 3PL si la mercadería ingresa o sale en custodia de un tercero.
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Cantidad</Label>
@@ -817,21 +865,41 @@ function InventoryPage() {
                   Saldos en tiempo real consolidados a partir de las capas FIFO activas.
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">Filtrar Bodega:</Label>
-                <Select value={filterWarehouse} onValueChange={setFilterWarehouse}>
-                  <SelectTrigger className="w-[200px] h-8 text-xs">
-                    <SelectValue placeholder="Todas las bodegas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todas las bodegas</SelectItem>
-                    {warehouses.map((w) => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.code} - {w.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Bodega:</Label>
+                  <Select value={filterWarehouse} onValueChange={setFilterWarehouse}>
+                    <SelectTrigger className="w-[170px] h-8 text-xs">
+                      <SelectValue placeholder="Todas las bodegas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todas las bodegas</SelectItem>
+                      {warehouses.map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.code} - {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Propietario / 3PL:</Label>
+                  <Select value={filterParty} onValueChange={setFilterParty}>
+                    <SelectTrigger className="w-[190px] h-8 text-xs">
+                      <SelectValue placeholder="Todos los saldos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todos los saldos</SelectItem>
+                      <SelectItem value="OWN">Solo Propio (Empresa)</SelectItem>
+                      {parties3pl.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          3PL: {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -853,9 +921,10 @@ function InventoryPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[140px]">SKU / Código</TableHead>
+                        <TableHead className="w-[130px]">SKU / Código</TableHead>
                         <TableHead>Artículo</TableHead>
                         <TableHead>Bodega</TableHead>
+                        <TableHead>Propietario / Cliente 3PL</TableHead>
                         <TableHead className="text-right">Cantidad en Stock</TableHead>
                         <TableHead className="text-right">Costo Promedio Unitario</TableHead>
                         <TableHead className="text-right">Valorización Total ({baseCurrency})</TableHead>
@@ -863,7 +932,7 @@ function InventoryPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredBalances.map((b, idx) => (
-                        <TableRow key={`${b.item_id}-${b.warehouse_id}-${idx}`}>
+                        <TableRow key={`${b.item_id}-${b.warehouse_id}-${b.party_id || 'own'}-${idx}`}>
                           <TableCell className="font-mono text-xs font-semibold text-primary">
                             {b.item_code}
                           </TableCell>
@@ -872,6 +941,24 @@ function InventoryPage() {
                             <Badge variant="outline" className="text-xs">
                               {b.warehouse_code} - {b.warehouse_name}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {b.party_id ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 flex items-center gap-1 w-fit"
+                              >
+                                <Building2 className="h-3 w-3" />
+                                <span>{b.party_name || "Cliente 3PL"}</span>
+                                {b.party_tax_id && (
+                                  <span className="opacity-70 text-[10px]">({b.party_tax_id})</span>
+                                )}
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[11px] text-muted-foreground w-fit">
+                                Propio (Empresa)
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs font-bold">
                             {Number(b.qty_on_hand).toLocaleString("es-CL")}
