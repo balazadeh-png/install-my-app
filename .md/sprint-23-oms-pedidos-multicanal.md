@@ -54,10 +54,10 @@ CREATE TABLE IF NOT EXISTS public.party_webhook_tokens (
 
 ## Criterios de aceptación
 
-- [ ] Se puede generar un token por cliente 3PL y recibir un pedido vía POST a un endpoint público autenticado con ese token.
-- [ ] Se puede cargar un pedido a mano (formulario) o por CSV, para clientes sin integración todavía.
-- [ ] "Convertir a guía de despacho" genera correctamente la `dispatch_notes`/`dispatch_note_lines` con los datos del pedido y lo marca `procesado`.
-- [ ] Un `external_order_id` repetido para el mismo cliente y canal no crea un pedido duplicado.
+- [x] Se puede generar un token por cliente 3PL y recibir un pedido vía POST a un endpoint público autenticado con ese token.
+- [x] Se puede cargar un pedido a mano (formulario) o por CSV, para clientes sin integración todavía.
+- [x] "Convertir a guía de despacho" genera correctamente la `dispatch_notes`/`dispatch_note_lines` con los datos del pedido y lo marca `procesado`.
+- [x] Un `external_order_id` repetido para el mismo cliente y canal no crea un pedido duplicado.
 
 ---
 

@@ -95,3 +95,12 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
     * `delivery_notes`: Justificación o motivo de rechazo en caso de entrega fallida.
   * Extensión en `dispatch_notes` para Couriers Externos:
     * `courier_name`, `courier_tracking_number`, `courier_status`: Modelo de datos genérico para couriers tercerizados (Chilexpress, Blue Express, Starken, 99minutos, etc.) desacoplado de rutas propias.
+* **Vertical 3PL — OMS: Pedidos Multicanal y Webhooks de Integración**:
+  * Enum `order_status`: Estados de gestión de órdenes de venta (`pendiente`, `procesado`, `cancelado`).
+  * `sales_orders`: Registro multicanal de pedidos (`entity_id`, `party_id` del cliente 3PL, `channel` libre: shopify, vtex, mercadolibre, manual, csv, `external_order_id`, `destination_address`, `status`, `dispatch_note_id`, `notes`), con restricción de unicidad anti-duplicados `UNIQUE (party_id, channel, external_order_id)`.
+  * `sales_order_lines`: Desglose de productos del pedido (`sales_order_id` en cascada, `item_id` nullable para ítems del catálogo interno, `external_sku`, `qty`).
+  * `party_webhook_tokens`: Generación y revocación de tokens secretos por cliente 3PL (`party_id`, `token` único, `name`, `is_active`) para autenticar receptores externos sin requerir sesión interactiva.
+  * Ingestion Engine:
+    * Función SQL `ingest_oms_order` (`SECURITY DEFINER`): Resolución automática de SKU contra catálogo de ítems de la empresa y upsert atómico de pedido y líneas.
+    * Server Function `ingestOmsOrderFn` (`@tanstack/react-start`) y endpoint directo HTTP POST `/api/webhooks/oms` protegido exclusivamente por token de cliente 3PL.
+  * Acción operativa "Convertir a Guía de Despacho": Generación automática de `dispatch_notes` + `dispatch_note_lines` en estado `draft` (bodega asignada al cliente vía `party_warehouses`), vinculando el `dispatch_note_id` y actualizando la orden a `procesado` para inicio inmediato de picking y packing en bodega.

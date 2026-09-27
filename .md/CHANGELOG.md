@@ -2,6 +2,38 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 23: OMS — Pedidos Multicanal y Webhook de Integración] - 2026-09-27
+
+### Añadido
+* **Migración SQL de OMS Pedidos Multicanal** ([`supabase/migrations/20260927000022_sprint23_oms_pedidos_multicanal.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000022_sprint23_oms_pedidos_multicanal.sql)):
+  * Enum `order_status`: estados del pedido (`pendiente`, `procesado`, `cancelado`).
+  * Tabla `sales_orders`: registro de pedidos recibidos por canales digitales (`channel`, `external_order_id`, `destination_address`, `status`, `dispatch_note_id`, `notes`), con restricción de unicidad anti-duplicados `UNIQUE (party_id, channel, external_order_id)`.
+  * Tabla `sales_order_lines`: desglose de productos y unidades (`sales_order_id` ON DELETE CASCADE, `item_id` nullable, `external_sku`, `qty`).
+  * Tabla `party_webhook_tokens`: tokens secretos de autenticación por cliente 3PL (`party_id` ON DELETE CASCADE, `token` único, `is_active`).
+  * Función segura `ingest_oms_order` (`SECURITY DEFINER`): validación de token activo, mapeo de SKUs externos contra el catálogo de ítems de la empresa y upsert atómico del pedido y sus líneas.
+  * Políticas de Row Level Security (RLS) multiempresa en `sales_orders`, `sales_order_lines` y `party_webhook_tokens`.
+* **Motor de Ingestión y Receptor de Webhooks Server-Side**:
+  * TanStack Start Server Function `ingestOmsOrderFn` ([`src/lib/oms.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/oms.functions.ts)): endpoint server-side desacoplado de sesiones de usuario interactivas, con validación Zod y fallback seguro.
+  * Endpoint HTTP directo `POST /api/webhooks/oms` ([`src/routes/api/webhooks/oms.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/api/webhooks/oms.ts)): receptor público para integración directa con Shopify, VTEX, Mercado Libre, ERPs o scripts cURL mediante token.
+* **Interfaz de Gestión OMS en Frontend ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Pestaña "Pedidos OMS" con medidores y KPIs de pedidos totales, pendientes, procesados y canales activos.
+  * Filtros dinámicos por texto (ID externo, cliente, dirección), estado, canal de venta y cliente 3PL.
+  * Tabla de pedidos con badges estilizados por canal (Shopify, VTEX, Mercado Libre, Manual, CSV), estado y guía de despacho asociada.
+  * Modal "Nuevo Pedido Manual": registro manual para canales telefónicos o directos con selector de ítems del catálogo y líneas dinámicas.
+  * Modal "Importador Masivo CSV": carga en lote con parseo instantáneo de columnas `external_order_id, destination_address, sku, qty` y agrupación por pedido.
+  * Acción "Convertir a Guía de Despacho": genera automáticamente la guía en borrador (`dispatch_notes` + `dispatch_note_lines`) en la bodega asignada al cliente (`party_warehouses`), marca el pedido como `procesado` y lo deja listo para picking WMS.
+  * Modal "Detalle de Pedido OMS": visor exhaustivo de líneas, cantidades, notas y accesos directos a la guía generada.
+* **Generador de Tokens en Clientes 3PL ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Botón "Generar token de integración" en la pestaña de Clientes 3PL.
+  * Modal interactivo con token generado, botón de copiado rápido, URL del webhook y snippet cURL listo para usar.
+  * Listado de tokens por cliente con posibilidad de activar, desactivar o revocar.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Tipado de `sales_orders`, `sales_order_lines` y `party_webhook_tokens` en `Tables`.
+  * Tipado de `ingest_oms_order` en `Functions`.
+  * Tipado de `order_status` en `Enums` y `Constants`.
+
+---
+
 ## [Sprint 22: TMS — Tracking de Paradas y Couriers Externos] - 2026-09-27
 
 ### Añadido

@@ -262,3 +262,24 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Desacoplamiento total: la guía puede asignarse a un courier externo sin requerir un vehículo o ruta interna asignada.
   * Visualización de badges de courier y tracking en la tabla principal de guías de despacho.
 
+---
+
+## 21. Vertical 3PL — OMS: Pedidos Multicanal y Webhook de Integración ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
+* **Bandeja Centralizada de Pedidos Multicanal (`sales_orders` & `sales_order_lines`)**:
+  * Recepción unificada de órdenes de venta para clientes 3PL desde plataformas de e-commerce (Shopify, VTEX, Mercado Libre), sistemas ERP, formularios manuales o importaciones CSV.
+  * Restricción anti-duplicados a nivel de base de datos `UNIQUE (party_id, channel, external_order_id)`: garantiza idempotencia y previene la duplicación de órdenes ante reintentos de red de los webhooks de e-commerce.
+  * Estados del ciclo de vida del pedido gestionados mediante enum `order_status` (`pendiente`, `procesado`, `cancelado`).
+* **Receptor Genérico de Webhooks y API de Ingestión**:
+  * Endpoint HTTP directo `POST /api/webhooks/oms` y TanStack Start Server Function `ingestOmsOrderFn` (`src/lib/oms.functions.ts`).
+  * Autenticación externa por token secreto por cliente 3PL (`party_webhook_tokens`), sin requerir sesión interactiva de usuario.
+  * Función PL/pgSQL `ingest_oms_order` (`SECURITY DEFINER`): valida el token activo, determina la empresa y el cliente 3PL, resuelve SKUs externos contra el catálogo maestro de ítems (`items`), y realiza upsert atómico de la orden y sus líneas.
+* **Carga Alternativa Manual y Masiva (CSV)**:
+  * Modal de creación manual de pedidos para clientes sin integración digital activa.
+  * Importador masivo de archivos CSV / texto con columnas `external_order_id, destination_address, sku, qty`, agrupando automáticamente líneas por orden de venta.
+* **Conversión Automatizada a Guía de Despacho (Picking Ready)**:
+  * Botón interactivo "Convertir a Guía": toma un pedido en estado `pendiente`, identifica la bodega asignada al cliente (`party_warehouses`), y genera automáticamente una guía de despacho (`dispatch_notes`) con sus líneas (`dispatch_note_lines`) en estado `draft`.
+  * Vincula el `dispatch_note_id` al pedido y actualiza su estado a `procesado`, dejando la mercadería lista para los flujos WMS de picking y packing sin digitación manual.
+* **Generador de Tokens de Integración en Clientes 3PL**:
+  * Botón "Generar token de integración" en la pestaña de Clientes 3PL: crea un token único `tok_3pl_...` y despliega un modal con instrucciones, endpoint de escucha y ejemplo listo para copiar en cURL / Postman.
+  * Control de estado de tokens (activar / desactivar) y copia rápida al portapapeles.
+

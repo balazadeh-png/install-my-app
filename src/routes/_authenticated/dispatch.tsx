@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Truck, Users, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Truck, Users, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed, Upload, Key, Copy, RefreshCw, ShoppingCart, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
@@ -65,6 +65,18 @@ const STOP_DELIVERY_STATUS_BADGES: Record<StopDeliveryStatus, { label: string; c
   en_ruta: { label: "En Ruta", className: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30" },
   entregado: { label: "Entregado", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
   no_entregado: { label: "No Entregado", className: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30" },
+};
+
+type OrderStatus = "pendiente" | "procesado" | "cancelado";
+const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  pendiente: "Pendiente",
+  procesado: "Procesado",
+  cancelado: "Cancelado",
+};
+const ORDER_STATUS_BADGES: Record<OrderStatus, { label: string; className: string }> = {
+  pendiente: { label: "Pendiente", className: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30" },
+  procesado: { label: "Procesado", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  cancelado: { label: "Cancelado", className: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30" },
 };
 
 interface Line {
@@ -1134,6 +1146,424 @@ function DispatchPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // ==========================================================================
+  // OMS: PEDIDOS MULTICANAL & WEBHOOKS (Sprint 23)
+  // ==========================================================================
+  const ordersQ = useQuery({
+    queryKey: ["sales_orders", activeEntityId],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales_orders")
+        .select(`
+          id,
+          entity_id,
+          party_id,
+          channel,
+          external_order_id,
+          destination_address,
+          status,
+          dispatch_note_id,
+          notes,
+          created_at,
+          updated_at,
+          parties(id, name, tax_id),
+          sales_order_lines(
+            id,
+            item_id,
+            external_sku,
+            qty,
+            items(id, code, name)
+          ),
+          dispatch_notes(id, dispatch_number, status)
+        `)
+        .eq("entity_id", activeEntityId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) ?? [];
+    },
+  });
+
+  const webhookTokensQ = useQuery({
+    queryKey: ["party_webhook_tokens", activeEntityId],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("party_webhook_tokens")
+        .select(`
+          id,
+          party_id,
+          token,
+          name,
+          is_active,
+          created_at,
+          parties(id, name, entity_id)
+        `)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return ((data as any[]) ?? []).filter((t) => t.parties?.entity_id === activeEntityId);
+    },
+  });
+
+  // Filtros OMS
+  const [omsSearch, setOmsSearch] = useState("");
+  const [omsStatusFilter, setOmsStatusFilter] = useState<string>("all");
+  const [omsChannelFilter, setOmsChannelFilter] = useState<string>("all");
+  const [omsClientFilter, setOmsClientFilter] = useState<string>("all");
+  const [selectedOrderForView, setSelectedOrderForView] = useState<any>(null);
+
+  // Formulario Pedido Manual
+  const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
+  const [manualOrderForm, setManualOrderForm] = useState({
+    party_id: "",
+    channel: "manual",
+    external_order_id: "",
+    destination_address: "",
+    notes: "",
+  });
+  const [manualOrderLines, setManualOrderLines] = useState<Array<{
+    item_id: string;
+    external_sku: string;
+    qty: string;
+  }>>([{ item_id: "", external_sku: "", qty: "1" }]);
+
+  // Importador CSV
+  const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
+  const [csvPartyId, setCsvPartyId] = useState("");
+  const [csvChannel, setCsvChannel] = useState("csv");
+  const [csvRawText, setCsvRawText] = useState("");
+  const [csvParsedPreview, setCsvParsedPreview] = useState<Array<{
+    external_order_id: string;
+    destination_address: string;
+    sku: string;
+    qty: number;
+  }>>([]);
+
+  // Token Modal
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [generatedTokenData, setGeneratedTokenData] = useState<{
+    token: string;
+    clientName: string;
+  } | null>(null);
+
+  const handleCsvTextChange = (raw: string) => {
+    setCsvRawText(raw);
+    const textLines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+    if (!textLines.length) {
+      setCsvParsedPreview([]);
+      return;
+    }
+
+    let startIdx = 0;
+    const headerLower = textLines[0].toLowerCase();
+    if (headerLower.includes("order") || headerLower.includes("pedido") || headerLower.includes("sku")) {
+      startIdx = 1;
+    }
+
+    const parsed: Array<{
+      external_order_id: string;
+      destination_address: string;
+      sku: string;
+      qty: number;
+    }> = [];
+
+    for (let i = startIdx; i < textLines.length; i++) {
+      const parts = textLines[i].split(/[,;\t]/).map((p) => p.trim());
+      if (parts.length >= 3) {
+        const extId = parts[0];
+        const dest = parts.length >= 4 ? parts[1] : "";
+        const sku = parts.length >= 4 ? parts[2] : parts[1];
+        const qtyVal = Number(parts.length >= 4 ? parts[3] : parts[2]) || 1;
+
+        if (extId && sku) {
+          parsed.push({
+            external_order_id: extId,
+            destination_address: dest,
+            sku,
+            qty: qtyVal > 0 ? qtyVal : 1,
+          });
+        }
+      }
+    }
+
+    setCsvParsedPreview(parsed);
+  };
+
+  // Mutación: Crear Pedido Manual
+  const createManualOrderM = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Sin empresa activa");
+      if (!manualOrderForm.party_id) throw new Error("Selecciona un cliente 3PL");
+      if (!manualOrderForm.external_order_id.trim()) throw new Error("Ingresa el identificador o número del pedido");
+      const validLines = manualOrderLines.filter((l) => Number(l.qty) > 0 && (l.external_sku.trim() || l.item_id));
+      if (!validLines.length) throw new Error("Agrega al menos una línea con producto y cantidad válida");
+
+      // Inserción en sales_orders
+      const { data: order, error: oErr } = await supabase
+        .from("sales_orders")
+        .insert({
+          entity_id: activeEntityId,
+          party_id: manualOrderForm.party_id,
+          channel: manualOrderForm.channel.trim() || "manual",
+          external_order_id: manualOrderForm.external_order_id.trim(),
+          destination_address: manualOrderForm.destination_address.trim() || null,
+          status: "pendiente",
+          notes: manualOrderForm.notes.trim() || null,
+        })
+        .select("id")
+        .single();
+
+      if (oErr) {
+        if (oErr.code === "23505" || oErr.message.includes("unique")) {
+          throw new Error(`Ya existe un pedido con ID '${manualOrderForm.external_order_id}' para este cliente y canal.`);
+        }
+        throw oErr;
+      }
+
+      // Inserción de líneas
+      const linesToInsert = validLines.map((l) => ({
+        sales_order_id: order.id,
+        item_id: l.item_id || null,
+        external_sku: l.external_sku.trim() || (items.find((it) => it.id === l.item_id)?.code ?? null),
+        qty: Number(l.qty),
+      }));
+
+      const { error: lErr } = await supabase.from("sales_order_lines").insert(linesToInsert);
+      if (lErr) throw lErr;
+    },
+    onSuccess: () => {
+      toast.success("Pedido OMS creado exitosamente");
+      setIsNewOrderOpen(false);
+      setManualOrderForm({
+        party_id: "",
+        channel: "manual",
+        external_order_id: "",
+        destination_address: "",
+        notes: "",
+      });
+      setManualOrderLines([{ item_id: "", external_sku: "", qty: "1" }]);
+      qc.invalidateQueries({ queryKey: ["sales_orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Mutación: Importar CSV
+  const importCsvOrdersM = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Sin empresa activa");
+      if (!csvPartyId) throw new Error("Selecciona un cliente 3PL para los pedidos");
+      if (!csvParsedPreview.length) throw new Error("No hay pedidos válidos para importar");
+
+      const ordersMap = new Map<string, {
+        destination_address: string;
+        lines: Array<{ sku: string; qty: number }>;
+      }>();
+
+      for (const row of csvParsedPreview) {
+        const id = row.external_order_id.trim();
+        if (!ordersMap.has(id)) {
+          ordersMap.set(id, {
+            destination_address: row.destination_address,
+            lines: [],
+          });
+        }
+        ordersMap.get(id)!.lines.push({ sku: row.sku, qty: row.qty });
+      }
+
+      let importedCount = 0;
+      for (const [extId, o] of ordersMap.entries()) {
+        const { data: insertedOrder, error: oErr } = await supabase
+          .from("sales_orders")
+          .upsert({
+            entity_id: activeEntityId,
+            party_id: csvPartyId,
+            channel: csvChannel.trim() || "csv",
+            external_order_id: extId,
+            destination_address: o.destination_address || null,
+            status: "pendiente",
+          }, { onConflict: "party_id,channel,external_order_id" })
+          .select("id")
+          .single();
+
+        if (oErr) throw oErr;
+
+        await supabase.from("sales_order_lines").delete().eq("sales_order_id", insertedOrder.id);
+
+        const linesToInsert = o.lines.map((l) => {
+          const matchedItem = items.find(
+            (it) => it.code?.toLowerCase() === l.sku.toLowerCase() || it.name?.toLowerCase() === l.sku.toLowerCase()
+          );
+          return {
+            sales_order_id: insertedOrder.id,
+            item_id: matchedItem?.id || null,
+            external_sku: l.sku,
+            qty: l.qty,
+          };
+        });
+
+        const { error: lErr } = await supabase.from("sales_order_lines").insert(linesToInsert);
+        if (lErr) throw lErr;
+        importedCount++;
+      }
+
+      return importedCount;
+    },
+    onSuccess: (count) => {
+      toast.success(`${count} pedidos importados exitosamente`);
+      setIsCsvImportOpen(false);
+      setCsvRawText("");
+      setCsvParsedPreview([]);
+      qc.invalidateQueries({ queryKey: ["sales_orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Mutación: Convertir Pedido a Guía de Despacho
+  const convertOrderToDispatchNoteM = useMutation({
+    mutationFn: async (order: any) => {
+      if (!activeEntityId) throw new Error("Sin empresa activa");
+      if (order.status !== "pendiente") throw new Error("Solo pedidos pendientes pueden convertirse a guía");
+
+      const clientWhs = pws.filter((x) => x.party_id === order.party_id);
+      const whId = clientWhs.length > 0 ? clientWhs[0].warehouse_id : (warehouses[0]?.id || "");
+      if (!whId) {
+        throw new Error("No hay bodegas disponibles en el sistema para asociar la guía");
+      }
+
+      const lines = order.sales_order_lines || [];
+      if (!lines.length) {
+        throw new Error("El pedido no contiene líneas para despachar");
+      }
+
+      // Crear despacho en borrador
+      const { data: note, error: nErr } = await supabase
+        .from("dispatch_notes")
+        .insert({
+          entity_id: activeEntityId,
+          party_id: order.party_id,
+          warehouse_id: whId,
+          transfer_type: "venta",
+          carrier_name: "Por asignar (OMS)",
+          carrier_tax_id: "77777777-7",
+          vehicle_plate: "OMS001",
+          origin_address: "Bodega Principal / Despacho 3PL",
+          destination_address: order.destination_address || "Dirección según pedido OMS",
+          departure_at: new Date().toISOString(),
+          status: "draft",
+          notes: `Generado desde pedido OMS [${(order.channel || "").toUpperCase()}] ID: ${order.external_order_id || order.id.slice(0, 8)}`,
+        })
+        .select("id, dispatch_number")
+        .single();
+
+      if (nErr) throw nErr;
+
+      // Crear líneas
+      const noteLines = lines.map((l: any) => {
+        let itemId = l.item_id;
+        if (!itemId && l.external_sku) {
+          const found = items.find(
+            (it) => it.code?.toLowerCase() === l.external_sku.toLowerCase() || it.name?.toLowerCase() === l.external_sku.toLowerCase()
+          );
+          if (found) itemId = found.id;
+        }
+        return {
+          dispatch_note_id: note.id,
+          item_id: itemId || items[0]?.id,
+          qty: Number(l.qty) || 1,
+          uom: "UN",
+        };
+      });
+
+      const { error: nlErr } = await supabase.from("dispatch_note_lines").insert(noteLines);
+      if (nlErr) throw nlErr;
+
+      // Actualizar pedido a 'procesado'
+      const { error: updErr } = await supabase
+        .from("sales_orders")
+        .update({
+          status: "procesado",
+          dispatch_note_id: note.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.id);
+
+      if (updErr) throw updErr;
+
+      return { noteId: note.id, noteNumber: note.dispatch_number };
+    },
+    onSuccess: () => {
+      toast.success("¡Pedido convertido exitosamente a Guía de Despacho (Borrador) para picking!");
+      qc.invalidateQueries({ queryKey: ["sales_orders"] });
+      qc.invalidateQueries({ queryKey: ["dispatch_notes"] });
+      if (selectedOrderForView) setSelectedOrderForView(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Mutación: Generar Token de Integración
+  const generateWebhookTokenM = useMutation({
+    mutationFn: async (targetPartyId: string) => {
+      if (!targetPartyId) throw new Error("Selecciona un cliente");
+      const client = parties.find((p) => p.id === targetPartyId);
+      const rawUuid = crypto.randomUUID().replace(/-/g, "");
+      const token = `tok_3pl_${rawUuid}`;
+
+      const { data, error } = await supabase
+        .from("party_webhook_tokens")
+        .insert({
+          party_id: targetPartyId,
+          token: token,
+          name: `Webhook ${client?.name || "Cliente 3PL"}`,
+          is_active: true,
+        })
+        .select("token")
+        .single();
+
+      if (error) throw error;
+      return { token: data.token, clientName: client?.name || "Cliente" };
+    },
+    onSuccess: (data) => {
+      toast.success("Token de integración generado con éxito");
+      setGeneratedTokenData(data);
+      setIsTokenModalOpen(true);
+      qc.invalidateQueries({ queryKey: ["party_webhook_tokens"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Mutación: Toggle Token Activo/Inactivo
+  const toggleTokenActiveM = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase
+        .from("party_webhook_tokens")
+        .update({ is_active: !is_active })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Estado del token actualizado");
+      qc.invalidateQueries({ queryKey: ["party_webhook_tokens"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Mutación: Cancelar Pedido
+  const cancelOrderM = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { error } = await supabase
+        .from("sales_orders")
+        .update({ status: "cancelado", updated_at: new Date().toISOString() })
+        .eq("id", orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pedido cancelado");
+      qc.invalidateQueries({ queryKey: ["sales_orders"] });
+      if (selectedOrderForView) setSelectedOrderForView(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -1142,14 +1572,15 @@ function DispatchPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="h-6 w-6" />Operaciones 3PL, WMS & TMS</h1>
-          <p className="text-sm text-muted-foreground">Guías de despacho (Res. 154 SII), WMS picking/packing, TMS rutas y flota propia, trazabilidad y Comercio Exterior (SICEX).</p>
+          <p className="text-sm text-muted-foreground">Guías de despacho (Res. 154 SII), OMS pedidos multicanal, WMS picking/packing, TMS rutas y flota propia, trazabilidad y Comercio Exterior (SICEX).</p>
         </div>
       </div>
 
       <Tabs defaultValue="notes">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 h-auto gap-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 h-auto gap-1">
           <TabsTrigger value="notes"><Truck className="h-4 w-4 mr-1" />Guías</TabsTrigger>
           <TabsTrigger value="new"><Plus className="h-4 w-4 mr-1" />Nueva guía</TabsTrigger>
+          <TabsTrigger value="orders"><Package className="h-4 w-4 mr-1" />Pedidos OMS</TabsTrigger>
           <TabsTrigger value="routes"><Navigation className="h-4 w-4 mr-1" />Rutas TMS</TabsTrigger>
           <TabsTrigger value="fleet"><Car className="h-4 w-4 mr-1" />Flota Propia</TabsTrigger>
           <TabsTrigger value="reception"><ArrowDownToLine className="h-4 w-4 mr-1" />Recepción WMS</TabsTrigger>
@@ -1385,6 +1816,291 @@ function DispatchPage() {
               <div className="flex justify-end">
                 <Button onClick={() => saveNoteM.mutate()} disabled={saveNoteM.isPending}>Guardar borrador</Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ------------------------------------------------------------- */}
+        {/* PESTAÑA OMS: PEDIDOS MULTICANAL (Sprint 23)                   */}
+        {/* ------------------------------------------------------------- */}
+        <TabsContent value="orders" className="space-y-6">
+          {/* Header & Acciones */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                OMS — Pedidos Multicanal de Clientes 3PL
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Recepción centralizada de pedidos desde canales de venta (Shopify, VTEX, Mercado Libre, API webhook, manual o CSV) y conversión a guías de despacho listas para picking.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs"
+                onClick={() => setIsCsvImportOpen(true)}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Importar CSV
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1 text-xs"
+                onClick={() => setIsNewOrderOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Nuevo Pedido Manual
+              </Button>
+            </div>
+          </div>
+
+          {/* Banner explicativo del receptor de Webhooks */}
+          <div className="rounded-lg border border-purple-500/30 bg-purple-500/10 p-3 text-xs text-purple-700 dark:text-purple-300 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-purple-600 dark:text-purple-400" />
+            <div className="space-y-1">
+              <span className="font-semibold">Integración de E-Commerce (Webhooks):</span> Los pedidos pueden recibirse automáticamente desde cualquier tienda online enviando un POST a <code className="bg-purple-500/20 px-1 py-0.5 rounded font-mono text-[11px]">/api/webhooks/oms</code> con el token de cliente. Genera los tokens en la pestaña <strong>Clientes 3PL</strong>. La restricción anti-duplicados previene órdenes repetidas por reintentos de red.
+            </div>
+          </div>
+
+          {/* Tarjetas de Resumen Métrico */}
+          {(() => {
+            const allOrders = ordersQ.data ?? [];
+            const pendientes = allOrders.filter((o: any) => o.status === "pendiente").length;
+            const procesados = allOrders.filter((o: any) => o.status === "procesado").length;
+            const cancelados = allOrders.filter((o: any) => o.status === "cancelado").length;
+            const channels = Array.from(new Set(allOrders.map((o: any) => o.channel))).length;
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <Card className="p-4 border-l-4 border-l-primary">
+                  <div className="text-xs text-muted-foreground font-medium">Total Pedidos OMS</div>
+                  <div className="text-2xl font-bold mt-1">{allOrders.length}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">{channels} canal(es) activo(s)</div>
+                </Card>
+                <Card className="p-4 border-l-4 border-l-amber-500">
+                  <div className="text-xs text-amber-700 dark:text-amber-300 font-medium">Pendientes (Para Picking)</div>
+                  <div className="text-2xl font-bold mt-1 text-amber-600">{pendientes}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">Listos para convertir a guía</div>
+                </Card>
+                <Card className="p-4 border-l-4 border-l-emerald-500">
+                  <div className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">Procesados</div>
+                  <div className="text-2xl font-bold mt-1 text-emerald-600">{procesados}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">Con guía de despacho generada</div>
+                </Card>
+                <Card className="p-4 border-l-4 border-l-slate-400">
+                  <div className="text-xs text-muted-foreground font-medium">Cancelados</div>
+                  <div className="text-2xl font-bold mt-1">{cancelados}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">Descartados o anulados</div>
+                </Card>
+              </div>
+            );
+          })()}
+
+          {/* Filtros de Búsqueda */}
+          <Card>
+            <CardContent className="p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por ID, cliente, dirección..."
+                    value={omsSearch}
+                    onChange={(e) => setOmsSearch(e.target.value)}
+                    className="h-8 pl-8 text-xs bg-background"
+                  />
+                </div>
+                <Select value={omsStatusFilter} onValueChange={setOmsStatusFilter}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Estado de Pedido" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    <SelectItem value="pendiente">Solo Pendientes</SelectItem>
+                    <SelectItem value="procesado">Solo Procesados</SelectItem>
+                    <SelectItem value="cancelado">Solo Cancelados</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={omsChannelFilter} onValueChange={setOmsChannelFilter}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Canal de Venta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los canales</SelectItem>
+                    <SelectItem value="shopify">Shopify</SelectItem>
+                    <SelectItem value="vtex">VTEX</SelectItem>
+                    <SelectItem value="mercadolibre">Mercado Libre</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="csv">CSV</SelectItem>
+                    <SelectItem value="webhook">Webhook genérico</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={omsClientFilter} onValueChange={setOmsClientFilter}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Filtrar por Cliente 3PL" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los clientes</SelectItem>
+                    {parties.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name} {p.is_3pl_client ? "· 3PL" : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tabla de Pedidos OMS */}
+          <Card>
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm">Bandeja de Pedidos Multicanal</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {(() => {
+                const allOrders = ordersQ.data ?? [];
+                const filtered = allOrders.filter((o: any) => {
+                  if (omsStatusFilter !== "all" && o.status !== omsStatusFilter) return false;
+                  if (omsChannelFilter !== "all" && o.channel?.toLowerCase() !== omsChannelFilter.toLowerCase()) return false;
+                  if (omsClientFilter !== "all" && o.party_id !== omsClientFilter) return false;
+                  if (omsSearch.trim()) {
+                    const q = omsSearch.toLowerCase();
+                    const matchExtId = o.external_order_id?.toLowerCase().includes(q);
+                    const matchClient = o.parties?.name?.toLowerCase().includes(q);
+                    const matchAddress = o.destination_address?.toLowerCase().includes(q);
+                    const matchNotes = o.notes?.toLowerCase().includes(q);
+                    if (!matchExtId && !matchClient && !matchAddress && !matchNotes) return false;
+                  }
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="py-12 text-center text-xs text-muted-foreground space-y-2">
+                      <Package className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                      <p>No se encontraron pedidos multicanal con los filtros seleccionados.</p>
+                      <Button variant="outline" size="sm" onClick={() => setIsNewOrderOpen(true)} className="text-xs">
+                        Crear primer pedido manual
+                      </Button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-xs">
+                        <TableHead>Canal</TableHead>
+                        <TableHead>N° Pedido Ext.</TableHead>
+                        <TableHead>Cliente 3PL</TableHead>
+                        <TableHead>Dirección de Destino</TableHead>
+                        <TableHead>Líneas / Unidades</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Guía Despacho</TableHead>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((order: any) => {
+                        const lines = order.sales_order_lines || [];
+                        const totalUnits = lines.reduce((acc: number, l: any) => acc + (Number(l.qty) || 0), 0);
+                        const statusBadge = ORDER_STATUS_BADGES[order.status as OrderStatus] || ORDER_STATUS_BADGES.pendiente;
+
+                        // Estilo distintivo por canal
+                        const channelBadgeStyle = (() => {
+                          const ch = (order.channel || "").toLowerCase();
+                          if (ch.includes("shopify")) return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+                          if (ch.includes("vtex")) return "bg-pink-500/10 text-pink-700 dark:text-pink-300 border-pink-500/30";
+                          if (ch.includes("mercado") || ch.includes("meli")) return "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30";
+                          if (ch.includes("csv")) return "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30";
+                          return "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30";
+                        })();
+
+                        return (
+                          <TableRow key={order.id} className="text-xs">
+                            <TableCell>
+                              <Badge variant="outline" className={`text-[10px] font-medium capitalize ${channelBadgeStyle}`}>
+                                {order.channel || "manual"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-mono font-medium">
+                              {order.external_order_id || order.id.slice(0, 8)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{order.parties?.name || "—"}</div>
+                              {order.parties?.tax_id && (
+                                <div className="text-[10px] text-muted-foreground">{order.parties.tax_id}</div>
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate" title={order.destination_address || ""}>
+                              {order.destination_address || <span className="text-muted-foreground italic">Sin dirección</span>}
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-semibold">{lines.length}</span> ítems ({totalUnits} un.)
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={`text-[10px] ${statusBadge.className}`}>
+                                {statusBadge.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {order.dispatch_note_id ? (
+                                <Badge variant="secondary" className="text-[10px] gap-1 font-mono">
+                                  <FileText className="h-3 w-3" />
+                                  {order.dispatch_notes?.dispatch_number || `GD-${order.dispatch_note_id.slice(0, 6)}`}
+                                </Badge>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-muted-foreground whitespace-nowrap">
+                              {new Date(order.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {order.status === "pendiente" && (
+                                  <Button
+                                    size="sm"
+                                    className="h-7 px-2 text-[11px] gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                                    onClick={() => convertOrderToDispatchNoteM.mutate(order)}
+                                    disabled={convertOrderToDispatchNoteM.isPending}
+                                    title="Convertir a Guía de Despacho para Picking"
+                                  >
+                                    <Truck className="h-3 w-3" />
+                                    Convertir a Guía
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => setSelectedOrderForView(order)}
+                                  title="Ver detalle de pedido"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                {order.status === "pendiente" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                    onClick={() => cancelOrderM.mutate(order.id)}
+                                    disabled={cancelOrderM.isPending}
+                                    title="Cancelar pedido"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1727,6 +2443,91 @@ function DispatchPage() {
                       {!warehouses.length && <p className="text-xs text-muted-foreground">No hay bodegas creadas.</p>}
                     </div>
                   )}
+
+                  {edit3pl && (
+                    <div className="space-y-3 rounded-md border p-3 bg-muted/20">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <Label className="text-xs font-semibold flex items-center gap-1.5">
+                            <Key className="h-3.5 w-3.5 text-primary" />
+                            Integración Webhook OMS (E-Commerce)
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground">
+                            Tokens para recibir pedidos automáticos desde Shopify, VTEX o Mercado Libre.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1 text-xs shrink-0"
+                          onClick={() => generateWebhookTokenM.mutate(editPartyId)}
+                          disabled={generateWebhookTokenM.isPending}
+                        >
+                          <Key className="h-3.5 w-3.5" />
+                          Generar token de integración
+                        </Button>
+                      </div>
+
+                      {(() => {
+                        const partyTokens = (webhookTokensQ.data || []).filter((t: any) => t.party_id === editPartyId);
+                        if (!partyTokens.length) {
+                          return (
+                            <p className="text-[11px] text-muted-foreground italic py-1">
+                              Este cliente aún no posee tokens de integración generados.
+                            </p>
+                          );
+                        }
+                        return (
+                          <div className="space-y-2 pt-1">
+                            {partyTokens.map((t: any) => (
+                              <div key={t.id} className="flex items-center justify-between text-xs p-2.5 rounded bg-background border">
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs font-medium text-primary">
+                                      {t.token.slice(0, 14)}••••••••{t.token.slice(-4)}
+                                    </span>
+                                    <Badge variant={t.is_active ? "outline" : "secondary"} className="text-[10px]">
+                                      {t.is_active ? "Activo" : "Inactivo"}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {t.name || "Webhook"} · Creado el {new Date(t.created_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs gap-1"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(t.token);
+                                      toast.success("Token copiado al portapapeles");
+                                    }}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                    Copiar
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => toggleTokenActiveM.mutate({ id: t.id, is_active: t.is_active })}
+                                    disabled={toggleTokenActiveM.isPending}
+                                  >
+                                    {t.is_active ? "Desactivar" : "Reactivar"}
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
                   <Button onClick={() => savePartyM.mutate()} disabled={savePartyM.isPending}>Guardar</Button>
                 </>
               )}
@@ -4023,6 +4824,519 @@ function DispatchPage() {
                     <Check className="h-3.5 w-3.5" />
                     {updateStopDeliveryM.isPending ? "Guardando..." : "Confirmar Estado"}
                   </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 1: NUEVO PEDIDO OMS MANUAL                              */}
+      {/* ------------------------------------------------------------- */}
+      <Dialog open={isNewOrderOpen} onOpenChange={setIsNewOrderOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              Nuevo Pedido de Venta (OMS Manual)
+            </DialogTitle>
+            <DialogDescription>
+              Registra un pedido recibido por canal manual, telefónico o correo para un cliente 3PL.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Cliente 3PL *</Label>
+                <Select
+                  value={manualOrderForm.party_id}
+                  onValueChange={(v) => setManualOrderForm((f) => ({ ...f, party_id: v }))}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Seleccionar cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {parties.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} {p.is_3pl_client ? "· 3PL" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Canal de Venta</Label>
+                <Select
+                  value={manualOrderForm.channel}
+                  onValueChange={(v) => setManualOrderForm((f) => ({ ...f, channel: v }))}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Canal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual / Teléfono</SelectItem>
+                    <SelectItem value="shopify">Shopify</SelectItem>
+                    <SelectItem value="vtex">VTEX</SelectItem>
+                    <SelectItem value="mercadolibre">Mercado Libre</SelectItem>
+                    <SelectItem value="b2b">Venta Mayorista B2B</SelectItem>
+                    <SelectItem value="otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">N° Pedido Ext. / ID Orden *</Label>
+                <Input
+                  placeholder="ej. #10492 o PED-2026-001"
+                  className="h-8 text-xs bg-background"
+                  value={manualOrderForm.external_order_id}
+                  onChange={(e) => setManualOrderForm((f) => ({ ...f, external_order_id: e.target.value }))}
+                />
+                <p className="text-[10px] text-muted-foreground">Único por cliente y canal para evitar duplicados.</p>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Dirección de Destino</Label>
+                <Input
+                  placeholder="ej. Av. Vitacura 2670, Las Condes"
+                  className="h-8 text-xs bg-background"
+                  value={manualOrderForm.destination_address}
+                  onChange={(e) => setManualOrderForm((f) => ({ ...f, destination_address: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Notas / Instrucciones del Pedido</Label>
+              <Input
+                placeholder="ej. Entregar conserjería, horario 9:00 a 18:00 hrs"
+                className="h-8 text-xs bg-background"
+                value={manualOrderForm.notes}
+                onChange={(e) => setManualOrderForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+
+            {/* Editor de Líneas del Pedido */}
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Productos / SKUs del Pedido</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setManualOrderLines((cur) => [...cur, { item_id: "", external_sku: "", qty: "1" }])}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Agregar Producto
+                </Button>
+              </div>
+
+              <div className="border rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="text-xs">
+                      <TableHead>Ítem Catálogo (Opcional)</TableHead>
+                      <TableHead>SKU Externo</TableHead>
+                      <TableHead className="w-[100px]">Cantidad</TableHead>
+                      <TableHead className="w-[40px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {manualOrderLines.map((line, idx) => (
+                      <TableRow key={idx} className="text-xs">
+                        <TableCell>
+                          <Select
+                            value={line.item_id}
+                            onValueChange={(val) => {
+                              const matched = items.find((it) => it.id === val);
+                              setManualOrderLines((cur) =>
+                                cur.map((l, i) =>
+                                  i === idx
+                                    ? {
+                                        ...l,
+                                        item_id: val,
+                                        external_sku: l.external_sku || (matched?.code ?? ""),
+                                      }
+                                    : l
+                                )
+                              );
+                            }}
+                          >
+                            <SelectTrigger className="h-7 text-xs">
+                              <SelectValue placeholder="Seleccionar del catálogo..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {items.map((it) => (
+                                <SelectItem key={it.id} value={it.id}>
+                                  {it.code} - {it.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            placeholder="ej. SKU-PROD-01"
+                            className="h-7 text-xs bg-background"
+                            value={line.external_sku}
+                            onChange={(e) =>
+                              setManualOrderLines((cur) =>
+                                cur.map((l, i) => (i === idx ? { ...l, external_sku: e.target.value } : l))
+                              )
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="1"
+                            className="h-7 text-xs bg-background"
+                            value={line.qty}
+                            onChange={(e) =>
+                              setManualOrderLines((cur) =>
+                                cur.map((l, i) => (i === idx ? { ...l, qty: e.target.value } : l))
+                              )
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-rose-600"
+                            onClick={() =>
+                              setManualOrderLines((cur) =>
+                                cur.length > 1 ? cur.filter((_, i) => i !== idx) : cur
+                              )
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsNewOrderOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => createManualOrderM.mutate()}
+              disabled={createManualOrderM.isPending}
+            >
+              {createManualOrderM.isPending ? "Guardando..." : "Crear Pedido"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 2: IMPORTADOR MASIVO CSV                                */}
+      {/* ------------------------------------------------------------- */}
+      <Dialog open={isCsvImportOpen} onOpenChange={setIsCsvImportOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5 text-primary" />
+              Importador Masivo de Pedidos (CSV)
+            </DialogTitle>
+            <DialogDescription>
+              Carga pedidos en lote para clientes que aún no tienen integración directa vía webhook.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Cliente 3PL Destino *</Label>
+                <Select value={csvPartyId} onValueChange={setCsvPartyId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Seleccionar cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {parties.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} {p.is_3pl_client ? "· 3PL" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Canal Etiqueta</Label>
+                <Input
+                  className="h-8 text-xs bg-background"
+                  value={csvChannel}
+                  onChange={(e) => setCsvChannel(e.target.value)}
+                  placeholder="ej. csv, linio, falabella..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Pegar Contenido CSV o Archivo de Texto</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Columnas requeridas separadas por coma o tabulación: <code>external_order_id, destination_address, sku, qty</code>
+              </p>
+              <textarea
+                className="w-full h-32 p-2.5 font-mono text-[11px] rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder={`external_order_id, destination_address, sku, qty\n#10401, Av. Providencia 1234 Santiago, SKU-PROD-01, 2\n#10401, Av. Providencia 1234 Santiago, SKU-PROD-02, 1\n#10402, Calle Los Robles 55 Viña del Mar, SKU-PROD-03, 5`}
+                value={csvRawText}
+                onChange={(e) => handleCsvTextChange(e.target.value)}
+              />
+            </div>
+
+            {/* Vista Previa de Pedidos Detectados */}
+            {csvParsedPreview.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {csvParsedPreview.length} línea(s) detectada(s) · {new Set(csvParsedPreview.map((x) => x.external_order_id)).size} pedidos únicos
+                  </span>
+                </div>
+                <div className="border rounded-md max-h-40 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-[11px]">
+                        <TableHead>N° Orden Ext.</TableHead>
+                        <TableHead>Dirección</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead className="text-right">Cantidad</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {csvParsedPreview.slice(0, 10).map((row, idx) => (
+                        <TableRow key={idx} className="text-[11px]">
+                          <TableCell className="font-mono font-medium">{row.external_order_id}</TableCell>
+                          <TableCell className="truncate max-w-[150px]">{row.destination_address || "—"}</TableCell>
+                          <TableCell className="font-mono">{row.sku}</TableCell>
+                          <TableCell className="text-right font-medium">{row.qty}</TableCell>
+                        </TableRow>
+                      ))}
+                      {csvParsedPreview.length > 10 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center text-[10px] text-muted-foreground italic py-1">
+                            ... y {csvParsedPreview.length - 10} filas más
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsCsvImportOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => importCsvOrdersM.mutate()}
+              disabled={importCsvOrdersM.isPending || !csvParsedPreview.length || !csvPartyId}
+            >
+              {importCsvOrdersM.isPending ? "Importando..." : `Importar ${new Set(csvParsedPreview.map((x) => x.external_order_id)).size || 0} Pedidos`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 3: TOKEN DE INTEGRACIÓN GENERADO                        */}
+      {/* ------------------------------------------------------------- */}
+      <Dialog open={isTokenModalOpen} onOpenChange={setIsTokenModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5 text-emerald-600" />
+              Token de Integración Webhook Generado
+            </DialogTitle>
+            <DialogDescription>
+              Copia este token y configúralo en la tienda online o webhook del cliente{" "}
+              <strong>{generatedTokenData?.clientName}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Token de Autenticación de Cliente</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={generatedTokenData?.token || ""}
+                  className="font-mono text-xs bg-muted/40 font-semibold"
+                />
+                <Button
+                  size="sm"
+                  className="gap-1 shrink-0"
+                  onClick={() => {
+                    if (generatedTokenData?.token) {
+                      navigator.clipboard.writeText(generatedTokenData.token);
+                      toast.success("Token copiado al portapapeles");
+                    }
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copiar
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 p-3 rounded-lg border bg-muted/20">
+              <Label className="text-xs font-semibold">Endpoint de Recepción (POST)</Label>
+              <code className="block p-2 rounded bg-background border font-mono text-[11px] select-all">
+                {typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/oms
+              </code>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Ejemplo de Llamada (cURL / Payload)</Label>
+              <pre className="p-3 rounded-md bg-slate-900 text-slate-100 font-mono text-[10px] overflow-x-auto whitespace-pre">
+{`curl -X POST ${typeof window !== "undefined" ? window.location.origin : "https://mi-empresa.cl"}/api/webhooks/oms \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "token": "${generatedTokenData?.token || "tok_3pl_..."}",
+    "channel": "shopify",
+    "external_order_id": "#10492",
+    "destination_address": "Av. Vitacura 2670, Santiago",
+    "lines": [
+      { "external_sku": "SKU-PROD-01", "qty": 2 }
+    ]
+  }'`}
+              </pre>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button size="sm" onClick={() => setIsTokenModalOpen(false)}>
+              Entendido y Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 4: DETALLE DE PEDIDO OMS                                */}
+      {/* ------------------------------------------------------------- */}
+      <Dialog open={!!selectedOrderForView} onOpenChange={(open) => !open && setSelectedOrderForView(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedOrderForView && (() => {
+            const order = selectedOrderForView;
+            const lines = order.sales_order_lines || [];
+            const totalUnits = lines.reduce((acc: number, l: any) => acc + (Number(l.qty) || 0), 0);
+            const statusBadge = ORDER_STATUS_BADGES[order.status as OrderStatus] || ORDER_STATUS_BADGES.pendiente;
+
+            return (
+              <div className="space-y-4">
+                <DialogHeader>
+                  <div className="flex items-center justify-between pr-4">
+                    <DialogTitle className="flex items-center gap-2">
+                      <Package className="h-5 w-5 text-primary" />
+                      Pedido OMS: {order.external_order_id || order.id.slice(0, 8)}
+                    </DialogTitle>
+                    <Badge variant="outline" className={`text-xs ${statusBadge.className}`}>
+                      {statusBadge.label}
+                    </Badge>
+                  </div>
+                  <DialogDescription>
+                    Canal: <strong>{order.channel}</strong> · Registrado el {new Date(order.created_at).toLocaleString()}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid grid-cols-2 gap-3 text-xs p-3 rounded-md bg-muted/20 border">
+                  <div>
+                    <span className="text-muted-foreground">Cliente 3PL:</span>
+                    <div className="font-semibold">{order.parties?.name || "—"}</div>
+                    {order.parties?.tax_id && <div className="text-[10px] text-muted-foreground">{order.parties.tax_id}</div>}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Destino de Entrega:</span>
+                    <div className="font-semibold">{order.destination_address || "Sin dirección especificada"}</div>
+                  </div>
+                  {order.notes && (
+                    <div className="col-span-2 pt-1 border-t">
+                      <span className="text-muted-foreground">Observaciones / Notas:</span>
+                      <div className="italic text-[11px]">{order.notes}</div>
+                    </div>
+                  )}
+                  {order.dispatch_note_id && (
+                    <div className="col-span-2 pt-1 border-t flex items-center justify-between">
+                      <span className="text-muted-foreground">Guía de Despacho Vinculada:</span>
+                      <Badge variant="secondary" className="font-mono text-xs gap-1">
+                        <FileText className="h-3.5 w-3.5" />
+                        {order.dispatch_notes?.dispatch_number || `GD-${order.dispatch_note_id.slice(0, 8)}`}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tabla de Productos / Líneas */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <Label className="text-xs font-semibold">Productos del Pedido ({lines.length} ítems, {totalUnits} un.)</Label>
+                  </div>
+                  <div className="border rounded-md overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="text-xs">
+                          <TableHead>SKU Externo</TableHead>
+                          <TableHead>Ítem del Catálogo</TableHead>
+                          <TableHead className="text-right">Cantidad</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lines.map((l: any) => (
+                          <TableRow key={l.id} className="text-xs">
+                            <TableCell className="font-mono font-medium">{l.external_sku || "—"}</TableCell>
+                            <TableCell>
+                              {l.items ? (
+                                <div>
+                                  <span className="font-medium">{l.items.name}</span>
+                                  <span className="text-muted-foreground text-[10px] block font-mono">{l.items.code}</span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground italic text-[11px]">No vinculado a catálogo</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">{l.qty} un.</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                <DialogFooter className="pt-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedOrderForView(null)}>
+                    Cerrar
+                  </Button>
+                  {order.status === "pendiente" && (
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-primary text-primary-foreground"
+                      onClick={() => convertOrderToDispatchNoteM.mutate(order)}
+                      disabled={convertOrderToDispatchNoteM.isPending}
+                    >
+                      <Truck className="h-3.5 w-3.5" />
+                      {convertOrderToDispatchNoteM.isPending ? "Convirtiendo..." : "Convertir a Guía de Despacho"}
+                    </Button>
+                  )}
                 </DialogFooter>
               </div>
             );

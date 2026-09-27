@@ -4359,6 +4359,144 @@ export type Database = {
           },
         ]
       }
+      party_webhook_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string | null
+          party_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          party_id: string
+          token: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          party_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_webhook_tokens_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_order_lines: {
+        Row: {
+          external_sku: string | null
+          id: string
+          item_id: string | null
+          qty: number
+          sales_order_id: string
+        }
+        Insert: {
+          external_sku?: string | null
+          id?: string
+          item_id?: string | null
+          qty: number
+          sales_order_id: string
+        }
+        Update: {
+          external_sku?: string | null
+          id?: string
+          item_id?: string | null
+          qty?: number
+          sales_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_lines_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_orders: {
+        Row: {
+          channel: string
+          created_at: string
+          destination_address: string | null
+          dispatch_note_id: string | null
+          entity_id: string
+          external_order_id: string | null
+          id: string
+          notes: string | null
+          party_id: string
+          status: Database["public"]["Enums"]["order_status"]
+          updated_at: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          destination_address?: string | null
+          dispatch_note_id?: string | null
+          entity_id: string
+          external_order_id?: string | null
+          id?: string
+          notes?: string | null
+          party_id: string
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          destination_address?: string | null
+          dispatch_note_id?: string | null
+          entity_id?: string
+          external_order_id?: string | null
+          id?: string
+          notes?: string | null
+          party_id?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_dispatch_note_id_fkey"
+            columns: ["dispatch_note_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_f22: {
@@ -4438,6 +4576,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      ingest_oms_order: {
+        Args: {
+          p_channel?: string
+          p_destination_address?: string
+          p_external_order_id: string
+          p_lines: Json
+          p_notes?: string
+          p_token: string
+        }
+        Returns: Json
+      }
       post_journal_entry: { Args: { _journal_entry_id: string }; Returns: Json }
       post_purchase_invoice: { Args: { _invoice_id: string }; Returns: Json }
       post_sales_invoice: { Args: { _invoice_id: string }; Returns: Json }
@@ -4510,6 +4659,7 @@ export type Database = {
         | "paid"
         | "cancelled"
       journal_entry_status: "draft" | "posted" | "reversed"
+      order_status: "pendiente" | "procesado" | "cancelado"
       period_status: "open" | "closed"
       pos_payment_method:
         | "efectivo"
@@ -4711,6 +4861,7 @@ export const Constants = {
         "cancelled",
       ],
       journal_entry_status: ["draft", "posted", "reversed"],
+      order_status: ["pendiente", "procesado", "cancelado"],
       period_status: ["open", "closed"],
       pos_payment_method: [
         "efectivo",
