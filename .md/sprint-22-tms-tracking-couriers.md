@@ -37,9 +37,9 @@ ALTER TABLE public.dispatch_notes ADD COLUMN IF NOT EXISTS courier_status text;
 
 ## Criterios de aceptación
 
-- [ ] Desde el detalle de una ruta en curso, se puede marcar cada parada como entregada/no entregada, capturando hora y (si el navegador lo permite) geolocalización.
-- [ ] Una guía transportada por courier externo puede guardar su número de seguimiento y estado, sin necesidad de tener una ruta/vehículo propio asociado.
-- [ ] Nada de esto llama a ninguna API externa real todavía.
+- [x] Desde el detalle de una ruta en curso, se puede marcar cada parada como entregada/no entregada, capturando hora y (si el navegador lo permite) geolocalización.
+- [x] Una guía transportada por courier externo puede guardar su número de seguimiento y estado, sin necesidad de tener una ruta/vehículo propio asociado.
+- [x] Nada de esto llama a ninguna API externa real todavía.
 
 ---
 

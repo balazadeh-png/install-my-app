@@ -244,3 +244,21 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Estados de ruta administrados vía enum `route_status` (`planificada` → `en_curso` → `finalizada` / `cancelada`).
   * Acciones rápidas de control de estado en modal de Hoja de Ruta ("Iniciar Ruta", "Finalizar Ruta", "Cancelar Ruta", "Reabrir como Planificada").
   * **Criterio de Aceptación Clave**: La transición de estados de la ruta es 100% independiente del estado de las guías de despacho individuales (`dispatch_notes.status`), preservando su estado tributario y operacional.
+
+---
+
+## 20. Vertical 3PL — TMS: Tracking de Paradas y Couriers Externos ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
+* **Seguimiento Operacional por Parada (`route_stops`)**:
+  * Estados de cumplimiento por parada gestionados vía enum `stop_delivery_status` (`pendiente`, `en_ruta`, `entregado`, `no_entregado`).
+  * Modal interactivo para registrar resultado de la visita en terreno con validación en tiempo real.
+  * Captura de receptor: registro obligatorio del nombre o RUT de quien recibe la mercadería (`received_by`).
+  * Registro de anomalías: captura obligatoria de motivos de no entrega (`delivery_notes`, ej. local cerrado, dirección errónea, rechazo de carga).
+* **Captura de Geolocalización GPS Puntual**:
+  * Obtención de coordenadas geográficas en el momento del evento (`lat`, `lng`) vía API estándar del navegador (`navigator.geolocation.getCurrentPosition`), permitiendo a choferes registrar la ubicación desde el navegador de su teléfono móvil sin requerir app nativa.
+  * Tolerancia a fallos: si el usuario rechaza los permisos de ubicación o no hay cobertura GPS, el sistema no bloquea el flujo y registra la entrega sin coordenadas.
+  * Visualización de ubicación en Hoja de Ruta con enlace directo para abrir el punto geográfico en Google Maps.
+* **Modelo Genérico de Couriers Externos (`dispatch_notes`)**:
+  * Soporte en formulario de nueva guía para envíos tercerizados: campos opcionales para empresa courier (`courier_name`), número de seguimiento (`courier_tracking_number`) y estado reportado (`courier_status`).
+  * Desacoplamiento total: la guía puede asignarse a un courier externo sin requerir un vehículo o ruta interna asignada.
+  * Visualización de badges de courier y tracking en la tabla principal de guías de despacho.
+

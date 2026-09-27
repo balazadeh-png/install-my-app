@@ -2,6 +2,44 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 22: TMS — Tracking de Paradas y Couriers Externos] - 2026-09-27
+
+### Añadido
+* **Migración SQL de Tracking de Entregas y Couriers** ([`supabase/migrations/20260927000021_sprint22_tms_tracking_couriers.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000021_sprint22_tms_tracking_couriers.sql)):
+  * Enum `stop_delivery_status`: estados de cumplimiento por parada (`pendiente`, `en_ruta`, `entregado`, `no_entregado`).
+  * Columnas en `route_stops`:
+    * `delivery_status`: estado de cumplimiento por parada (`DEFAULT 'pendiente' NOT NULL`).
+    * `arrived_at`: marca temporal de entrega/arribo efectivo.
+    * `lat` y `lng`: coordenadas geográficas decimales (`numeric(9,6)`).
+    * `received_by`: nombre o RUT de quien recepciona la mercadería.
+    * `delivery_notes`: observaciones u justificación de no entrega.
+    * Índice `idx_route_stops_delivery_status` para consultas de tracking.
+  * Columnas en `dispatch_notes`:
+    * `courier_name`: nombre de la empresa de encomienda externa (ej. Chilexpress, Blue Express, Starken).
+    * `courier_tracking_number`: código de seguimiento o número de orden de transporte (OT).
+    * `courier_status`: estado reportado por el courier.
+    * Índice `idx_dispatch_notes_courier_tracking`.
+* **Seguimiento de Entregas en Hoja de Ruta ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Badges visuales de estado por parada: `Pendiente`, `En Ruta`, `Entregado` y `No Entregado`.
+  * Acciones operativas directas por parada:
+    * Botón "Marcar Entregado": abre modal contextual de entrega.
+    * Botón "En Ruta": actualización rápida de estado.
+    * Botón "No Entregado": captura motivo de rechazo o ausencia del destinatario.
+    * Botón "Reabrir Parada": para correcciones operativas.
+  * Modal interactivo "Actualizar Estado de Entrega":
+    * Captura de receptor (`received_by`) con validación de campo requerido para entregas exitosas.
+    * Botón de geolocalización GPS integrada (`navigator.geolocation.getCurrentPosition`) que captura latitud y longitud desde el navegador sin interrumpir el flujo si el permiso es denegado o no hay señal GPS.
+    * Visualización de coordenadas capturadas con enlace directo a Google Maps (`https://www.google.com/maps?q=lat,lng`).
+* **Soporte de Couriers Externos en Guías de Despacho ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Sección "Transporte vía Courier Externo (Opcional)" en el formulario de Nueva Guía.
+  * Captura de empresa courier, número de tracking y estado inicial, desacoplado de vehículos y rutas internas.
+  * Visualización de badges de courier y tracking en la tabla general de guías registradas.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Tipado de `stop_delivery_status` en Enums y Constants.
+  * Tipado de nuevas columnas en `route_stops` y `dispatch_notes`.
+
+---
+
 ## [Sprint 21: TMS — Rutas de Reparto y Gestión de Flota Propia] - 2026-09-27
 
 ### Añadido

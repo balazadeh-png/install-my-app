@@ -743,6 +743,9 @@ export type Database = {
           arrival_at: string | null
           carrier_name: string
           carrier_tax_id: string
+          courier_name: string | null
+          courier_status: string | null
+          courier_tracking_number: string | null
           created_at: string
           created_by: string | null
           departure_at: string
@@ -763,6 +766,9 @@ export type Database = {
           arrival_at?: string | null
           carrier_name: string
           carrier_tax_id: string
+          courier_name?: string | null
+          courier_status?: string | null
+          courier_tracking_number?: string | null
           created_at?: string
           created_by?: string | null
           departure_at: string
@@ -783,6 +789,9 @@ export type Database = {
           arrival_at?: string | null
           carrier_name?: string
           carrier_tax_id?: string
+          courier_name?: string | null
+          courier_status?: string | null
+          courier_tracking_number?: string | null
           created_at?: string
           created_by?: string | null
           departure_at?: string
@@ -4292,26 +4301,44 @@ export type Database = {
       }
       route_stops: {
         Row: {
+          arrived_at: string | null
           created_at: string
+          delivery_notes: string | null
+          delivery_status: Database["public"]["Enums"]["stop_delivery_status"]
           dispatch_note_id: string
           id: string
+          lat: number | null
+          lng: number | null
           notes: string | null
+          received_by: string | null
           route_id: string
           stop_order: number
         }
         Insert: {
+          arrived_at?: string | null
           created_at?: string
+          delivery_notes?: string | null
+          delivery_status?: Database["public"]["Enums"]["stop_delivery_status"]
           dispatch_note_id: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           notes?: string | null
+          received_by?: string | null
           route_id: string
           stop_order: number
         }
         Update: {
+          arrived_at?: string | null
           created_at?: string
+          delivery_notes?: string | null
+          delivery_status?: Database["public"]["Enums"]["stop_delivery_status"]
           dispatch_note_id?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           notes?: string | null
+          received_by?: string | null
           route_id?: string
           stop_order?: number
         }
@@ -4496,6 +4523,12 @@ export type Database = {
         | "in_progress"
         | "completed"
         | "cancelled"
+      route_status: "planificada" | "en_curso" | "finalizada" | "cancelada"
+      stop_delivery_status:
+        | "pendiente"
+        | "en_ruta"
+        | "entregado"
+        | "no_entregado"
       sii_book_type:
         | "libro_diario"
         | "libro_mayor"
@@ -4694,6 +4727,12 @@ export const Constants = {
         "cancelled",
       ],
       route_status: ["planificada", "en_curso", "finalizada", "cancelada"],
+      stop_delivery_status: [
+        "pendiente",
+        "en_ruta",
+        "entregado",
+        "no_entregado",
+      ],
       sii_book_type: [
         "libro_diario",
         "libro_mayor",

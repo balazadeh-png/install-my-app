@@ -14,15 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Truck, Users, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Truck, Users, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
     meta: [
       { title: "Operaciones 3PL, WMS & TMS — EasyERP" },
-      { name: "description", content: "Gestión de clientes 3PL, guías de despacho (Res. 154), WMS picking/packing, TMS rutas y flota propia, trazabilidad y operaciones SICEX." },
+      { name: "description", content: "Gestión de clientes 3PL, guías de despacho (Res. 154), WMS picking/packing, TMS rutas y flota propia, tracking de entregas, couriers y operaciones SICEX." },
       { property: "og:title", content: "Operaciones 3PL, WMS & TMS — EasyERP" },
-      { property: "og:description", content: "Clientes 3PL, bodegas asignadas, guías de despacho, picking/packing, rutas TMS, flota y operaciones SICEX." },
+      { property: "og:description", content: "Clientes 3PL, bodegas asignadas, guías de despacho, picking/packing, rutas TMS, flota, tracking de entregas y operaciones SICEX." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -51,6 +51,20 @@ const ROUTE_STATUS_BADGES: Record<RouteStatus, { label: string; className: strin
   en_curso: { label: "En Curso", className: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30" },
   finalizada: { label: "Finalizada", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
   cancelada: { label: "Cancelada", className: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30" },
+};
+
+type StopDeliveryStatus = "pendiente" | "en_ruta" | "entregado" | "no_entregado";
+const STOP_DELIVERY_STATUS_LABELS: Record<StopDeliveryStatus, string> = {
+  pendiente: "Pendiente",
+  en_ruta: "En ruta",
+  entregado: "Entregado",
+  no_entregado: "No entregado",
+};
+const STOP_DELIVERY_STATUS_BADGES: Record<StopDeliveryStatus, { label: string; className: string }> = {
+  pendiente: { label: "Pendiente", className: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30" },
+  en_ruta: { label: "En Ruta", className: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  entregado: { label: "Entregado", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  no_entregado: { label: "No Entregado", className: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30" },
 };
 
 interface Line {
@@ -201,6 +215,9 @@ function DispatchPage() {
     destination_address: "",
     departure_at: "",
     arrival_at: "",
+    courier_name: "",
+    courier_tracking_number: "",
+    courier_status: "En preparación",
   });
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const allowedWh = warehouses.filter((w) => pws.some((p) => p.party_id === partyId && p.warehouse_id === w.id));
@@ -232,6 +249,9 @@ function DispatchPage() {
           destination_address: form.destination_address,
           departure_at: new Date(form.departure_at).toISOString(),
           arrival_at: form.arrival_at ? new Date(form.arrival_at).toISOString() : null,
+          courier_name: form.courier_name.trim() || null,
+          courier_tracking_number: form.courier_tracking_number.trim() || null,
+          courier_status: form.courier_tracking_number.trim() ? form.courier_status.trim() || "En preparación" : null,
           status: "draft",
         })
         .select("id")
@@ -253,7 +273,15 @@ function DispatchPage() {
     onSuccess: () => {
       toast.success("Guía guardada en borrador");
       setLines([emptyLine()]);
-      setForm((f) => ({ ...f, dispatch_number: "", departure_at: "", arrival_at: "" }));
+      setForm((f) => ({
+        ...f,
+        dispatch_number: "",
+        departure_at: "",
+        arrival_at: "",
+        courier_name: "",
+        courier_tracking_number: "",
+        courier_status: "En preparación",
+      }));
       qc.invalidateQueries({ queryKey: ["dispatch_notes"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -786,12 +814,21 @@ function DispatchPage() {
             stop_order,
             notes,
             dispatch_note_id,
+            delivery_status,
+            arrived_at,
+            lat,
+            lng,
+            received_by,
+            delivery_notes,
             dispatch_notes(
               id,
               dispatch_number,
               carrier_name,
               carrier_tax_id,
               vehicle_plate,
+              courier_name,
+              courier_tracking_number,
+              courier_status,
               destination_address,
               departure_at,
               status,
@@ -977,6 +1014,123 @@ function DispatchPage() {
         setSelectedRouteForView((prev: any) => (prev ? { ...prev, status: vars.status } : null));
       }
     },
+  const [markingStopDelivery, setMarkingStopDelivery] = useState<{
+    stop: any;
+    routeId: string;
+  } | null>(null);
+
+  const [deliveryForm, setDeliveryForm] = useState<{
+    status: StopDeliveryStatus;
+    received_by: string;
+    delivery_notes: string;
+    lat: number | null;
+    lng: number | null;
+    gpsCaptured: boolean;
+    gpsLoading: boolean;
+  }>({
+    status: "entregado",
+    received_by: "",
+    delivery_notes: "",
+    lat: null,
+    lng: null,
+    gpsCaptured: false,
+    gpsLoading: false,
+  });
+
+  const openStopDeliveryDialog = (stop: any, routeId: string, initialStatus: StopDeliveryStatus = "entregado") => {
+    setMarkingStopDelivery({ stop, routeId });
+    setDeliveryForm({
+      status: initialStatus,
+      received_by: stop.received_by || "",
+      delivery_notes: stop.delivery_notes || "",
+      lat: stop.lat ?? null,
+      lng: stop.lng ?? null,
+      gpsCaptured: !!(stop.lat && stop.lng),
+      gpsLoading: false,
+    });
+  };
+
+  const captureGpsLocation = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      toast.info("Geolocalización no disponible en este dispositivo");
+      return;
+    }
+    setDeliveryForm((f) => ({ ...f, gpsLoading: true }));
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setDeliveryForm((f) => ({
+          ...f,
+          lat: Number(pos.coords.latitude.toFixed(6)),
+          lng: Number(pos.coords.longitude.toFixed(6)),
+          gpsCaptured: true,
+          gpsLoading: false,
+        }));
+        toast.success("Coordenadas GPS capturadas");
+      },
+      (err) => {
+        console.warn("GPS error", err);
+        setDeliveryForm((f) => ({ ...f, gpsLoading: false }));
+        toast.info("No se obtuvo GPS (permiso no concedido o no disponible). Se registrará la entrega sin coordenadas.");
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  const updateStopDeliveryM = useMutation({
+    mutationFn: async ({
+      stopId,
+      deliveryStatus,
+      receivedBy,
+      notes,
+      lat,
+      lng,
+    }: {
+      stopId: string;
+      deliveryStatus: StopDeliveryStatus;
+      receivedBy?: string;
+      notes?: string;
+      lat?: number | null;
+      lng?: number | null;
+    }) => {
+      const isDelivered = deliveryStatus === "entregado";
+      const { error } = await supabase
+        .from("route_stops" as any)
+        .update({
+          delivery_status: deliveryStatus,
+          arrived_at: isDelivered ? new Date().toISOString() : null,
+          received_by: isDelivered ? (receivedBy?.trim() || null) : null,
+          delivery_notes: notes?.trim() || null,
+          lat: lat ?? null,
+          lng: lng ?? null,
+        })
+        .eq("id", stopId);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      toast.success(`Parada marcada como ${STOP_DELIVERY_STATUS_LABELS[vars.deliveryStatus]}`);
+      qc.invalidateQueries({ queryKey: ["routes", activeEntityId] });
+      setMarkingStopDelivery(null);
+      if (selectedRouteForView) {
+        setSelectedRouteForView((prev: any) => {
+          if (!prev) return null;
+          const updatedStops = (prev.route_stops || []).map((s: any) => {
+            if (s.id === vars.stopId) {
+              return {
+                ...s,
+                delivery_status: vars.deliveryStatus,
+                arrived_at: vars.deliveryStatus === "entregado" ? new Date().toISOString() : null,
+                received_by: vars.receivedBy || null,
+                delivery_notes: vars.notes || null,
+                lat: vars.lat ?? null,
+                lng: vars.lng ?? null,
+              };
+            }
+            return s;
+          });
+          return { ...prev, route_stops: updatedStops };
+        });
+      }
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -1048,6 +1202,14 @@ function DispatchPage() {
                           <TableCell className="text-xs">
                             <div>{n.carrier_name}</div>
                             <div className="font-mono text-[10px] text-muted-foreground">{n.vehicle_plate}</div>
+                            {n.courier_name && (
+                              <div className="mt-1">
+                                <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 gap-1 font-mono">
+                                  <Truck className="h-2.5 w-2.5" />
+                                  {n.courier_name} {n.courier_tracking_number ? `· ${n.courier_tracking_number}` : ""}
+                                </Badge>
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="text-xs">{new Date(n.departure_at).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" })}</TableCell>
                           <TableCell>
@@ -1142,6 +1304,46 @@ function DispatchPage() {
                 <div className="space-y-1 md:col-span-3 grid md:grid-cols-2 gap-4">
                   <div className="space-y-1"><Label>Dirección origen *</Label><Input value={form.origin_address} onChange={(e) => setF("origin_address", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Dirección destino *</Label><Input value={form.destination_address} onChange={(e) => setF("destination_address", e.target.value)} /></div>
+                </div>
+
+                {/* Transporte vía Courier Externo (Sprint 22) */}
+                <div className="space-y-2 md:col-span-3 rounded-lg border p-3.5 bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-primary" />
+                    <div>
+                      <h4 className="text-xs font-semibold">Transporte vía Courier Externo (Opcional)</h4>
+                      <p className="text-[11px] text-muted-foreground">Si el traslado se realiza mediante encomienda externa (Chilexpress, Blue Express, Starken, etc.), registra aquí su número de seguimiento.</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Empresa Courier</Label>
+                      <Input
+                        placeholder="ej. Blue Express, Chilexpress, Starken"
+                        className="h-8 text-xs"
+                        value={form.courier_name}
+                        onChange={(e) => setF("courier_name", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">N° Seguimiento / Tracking</Label>
+                      <Input
+                        placeholder="ej. BX-893120 o CHX-99210"
+                        className="h-8 text-xs font-mono"
+                        value={form.courier_tracking_number}
+                        onChange={(e) => setF("courier_tracking_number", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Estado Inicial del Courier</Label>
+                      <Input
+                        placeholder="ej. En preparación, Recepcionado por courier"
+                        className="h-8 text-xs"
+                        value={form.courier_status}
+                        onChange={(e) => setF("courier_status", e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -3452,50 +3654,187 @@ function DispatchPage() {
                         const linesCount = note?.dispatch_note_lines?.length || 0;
                         const pickedLines = (note?.dispatch_note_lines || []).filter((l: any) => l.picked).length;
                         const packedLines = (note?.dispatch_note_lines || []).filter((l: any) => l.packed).length;
+                        const delStatus: StopDeliveryStatus = (stop.delivery_status as StopDeliveryStatus) || "pendiente";
 
                         return (
                           <div
                             key={stop.id}
-                            className="p-3 rounded-lg border bg-card text-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
+                            className="p-3.5 rounded-lg border bg-card text-xs flex flex-col gap-3"
                           >
-                            <div className="flex items-start gap-3">
-                              <span className="w-7 h-7 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center font-mono shrink-0 mt-0.5">
-                                #{stop.stop_order || index + 1}
-                              </span>
-                              <div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-mono font-bold text-primary">
-                                    {note?.dispatch_number ? `Guía #${note.dispatch_number}` : "Guía s/n"}
-                                  </span>
-                                  <span className="font-semibold text-foreground">
-                                    {note?.parties?.name || "Cliente 3PL"}
-                                  </span>
-                                  {note?.parties?.tax_id && (
-                                    <span className="text-[10px] text-muted-foreground">
-                                      · {note.parties.tax_id}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                              <div className="flex items-start gap-3">
+                                <span className="w-7 h-7 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center font-mono shrink-0 mt-0.5">
+                                  #{stop.stop_order || index + 1}
+                                </span>
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-mono font-bold text-primary">
+                                      {note?.dispatch_number ? `Guía #${note.dispatch_number}` : "Guía s/n"}
                                     </span>
-                                  )}
-                                  <Badge variant="outline" className="text-[10px] py-0">
-                                    {TRANSFER_LABELS[note?.transfer_type as TransferType] || note?.transfer_type}
-                                  </Badge>
-                                </div>
+                                    <span className="font-semibold text-foreground">
+                                      {note?.parties?.name || "Cliente 3PL"}
+                                    </span>
+                                    {note?.parties?.tax_id && (
+                                      <span className="text-[10px] text-muted-foreground">
+                                        · {note.parties.tax_id}
+                                      </span>
+                                    )}
+                                    <Badge variant="outline" className="text-[10px] py-0">
+                                      {TRANSFER_LABELS[note?.transfer_type as TransferType] || note?.transfer_type}
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[10px] px-2 py-0 ${STOP_DELIVERY_STATUS_BADGES[delStatus]?.className}`}
+                                    >
+                                      {STOP_DELIVERY_STATUS_LABELS[delStatus]}
+                                    </Badge>
+                                  </div>
 
-                                <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
-                                  <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                  <span>{note?.destination_address || "Sin dirección"}</span>
-                                </div>
+                                  <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
+                                    <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                    <span>{note?.destination_address || "Sin dirección"}</span>
+                                  </div>
 
-                                <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1 flex-wrap">
-                                  <span>Líneas: <strong>{linesCount}</strong></span>
-                                  <span>Picking: <strong>{pickedLines}/{linesCount}</strong></span>
-                                  <span>Packing: <strong>{packedLines}/{linesCount}</strong></span>
+                                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1 flex-wrap">
+                                    <span>Líneas: <strong>{linesCount}</strong></span>
+                                    <span>Picking: <strong>{pickedLines}/{linesCount}</strong></span>
+                                    <span>Packing: <strong>{packedLines}/{linesCount}</strong></span>
+                                    {note?.courier_name && (
+                                      <span className="font-mono text-blue-600 dark:text-blue-400">
+                                        Courier: {note.courier_name} {note.courier_tracking_number ? `(#${note.courier_tracking_number})` : ""}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
+                              </div>
+
+                              <div className="text-right text-[11px] font-mono shrink-0 self-end sm:self-center">
+                                <div className="font-semibold">{m.kg ? `${m.kg.toLocaleString("es-CL")} kg` : "— kg"}</div>
+                                <div className="text-muted-foreground">{m.m3 ? `${m.m3.toLocaleString("es-CL")} m³` : "— m³"}</div>
                               </div>
                             </div>
 
-                            <div className="text-right text-[11px] font-mono shrink-0">
-                              <div className="font-semibold">{m.kg ? `${m.kg.toLocaleString("es-CL")} kg` : "— kg"}</div>
-                              <div className="text-muted-foreground">{m.m3 ? `${m.m3.toLocaleString("es-CL")} m³` : "— m³"}</div>
+                            {/* Detalle de entrega / Tracking puntual de terreno (Sprint 22) */}
+                            {(stop.delivery_status === "entregado" || stop.delivery_status === "no_entregado") && (
+                              <div
+                                className={`p-2.5 rounded-md border text-[11px] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 ${
+                                  stop.delivery_status === "entregado"
+                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-200"
+                                    : "bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200"
+                                }`}
+                              >
+                                <div className="space-y-0.5">
+                                  {stop.delivery_status === "entregado" ? (
+                                    <>
+                                      <div className="font-semibold flex items-center gap-1.5">
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                        <span>Entregado a: <strong>{stop.received_by || "Receptor no especificado"}</strong></span>
+                                        {stop.arrived_at && (
+                                          <span className="font-normal text-muted-foreground text-[10px]">
+                                            · {new Date(stop.arrived_at).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" })}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {stop.delivery_notes && (
+                                        <div className="text-[10px] italic text-muted-foreground">
+                                          Nota: {stop.delivery_notes}
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <XCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                                      <span>No Entregado: <strong>{stop.delivery_notes || "Sin motivo registrado"}</strong></span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {stop.lat && stop.lng && (
+                                  <a
+                                    href={`https://www.google.com/maps?q=${stop.lat},${stop.lng}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex items-center gap-1 font-mono text-[10px] underline hover:text-primary shrink-0"
+                                  >
+                                    <LocateFixed className="h-3 w-3" />
+                                    <span>GPS: {Number(stop.lat).toFixed(4)}, {Number(stop.lng).toFixed(4)}</span>
+                                    <ExternalLink className="h-2.5 w-2.5" />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Botones de acción operativa por parada */}
+                            <div className="flex items-center justify-between pt-1 border-t text-[11px]">
+                              <span className="text-[10px] text-muted-foreground">
+                                Control de entrega:
+                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {delStatus !== "entregado" ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      onClick={() => openStopDeliveryDialog(stop, r.id, "entregado")}
+                                    >
+                                      <Check className="h-3 w-3" />
+                                      Marcar Entregado
+                                    </Button>
+                                    {delStatus !== "en_ruta" && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs gap-1 text-blue-600"
+                                        onClick={() =>
+                                          updateStopDeliveryM.mutate({
+                                            stopId: stop.id,
+                                            deliveryStatus: "en_ruta",
+                                          })
+                                        }
+                                        disabled={updateStopDeliveryM.isPending}
+                                      >
+                                        <Truck className="h-3 w-3" />
+                                        En Ruta
+                                      </Button>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs gap-1 text-rose-600 hover:bg-rose-50"
+                                      onClick={() => openStopDeliveryDialog(stop, r.id, "no_entregado")}
+                                    >
+                                      <XCircle className="h-3 w-3" />
+                                      No Entregado
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs gap-1"
+                                      onClick={() => openStopDeliveryDialog(stop, r.id, "entregado")}
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                      Modificar Datos
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 text-xs text-muted-foreground"
+                                      onClick={() =>
+                                        updateStopDeliveryM.mutate({
+                                          stopId: stop.id,
+                                          deliveryStatus: "pendiente",
+                                        })
+                                      }
+                                      disabled={updateStopDeliveryM.isPending}
+                                    >
+                                      Reabrir Parada
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -3507,6 +3846,182 @@ function DispatchPage() {
                 <DialogFooter className="pt-2">
                   <Button variant="outline" size="sm" onClick={() => setSelectedRouteForView(null)}>
                     Cerrar Hoja de Ruta
+                  </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Dialog: Confirmar / Actualizar Entrega de Parada TMS (Sprint 22) */}
+      <Dialog open={!!markingStopDelivery} onOpenChange={(open) => !open && setMarkingStopDelivery(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Actualizar Estado de Entrega
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Registra el resultado de la visita en terreno para la parada seleccionada.
+            </DialogDescription>
+          </DialogHeader>
+
+          {markingStopDelivery && (() => {
+            const stop = markingStopDelivery.stop;
+            const note = stop.dispatch_notes;
+
+            return (
+              <div className="space-y-4 py-2 text-xs">
+                {/* Info de la parada */}
+                <div className="p-3 rounded-lg bg-muted/40 border space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono font-bold text-primary">
+                      Parada #{stop.stop_order} · {note?.dispatch_number ? `Guía #${note.dispatch_number}` : "Guía s/n"}
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {note?.parties?.name || "Cliente 3PL"}
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span>{note?.destination_address || "Sin dirección especificada"}</span>
+                  </div>
+                </div>
+
+                {/* Selector de Estado de Entrega */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Resultado de la Parada *</Label>
+                  <Select
+                    value={deliveryForm.status}
+                    onValueChange={(v: StopDeliveryStatus) => setDeliveryForm((f) => ({ ...f, status: v }))}
+                  >
+                    <SelectTrigger className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="entregado">✓ Entregado con Éxito</SelectItem>
+                      <SelectItem value="no_entregado">✗ No Entregado (Problema en terreno)</SelectItem>
+                      <SelectItem value="en_ruta">🚚 En Ruta hacia este destino</SelectItem>
+                      <SelectItem value="pendiente">⏳ Pendiente de visita</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Campos condicionales para Entregado */}
+                {deliveryForm.status === "entregado" && (
+                  <div className="space-y-3 p-3 rounded-lg border bg-emerald-500/5 border-emerald-500/20">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                        Nombre o RUT de Quien Recepciona *
+                      </Label>
+                      <Input
+                        placeholder="ej. Juan Pérez (Guardia / Recepción)"
+                        className="h-8 text-xs bg-background"
+                        value={deliveryForm.received_by}
+                        onChange={(e) => setDeliveryForm((f) => ({ ...f, received_by: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">Geolocalización GPS (Aproximación de Terreno)</Label>
+                        {deliveryForm.gpsCaptured && (
+                          <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 gap-1">
+                            <LocateFixed className="h-3 w-3" />
+                            GPS Capturado
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5 w-full justify-center"
+                          onClick={captureGpsLocation}
+                          disabled={deliveryForm.gpsLoading}
+                        >
+                          <LocateFixed className="h-3.5 w-3.5 text-primary" />
+                          {deliveryForm.gpsLoading
+                            ? "Obteniendo ubicación..."
+                            : deliveryForm.gpsCaptured
+                            ? "Actualizar coordenadas GPS"
+                            : "Capturar ubicación GPS actual"}
+                        </Button>
+                      </div>
+
+                      {deliveryForm.lat && deliveryForm.lng && (
+                        <p className="text-[11px] font-mono text-muted-foreground text-center">
+                          Coordenadas: {deliveryForm.lat}, {deliveryForm.lng}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground">
+                        Utiliza el navegador del dispositivo para registrar el punto geográfico del evento sin interrumpir la operación si no hay señal.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Observaciones de entrega</Label>
+                      <Input
+                        placeholder="ej. Dejado en portería con firma en guía impresa..."
+                        className="h-8 text-xs bg-background"
+                        value={deliveryForm.delivery_notes}
+                        onChange={(e) => setDeliveryForm((f) => ({ ...f, delivery_notes: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Campos para No Entregado */}
+                {deliveryForm.status === "no_entregado" && (
+                  <div className="space-y-2 p-3 rounded-lg border bg-rose-500/5 border-rose-500/20">
+                    <Label className="text-xs font-semibold text-rose-800 dark:text-rose-300">
+                      Motivo o Justificación del Rechazo *
+                    </Label>
+                    <Input
+                      placeholder="ej. Local cerrado, destinatario ausente, rechazo por embalaje..."
+                      className="h-8 text-xs bg-background"
+                      value={deliveryForm.delivery_notes}
+                      onChange={(e) => setDeliveryForm((f) => ({ ...f, delivery_notes: e.target.value }))}
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Esta observación quedará registrada en el historial del despacho para trazabilidad con el cliente 3PL.
+                    </p>
+                  </div>
+                )}
+
+                <DialogFooter className="pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMarkingStopDelivery(null)}
+                    disabled={updateStopDeliveryM.isPending}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() =>
+                      updateStopDeliveryM.mutate({
+                        stopId: stop.id,
+                        deliveryStatus: deliveryForm.status,
+                        receivedBy: deliveryForm.received_by,
+                        notes: deliveryForm.delivery_notes,
+                        lat: deliveryForm.lat,
+                        lng: deliveryForm.lng,
+                      })
+                    }
+                    disabled={
+                      updateStopDeliveryM.isPending ||
+                      (deliveryForm.status === "entregado" && !deliveryForm.received_by.trim()) ||
+                      (deliveryForm.status === "no_entregado" && !deliveryForm.delivery_notes.trim())
+                    }
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    {updateStopDeliveryM.isPending ? "Guardando..." : "Confirmar Estado"}
                   </Button>
                 </DialogFooter>
               </div>

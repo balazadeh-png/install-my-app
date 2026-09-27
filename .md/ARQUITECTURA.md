@@ -85,5 +85,13 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
   * Enum `route_status`: Estados de ciclo de vida de la ruta (`planificada`, `en_curso`, `finalizada`, `cancelada`).
   * `routes`: Planificación de recorridos de entrega (`entity_id`, `route_date`, `vehicle_id` opcional, `driver_name`, `status`, `name`, `notes`).
   * `route_stops`: Secuenciación y asignación de guías de despacho (`route_id`, `dispatch_note_id`, `stop_order`, `notes`), con restricción de unicidad `(route_id, dispatch_note_id)` y eliminación en cascada al suprimir la ruta.
-  * Principio de independencia de ciclos de vida: El cambio de estado de la ruta no altera los estados documentales de las guías de despacho asignadas.
-  * Políticas de Row Level Security (RLS) multiempresa vinculadas a `user_has_company_access(auth.uid(), entity_id)`.
+* **Vertical 3PL — TMS: Tracking de Paradas y Couriers Externos**:
+  * Enum `stop_delivery_status`: Estados de cumplimiento por parada (`pendiente`, `en_ruta`, `entregado`, `no_entregado`).
+  * Extensión en `route_stops`:
+    * `delivery_status`: Estado operacional de la visita.
+    * `arrived_at`: Marca temporal de arribo / entrega efectiva.
+    * `lat` y `lng`: Coordenadas geográficas aproximadas capturadas mediante `navigator.geolocation` del navegador móvil/escritorio sin requerir hardware GPS dedicado ni app nativa.
+    * `received_by`: Nombre o RUT de quien recepciona físicamente la mercadería en destino.
+    * `delivery_notes`: Justificación o motivo de rechazo en caso de entrega fallida.
+  * Extensión en `dispatch_notes` para Couriers Externos:
+    * `courier_name`, `courier_tracking_number`, `courier_status`: Modelo de datos genérico para couriers tercerizados (Chilexpress, Blue Express, Starken, 99minutos, etc.) desacoplado de rutas propias.
