@@ -226,5 +226,21 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Panel dual consolidado:
     1. **Salidas en Guías de Despacho**: folio de guía, cliente 3PL, ítem, cantidad despachada, ubicación física de retiro, fecha de salida, destino, transportista y estado físico.
     2. **Historial Kardex del Lote**: trazabilidad histórica de recepciones, notas de inspección técnica de calidad (QC), ajustes y salidas previas registradas para el lote.
+---
 
-
+## 19. Vertical 3PL — TMS: Rutas de Reparto y Gestión de Flota Propia ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
+* **Gestión de Flota Propia (`vehicles`)**:
+  * Registro de camiones, furgones y utilitarios de la empresa con patente (`plate`), carrocería (`vehicle_type`), capacidad de carga en kilogramos (`capacity_kg`), capacidad volumétrica en metros cúbicos (`capacity_m3`) y estado de disponibilidad (`active`).
+  * Validación de unicidad de patente por empresa `(entity_id, plate)`.
+  * Soporte para transporte propio o tercerizado: cuando el despacho se realiza con flota externa, no se requiere vincular un vehículo y se emplean los campos de transportista de la guía (`carrier_name`, `carrier_tax_id`).
+* **Planificación y Secuenciación de Rutas (`routes` & `route_stops`)**:
+  * Creación de hojas de ruta por fecha (`route_date`), nombre identificador, vehículo de flota propia opcional, conductor (`driver_name`) y observaciones operativas.
+  * Secuenciación manual de paradas (`stop_order: 1, 2, 3...`) con botones interactivos Arriba / Abajo para ordenar las entregas desde la primera hasta la última.
+  * Asignación dinámica de guías de despacho existentes, con control de asignación previa en otras rutas activas.
+* **Control de Carga, Cubicaje y Alertas de Sobrecarga**:
+  * Cálculo dinámico y en tiempo real del peso total (`kg`) y cubicaje (`m³`) acumulado por las líneas de las guías asignadas a la ruta.
+  * Barras de utilización de capacidad del vehículo seleccionado con indicadores visuales y alertas explícitas si se supera el 100% de la capacidad de peso o volumen ("¡Sobrecarga de peso detectada!").
+* **Ciclo de Vida de Rutas & Principio de Independencia Documental**:
+  * Estados de ruta administrados vía enum `route_status` (`planificada` → `en_curso` → `finalizada` / `cancelada`).
+  * Acciones rápidas de control de estado en modal de Hoja de Ruta ("Iniciar Ruta", "Finalizar Ruta", "Cancelar Ruta", "Reabrir como Planificada").
+  * **Criterio de Aceptación Clave**: La transición de estados de la ruta es 100% independiente del estado de las guías de despacho individuales (`dispatch_notes.status`), preservando su estado tributario y operacional.

@@ -4198,6 +4198,140 @@ export type Database = {
           },
         ]
       }
+      vehicles: {
+        Row: {
+          active: boolean
+          capacity_kg: number | null
+          capacity_m3: number | null
+          created_at: string
+          entity_id: string
+          id: string
+          plate: string
+          vehicle_type: string | null
+        }
+        Insert: {
+          active?: boolean
+          capacity_kg?: number | null
+          capacity_m3?: number | null
+          created_at?: string
+          entity_id: string
+          id?: string
+          plate: string
+          vehicle_type?: string | null
+        }
+        Update: {
+          active?: boolean
+          capacity_kg?: number | null
+          capacity_m3?: number | null
+          created_at?: string
+          entity_id?: string
+          id?: string
+          plate?: string
+          vehicle_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routes: {
+        Row: {
+          created_at: string
+          driver_name: string | null
+          entity_id: string
+          id: string
+          name: string | null
+          notes: string | null
+          route_date: string
+          status: Database["public"]["Enums"]["route_status"]
+          vehicle_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          driver_name?: string | null
+          entity_id: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          route_date: string
+          status?: Database["public"]["Enums"]["route_status"]
+          vehicle_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          driver_name?: string | null
+          entity_id?: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          route_date?: string
+          status?: Database["public"]["Enums"]["route_status"]
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routes_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routes_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_stops: {
+        Row: {
+          created_at: string
+          dispatch_note_id: string
+          id: string
+          notes: string | null
+          route_id: string
+          stop_order: number
+        }
+        Insert: {
+          created_at?: string
+          dispatch_note_id: string
+          id?: string
+          notes?: string | null
+          route_id: string
+          stop_order: number
+        }
+        Update: {
+          created_at?: string
+          dispatch_note_id?: string
+          id?: string
+          notes?: string | null
+          route_id?: string
+          stop_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_stops_dispatch_note_id_fkey"
+            columns: ["dispatch_note_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_stops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_f22: {
@@ -4559,6 +4693,7 @@ export const Constants = {
         "completed",
         "cancelled",
       ],
+      route_status: ["planificada", "en_curso", "finalizada", "cancelada"],
       sii_book_type: [
         "libro_diario",
         "libro_mayor",

@@ -80,5 +80,10 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
     * `packed` / `packed_at`: Avance operativo de embalaje/empaque, condicionado a la confirmación previa del picking.
   * Indicador "Lista para despacho": Certificación física cuando todas las líneas de la guía están embaladas, manteniendo el estado documental `draft` hasta la emisión fiscal oficial del DTE.
   * Trazabilidad 360° por lote: Búsqueda centralizada que audita todas las salidas en guías de despacho asociadas a un lote y su trazabilidad histórica de ingresos y controles de calidad en Kardex.
-
-
+* **Vertical 3PL — TMS: Rutas de Reparto y Gestión de Flota Propia**:
+  * `vehicles`: Registro de flota de transporte propia (`entity_id`, `plate` único por empresa, `vehicle_type`, `capacity_kg`, `capacity_m3`, `active`) para control de tara y cubicaje volumétrico. Las operaciones con transporte tercerizado no requieren vehículo y continúan usando `carrier_name`/`carrier_tax_id` en la guía.
+  * Enum `route_status`: Estados de ciclo de vida de la ruta (`planificada`, `en_curso`, `finalizada`, `cancelada`).
+  * `routes`: Planificación de recorridos de entrega (`entity_id`, `route_date`, `vehicle_id` opcional, `driver_name`, `status`, `name`, `notes`).
+  * `route_stops`: Secuenciación y asignación de guías de despacho (`route_id`, `dispatch_note_id`, `stop_order`, `notes`), con restricción de unicidad `(route_id, dispatch_note_id)` y eliminación en cascada al suprimir la ruta.
+  * Principio de independencia de ciclos de vida: El cambio de estado de la ruta no altera los estados documentales de las guías de despacho asignadas.
+  * Políticas de Row Level Security (RLS) multiempresa vinculadas a `user_has_company_access(auth.uid(), entity_id)`.

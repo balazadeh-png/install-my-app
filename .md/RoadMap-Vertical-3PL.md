@@ -62,8 +62,8 @@ Los 13 sprints (16–28) tienen su archivo de especificación en `.md/`. La **Fa
 | 18 | sprint-18-libros-validacion-cumplimiento.md | 15, 16, 17 | ✅ Validado (`PRODUCCION-3PL.md`) |
 | 19 | sprint-19-wms-recepcion-ubicacion.md | 16 | ✅ Implementado |
 | 20 | sprint-20-wms-picking-packing-trazabilidad.md | 19 | ✅ Implementado |
-| 21 | sprint-21-tms-rutas-flota.md | 16 | ⏳ Siguiente (TMS) |
-| 22 | sprint-22-tms-tracking-couriers.md | 21 | Pendiente |
+| 21 | sprint-21-tms-rutas-flota.md | 16 | ✅ Implementado |
+| 22 | sprint-22-tms-tracking-couriers.md | 21 | ⏳ Siguiente (TMS) |
 | 23 | sprint-23-oms-pedidos-multicanal.md | 16, 20 |
 | 24 | sprint-24-portal-cliente.md | 16 |
 | 25 | sprint-25-contratos-tarifarios.md | 16 |

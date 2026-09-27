@@ -14,15 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Truck, Users, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Truck, Users, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
     meta: [
-      { title: "Guías de Despacho 3PL & Comercio Exterior — EasyERP" },
-      { name: "description", content: "Gestión de clientes 3PL, guías de despacho (Res. 154), WMS picking/packing, trazabilidad y operaciones SICEX." },
-      { property: "og:title", content: "Guías de Despacho 3PL & Comercio Exterior — EasyERP" },
-      { property: "og:description", content: "Clientes 3PL, bodegas asignadas, guías de despacho, picking/packing y operaciones SICEX." },
+      { title: "Operaciones 3PL, WMS & TMS — EasyERP" },
+      { name: "description", content: "Gestión de clientes 3PL, guías de despacho (Res. 154), WMS picking/packing, TMS rutas y flota propia, trazabilidad y operaciones SICEX." },
+      { property: "og:title", content: "Operaciones 3PL, WMS & TMS — EasyERP" },
+      { property: "og:description", content: "Clientes 3PL, bodegas asignadas, guías de despacho, picking/packing, rutas TMS, flota y operaciones SICEX." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -37,6 +37,20 @@ const TRANSFER_LABELS: Record<TransferType, string> = {
   consignacion: "Consignación",
   exportacion: "Exportación",
   otro: "Otro",
+};
+
+type RouteStatus = "planificada" | "en_curso" | "finalizada" | "cancelada";
+const ROUTE_STATUS_LABELS: Record<RouteStatus, string> = {
+  planificada: "Planificada",
+  en_curso: "En curso",
+  finalizada: "Finalizada",
+  cancelada: "Cancelada",
+};
+const ROUTE_STATUS_BADGES: Record<RouteStatus, { label: string; className: string }> = {
+  planificada: { label: "Planificada", className: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30" },
+  en_curso: { label: "En Curso", className: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30" },
+  finalizada: { label: "Finalizada", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" },
+  cancelada: { label: "Cancelada", className: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30" },
 };
 
 interface Line {
@@ -643,6 +657,329 @@ function DispatchPage() {
     },
   });
 
+  // ---------- TMS: Flota Propia (Sprint 21) ----------
+  const calcGuideWeightAndVol = (note: any) => {
+    let kg = 0;
+    let m3 = 0;
+    for (const l of note?.dispatch_note_lines || []) {
+      if (l.weight_kg) kg += Number(l.weight_kg);
+      if (l.volume_m3) m3 += Number(l.volume_m3);
+    }
+    return { kg, m3 };
+  };
+
+  const vehiclesQ = useQuery({
+    queryKey: ["vehicles", activeEntityId],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vehicles" as any)
+        .select("*")
+        .eq("entity_id", activeEntityId!)
+        .order("plate");
+      if (error) throw error;
+      return (data as any[]) ?? [];
+    },
+  });
+
+  const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
+  const [vehicleForm, setVehicleForm] = useState({
+    plate: "",
+    vehicle_type: "Camión 3/4",
+    capacity_kg: "",
+    capacity_m3: "",
+    active: true,
+  });
+
+  const openCreateVehicleModal = () => {
+    setEditingVehicleId(null);
+    setVehicleForm({
+      plate: "",
+      vehicle_type: "Camión 3/4",
+      capacity_kg: "",
+      capacity_m3: "",
+      active: true,
+    });
+    setVehicleModalOpen(true);
+  };
+
+  const openEditVehicleModal = (v: any) => {
+    setEditingVehicleId(v.id);
+    setVehicleForm({
+      plate: v.plate,
+      vehicle_type: v.vehicle_type || "Camión 3/4",
+      capacity_kg: v.capacity_kg ? String(v.capacity_kg) : "",
+      capacity_m3: v.capacity_m3 ? String(v.capacity_m3) : "",
+      active: v.active ?? true,
+    });
+    setVehicleModalOpen(true);
+  };
+
+  const saveVehicleM = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Sin empresa activa");
+      const plate = vehicleForm.plate.trim().toUpperCase();
+      if (!plate) throw new Error("Ingresa la patente del vehículo");
+      const capKg = vehicleForm.capacity_kg ? Number(vehicleForm.capacity_kg) : null;
+      const capM3 = vehicleForm.capacity_m3 ? Number(vehicleForm.capacity_m3) : null;
+
+      if (editingVehicleId) {
+        const { error } = await supabase
+          .from("vehicles" as any)
+          .update({
+            plate,
+            vehicle_type: vehicleForm.vehicle_type || null,
+            capacity_kg: capKg,
+            capacity_m3: capM3,
+            active: vehicleForm.active,
+          })
+          .eq("id", editingVehicleId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("vehicles" as any).insert({
+          entity_id: activeEntityId,
+          plate,
+          vehicle_type: vehicleForm.vehicle_type || null,
+          capacity_kg: capKg,
+          capacity_m3: capM3,
+          active: vehicleForm.active,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success(editingVehicleId ? "Vehículo actualizado" : "Vehículo registrado en flota propia");
+      setVehicleModalOpen(false);
+      qc.invalidateQueries({ queryKey: ["vehicles", activeEntityId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleVehicleActiveM = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase
+        .from("vehicles" as any)
+        .update({ active })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vehicles", activeEntityId] });
+      toast.success("Estado del vehículo actualizado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // ---------- TMS: Rutas de Reparto (Sprint 21) ----------
+  const routesQ = useQuery({
+    queryKey: ["routes", activeEntityId],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("routes" as any)
+        .select(`
+          *,
+          vehicles(id, plate, vehicle_type, capacity_kg, capacity_m3),
+          route_stops(
+            id,
+            stop_order,
+            notes,
+            dispatch_note_id,
+            dispatch_notes(
+              id,
+              dispatch_number,
+              carrier_name,
+              carrier_tax_id,
+              vehicle_plate,
+              destination_address,
+              departure_at,
+              status,
+              parties(id, name, tax_id),
+              dispatch_note_lines(
+                id,
+                qty,
+                uom,
+                weight_kg,
+                volume_m3,
+                picked,
+                packed,
+                items(code, name)
+              )
+            )
+          )
+        `)
+        .eq("entity_id", activeEntityId!)
+        .order("route_date", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) ?? [];
+    },
+  });
+
+  const [routeModalOpen, setRouteModalOpen] = useState(false);
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [routeForm, setRouteForm] = useState({
+    name: "",
+    route_date: new Date().toISOString().slice(0, 10),
+    vehicle_id: "NONE",
+    driver_name: "",
+    notes: "",
+  });
+  const [routeStops, setRouteStops] = useState<{ dispatch_note_id: string; stop_order: number; noteData?: any }[]>([]);
+  const [selectedRouteForView, setSelectedRouteForView] = useState<any | null>(null);
+
+  const openCreateRouteModal = () => {
+    setEditingRouteId(null);
+    setRouteForm({
+      name: `Ruta ${new Date().toISOString().slice(0, 10)}`,
+      route_date: new Date().toISOString().slice(0, 10),
+      vehicle_id: "NONE",
+      driver_name: "",
+      notes: "",
+    });
+    setRouteStops([]);
+    setRouteModalOpen(true);
+  };
+
+  const openEditRouteModal = (route: any) => {
+    setEditingRouteId(route.id);
+    setRouteForm({
+      name: route.name || "",
+      route_date: route.route_date,
+      vehicle_id: route.vehicle_id || "NONE",
+      driver_name: route.driver_name || "",
+      notes: route.notes || "",
+    });
+    const sorted = [...(route.route_stops || [])].sort((a: any, b: any) => a.stop_order - b.stop_order);
+    setRouteStops(
+      sorted.map((s: any) => ({
+        dispatch_note_id: s.dispatch_note_id,
+        stop_order: s.stop_order,
+        noteData: s.dispatch_notes,
+      }))
+    );
+    setRouteModalOpen(true);
+  };
+
+  const moveStopUp = (index: number) => {
+    if (index === 0) return;
+    setRouteStops((prev) => {
+      const copy = [...prev];
+      const temp = copy[index - 1];
+      copy[index - 1] = copy[index];
+      copy[index] = temp;
+      return copy.map((s, i) => ({ ...s, stop_order: i + 1 }));
+    });
+  };
+
+  const moveStopDown = (index: number) => {
+    setRouteStops((prev) => {
+      if (index >= prev.length - 1) return prev;
+      const copy = [...prev];
+      const temp = copy[index + 1];
+      copy[index + 1] = copy[index];
+      copy[index] = temp;
+      return copy.map((s, i) => ({ ...s, stop_order: i + 1 }));
+    });
+  };
+
+  const removeStop = (dispatchNoteId: string) => {
+    setRouteStops((prev) =>
+      prev
+        .filter((s) => s.dispatch_note_id !== dispatchNoteId)
+        .map((s, i) => ({ ...s, stop_order: i + 1 }))
+    );
+  };
+
+  const addStop = (note: any) => {
+    if (routeStops.some((s) => s.dispatch_note_id === note.id)) return;
+    setRouteStops((prev) => [
+      ...prev,
+      {
+        dispatch_note_id: note.id,
+        stop_order: prev.length + 1,
+        noteData: note,
+      },
+    ]);
+  };
+
+  const saveRouteM = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Sin empresa activa");
+      if (!routeForm.route_date) throw new Error("Ingresa la fecha de la ruta");
+      if (routeStops.length === 0) throw new Error("Asigna al menos una guía de despacho a la ruta");
+
+      const vehId = routeForm.vehicle_id && routeForm.vehicle_id !== "NONE" ? routeForm.vehicle_id : null;
+      let targetRouteId = editingRouteId;
+
+      if (editingRouteId) {
+        const { error } = await supabase
+          .from("routes" as any)
+          .update({
+            name: routeForm.name.trim() || null,
+            route_date: routeForm.route_date,
+            vehicle_id: vehId,
+            driver_name: routeForm.driver_name.trim() || null,
+            notes: routeForm.notes.trim() || null,
+          })
+          .eq("id", editingRouteId);
+        if (error) throw error;
+
+        const { error: delErr } = await supabase.from("route_stops" as any).delete().eq("route_id", editingRouteId);
+        if (delErr) throw delErr;
+      } else {
+        const { data: newRoute, error } = await supabase
+          .from("routes" as any)
+          .insert({
+            entity_id: activeEntityId,
+            name: routeForm.name.trim() || `Ruta ${routeForm.route_date}`,
+            route_date: routeForm.route_date,
+            vehicle_id: vehId,
+            driver_name: routeForm.driver_name.trim() || null,
+            status: "planificada",
+            notes: routeForm.notes.trim() || null,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        targetRouteId = newRoute.id;
+      }
+
+      const stopsToInsert = routeStops.map((s, index) => ({
+        route_id: targetRouteId,
+        dispatch_note_id: s.dispatch_note_id,
+        stop_order: index + 1,
+      }));
+
+      const { error: insErr } = await supabase.from("route_stops" as any).insert(stopsToInsert);
+      if (insErr) throw insErr;
+    },
+    onSuccess: () => {
+      toast.success(editingRouteId ? "Ruta actualizada" : "Ruta planificada con éxito");
+      setRouteModalOpen(false);
+      qc.invalidateQueries({ queryKey: ["routes", activeEntityId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateRouteStatusM = useMutation({
+    mutationFn: async ({ routeId, status }: { routeId: string; status: RouteStatus }) => {
+      const { error } = await supabase
+        .from("routes" as any)
+        .update({ status })
+        .eq("id", routeId);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      toast.success(`Estado de la ruta actualizado a ${ROUTE_STATUS_LABELS[vars.status]}`);
+      qc.invalidateQueries({ queryKey: ["routes", activeEntityId] });
+      if (selectedRouteForView) {
+        setSelectedRouteForView((prev: any) => (prev ? { ...prev, status: vars.status } : null));
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -650,19 +987,21 @@ function DispatchPage() {
           <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-1" />Volver</Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="h-6 w-6" />Operaciones 3PL & Logística</h1>
-          <p className="text-sm text-muted-foreground">Guías de despacho (Res. 154 SII), Picking & Packing WMS, Trazabilidad de lotes y Comercio Exterior (SICEX).</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="h-6 w-6" />Operaciones 3PL, WMS & TMS</h1>
+          <p className="text-sm text-muted-foreground">Guías de despacho (Res. 154 SII), WMS picking/packing, TMS rutas y flota propia, trazabilidad y Comercio Exterior (SICEX).</p>
         </div>
       </div>
 
       <Tabs defaultValue="notes">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 h-auto gap-1">
           <TabsTrigger value="notes"><Truck className="h-4 w-4 mr-1" />Guías</TabsTrigger>
           <TabsTrigger value="new"><Plus className="h-4 w-4 mr-1" />Nueva guía</TabsTrigger>
-          <TabsTrigger value="clients"><Users className="h-4 w-4 mr-1" />Clientes 3PL</TabsTrigger>
-          <TabsTrigger value="foreign_trade"><Globe className="h-4 w-4 mr-1" />Comercio Exterior</TabsTrigger>
+          <TabsTrigger value="routes"><Navigation className="h-4 w-4 mr-1" />Rutas TMS</TabsTrigger>
+          <TabsTrigger value="fleet"><Car className="h-4 w-4 mr-1" />Flota Propia</TabsTrigger>
           <TabsTrigger value="reception"><ArrowDownToLine className="h-4 w-4 mr-1" />Recepción WMS</TabsTrigger>
           <TabsTrigger value="traceability"><Layers className="h-4 w-4 mr-1" />Trazabilidad</TabsTrigger>
+          <TabsTrigger value="clients"><Users className="h-4 w-4 mr-1" />Clientes 3PL</TabsTrigger>
+          <TabsTrigger value="foreign_trade"><Globe className="h-4 w-4 mr-1" />Comex (SICEX)</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes">
@@ -844,6 +1183,307 @@ function DispatchPage() {
               <div className="flex justify-end">
                 <Button onClick={() => saveNoteM.mutate()} disabled={saveNoteM.isPending}>Guardar borrador</Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ------------------------------------------------------------- */}
+        {/* PESTAÑA 3: RUTAS DE REPARTO TMS (Sprint 21)                   */}
+        {/* ------------------------------------------------------------- */}
+        <TabsContent value="routes" className="space-y-6">
+          {/* Header & Acciones */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <Navigation className="h-5 w-5 text-primary" />
+                Planificación de Rutas de Reparto (TMS)
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Agrupa guías de despacho en rutas de entrega ordenadas, asigna conductor y vehículo de flota propia o externa.
+              </p>
+            </div>
+            <Button size="sm" onClick={openCreateRouteModal} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Nueva Ruta
+            </Button>
+          </div>
+
+          {/* Tarjetas KPI */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <div className="text-xs text-muted-foreground">Total Rutas</div>
+                <div className="text-2xl font-bold font-mono">{(routesQ.data ?? []).length}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <div className="text-xs text-muted-foreground">Planificadas</div>
+                <div className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
+                  {(routesQ.data ?? []).filter((r: any) => r.status === "planificada").length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <div className="text-xs text-muted-foreground">En Curso (En Calle)</div>
+                <div className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                  {(routesQ.data ?? []).filter((r: any) => r.status === "en_curso").length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 space-y-1">
+                <div className="text-xs text-muted-foreground">Finalizadas</div>
+                <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                  {(routesQ.data ?? []).filter((r: any) => r.status === "finalizada").length}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tabla de Rutas */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Rutas Programadas</CardTitle>
+              <CardDescription>
+                Lista de rutas planificadas, en curso y despachadas con sus paradas y asignación de transporte.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(routesQ.data ?? []).length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground border rounded-lg border-dashed p-8 space-y-3">
+                  <Navigation className="h-8 w-8 mx-auto text-muted-foreground/60" />
+                  <p className="text-sm font-medium">Aún no hay rutas de reparto creadas.</p>
+                  <p className="text-xs">
+                    Crea tu primera ruta para agrupar guías de despacho existentes y ordenar las paradas de entrega.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={openCreateRouteModal}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Crear primera ruta
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Identificador / Nombre</TableHead>
+                        <TableHead>Vehículo Asignado</TableHead>
+                        <TableHead>Conductor</TableHead>
+                        <TableHead className="text-center">Paradas (Guías)</TableHead>
+                        <TableHead>Carga Total</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(routesQ.data ?? []).map((r: any) => {
+                        const stops: any[] = r.route_stops || [];
+                        let routeKg = 0;
+                        let routeM3 = 0;
+                        for (const s of stops) {
+                          const w = calcGuideWeightAndVol(s.dispatch_notes);
+                          routeKg += w.kg;
+                          routeM3 += w.m3;
+                        }
+                        const badgeInfo = ROUTE_STATUS_BADGES[r.status as RouteStatus] || { label: r.status, className: "" };
+
+                        return (
+                          <TableRow key={r.id}>
+                            <TableCell className="font-mono text-xs">
+                              {r.route_date}
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold">
+                              {r.name || `Ruta #${r.id.slice(0, 8)}`}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {r.vehicles ? (
+                                <div className="space-y-0.5">
+                                  <Badge variant="secondary" className="font-mono text-[11px] gap-1">
+                                    <Car className="h-3 w-3" />
+                                    {r.vehicles.plate}
+                                  </Badge>
+                                  <div className="text-[10px] text-muted-foreground">{r.vehicles.vehicle_type}</div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground italic text-[11px]">Tercero / No asignado</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {r.driver_name || <span className="text-muted-foreground italic">—</span>}
+                            </TableCell>
+                            <TableCell className="text-center font-mono font-bold text-xs">
+                              <Badge variant="outline" className="text-xs">
+                                {stops.length} {stops.length === 1 ? "parada" : "paradas"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              <div className="font-mono font-medium">
+                                {routeKg > 0 ? `${routeKg.toLocaleString("es-CL")} kg` : "—"}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground font-mono">
+                                {routeM3 > 0 ? `${routeM3.toLocaleString("es-CL")} m³` : ""}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={r.status}
+                                onValueChange={(val: RouteStatus) =>
+                                  updateRouteStatusM.mutate({ routeId: r.id, status: val })
+                                }
+                              >
+                                <SelectTrigger className="h-7 text-xs w-[125px]">
+                                  <SelectValue>
+                                    <span className={badgeInfo.className.includes("emerald") ? "text-emerald-700 dark:text-emerald-300 font-medium" : badgeInfo.className.includes("amber") ? "text-amber-700 dark:text-amber-300 font-medium" : "font-medium"}>
+                                      {ROUTE_STATUS_LABELS[r.status as RouteStatus]}
+                                    </span>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="planificada">Planificada</SelectItem>
+                                  <SelectItem value="en_curso">En curso</SelectItem>
+                                  <SelectItem value="finalizada">Finalizada</SelectItem>
+                                  <SelectItem value="cancelada">Cancelada</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => setSelectedRouteForView(r)}
+                                >
+                                  <Eye className="h-3 w-3" />
+                                  Paradas
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs"
+                                  onClick={() => openEditRouteModal(r)}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ------------------------------------------------------------- */}
+        {/* PESTAÑA 4: FLOTA PROPIA DE VEHÍCULOS (Sprint 21)              */}
+        {/* ------------------------------------------------------------- */}
+        <TabsContent value="fleet" className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <Car className="h-5 w-5 text-primary" />
+                Flota Propia de Transporte
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Registro de camiones y vehículos propios de la empresa, especificación de capacidades y control de disponibilidad.
+              </p>
+            </div>
+            <Button size="sm" onClick={openCreateVehicleModal} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              Nuevo Vehículo
+            </Button>
+          </div>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Vehículos Registrados ({vehiclesQ.data?.length || 0})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(vehiclesQ.data ?? []).length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground border rounded-lg border-dashed p-8 space-y-3">
+                  <Car className="h-8 w-8 mx-auto text-muted-foreground/60" />
+                  <p className="text-sm font-medium">No hay vehículos registrados en la flota propia.</p>
+                  <p className="text-xs">
+                    Si tu empresa cuenta con camiones o furgones propios, regístralos aquí para controlar sus capacidades de peso y volumen.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={openCreateVehicleModal}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Registrar vehículo
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Patente</TableHead>
+                        <TableHead>Tipo de Carrocería</TableHead>
+                        <TableHead>Capacidad de Peso</TableHead>
+                        <TableHead>Capacidad Volumétrica</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {vehiclesQ.data?.map((v: any) => (
+                        <TableRow key={v.id}>
+                          <TableCell className="font-mono text-xs font-bold uppercase tracking-wider text-primary">
+                            {v.plate}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium">
+                            {v.vehicle_type || "General"}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {v.capacity_kg ? `${Number(v.capacity_kg).toLocaleString("es-CL")} kg` : <span className="text-muted-foreground italic">—</span>}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {v.capacity_m3 ? `${Number(v.capacity_m3).toLocaleString("es-CL")} m³` : <span className="text-muted-foreground italic">—</span>}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={
+                                v.active
+                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px]"
+                                  : "bg-slate-500/10 text-slate-700 dark:text-slate-300 text-[10px]"
+                              }
+                            >
+                              {v.active ? "Activo" : "Inactivo"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => openEditVehicleModal(v)}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px]"
+                                onClick={() => toggleVehicleActiveM.mutate({ id: v.id, active: !v.active })}
+                              >
+                                {v.active ? "Desactivar" : "Activar"}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -2162,7 +2802,711 @@ function DispatchPage() {
                     disabled={confirmPickingM.isPending}
                   >
                     <Check className="h-3.5 w-3.5" />
-                    {confirmPickingM.isPending ? "Confirmando..." : "Confirmar Picking & Salida"}
+      {/* Modal Dialog: Crear/Editar Vehículo de Flota Propia (Sprint 21) */}
+      <Dialog open={vehicleModalOpen} onOpenChange={setVehicleModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Car className="h-5 w-5 text-primary" />
+              {editingVehicleId ? "Editar Vehículo de Flota" : "Registrar Vehículo en Flota Propia"}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Registra patentes y capacidades de carga de los vehículos propios de la empresa para control de cubicaje en rutas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Patente del Vehículo *</Label>
+              <Input
+                placeholder="ej. ABCD-12 o GHJK-99"
+                className="font-mono uppercase tracking-wider text-sm font-semibold"
+                value={vehicleForm.plate}
+                onChange={(e) => setVehicleForm((f) => ({ ...f, plate: e.target.value.toUpperCase() }))}
+              />
+              <p className="text-[11px] text-muted-foreground">Formato estándar de patente chilena.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tipo de Carrocería / Vehículo</Label>
+              <Select
+                value={vehicleForm.vehicle_type}
+                onValueChange={(v) => setVehicleForm((f) => ({ ...f, vehicle_type: v }))}
+              >
+                <SelectTrigger className="text-xs">
+                  <SelectValue placeholder="Seleccionar tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Furgón">Furgón Utilitario</SelectItem>
+                  <SelectItem value="Camioneta">Camioneta Pick-up</SelectItem>
+                  <SelectItem value="Camión 3/4">Camión 3/4 (Ligero)</SelectItem>
+                  <SelectItem value="Camión Mediano">Camión Mediano (2 ejes)</SelectItem>
+                  <SelectItem value="Camión Rampla">Camión Pesado / Rampla / Articulado</SelectItem>
+                  <SelectItem value="Camión Refrigerado">Camión Frigorífico / Refrigerado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1">
+                  <Gauge className="h-3.5 w-3.5 text-muted-foreground" />
+                  Capacidad de Peso (kg)
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="ej. 3500"
+                  className="font-mono text-xs"
+                  value={vehicleForm.capacity_kg}
+                  onChange={(e) => setVehicleForm((f) => ({ ...f, capacity_kg: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1">
+                  <Box className="h-3.5 w-3.5 text-muted-foreground" />
+                  Capacidad Volumétrica (m³)
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="ej. 18.5"
+                  className="font-mono text-xs"
+                  value={vehicleForm.capacity_m3}
+                  onChange={(e) => setVehicleForm((f) => ({ ...f, capacity_m3: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 border-t">
+              <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                <Checkbox
+                  checked={vehicleForm.active}
+                  onCheckedChange={(c) => setVehicleForm((f) => ({ ...f, active: c === true }))}
+                />
+                <span className="font-medium">Vehículo activo y disponible para asignación en rutas</span>
+              </label>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVehicleModalOpen(false)}
+                disabled={saveVehicleM.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={() => saveVehicleM.mutate()}
+                disabled={saveVehicleM.isPending}
+              >
+                <Check className="h-3.5 w-3.5" />
+                {saveVehicleM.isPending ? "Guardando..." : editingVehicleId ? "Actualizar Vehículo" : "Registrar en Flota"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Dialog: Planificar / Editar Ruta de Reparto TMS (Sprint 21) */}
+      <Dialog open={routeModalOpen} onOpenChange={setRouteModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Navigation className="h-5 w-5 text-primary" />
+              {editingRouteId ? "Editar Ruta de Reparto TMS" : "Planificar Nueva Ruta de Reparto TMS"}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Asigna vehículo de flota propia, conductor y secuencia las paradas correspondientes a las guías de despacho.
+            </DialogDescription>
+          </DialogHeader>
+
+          {(() => {
+            const currentVehicle = (vehiclesQ.data ?? []).find((v: any) => v.id === routeForm.vehicle_id);
+            let totalAssignedKg = 0;
+            let totalAssignedM3 = 0;
+
+            for (const stop of routeStops) {
+              const guideData = stop.noteData || (notesQ.data ?? []).find((n: any) => n.id === stop.dispatch_note_id);
+              const m = calcGuideWeightAndVol(guideData);
+              totalAssignedKg += m.kg;
+              totalAssignedM3 += m.m3;
+            }
+
+            const capKg = currentVehicle?.capacity_kg ? Number(currentVehicle.capacity_kg) : null;
+            const capM3 = currentVehicle?.capacity_m3 ? Number(currentVehicle.capacity_m3) : null;
+            const isWeightOverload = capKg ? totalAssignedKg > capKg : false;
+            const isVolOverload = capM3 ? totalAssignedM3 > capM3 : false;
+
+            // Guías disponibles para agregar (excluyendo las ya agregadas a esta ruta)
+            const availableGuides = (notesQ.data ?? []).filter(
+              (n: any) => !routeStops.some((s) => s.dispatch_note_id === n.id)
+            );
+
+            return (
+              <div className="space-y-6 py-2">
+                {/* Cabecera del Formulario de Ruta */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 p-4 rounded-lg bg-muted/40 border">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nombre o Identificador *</Label>
+                    <Input
+                      placeholder="ej. Ruta Santiago Oriente"
+                      className="h-8 text-xs font-medium"
+                      value={routeForm.name}
+                      onChange={(e) => setRouteForm((f) => ({ ...f, name: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fecha de Reparto *</Label>
+                    <Input
+                      type="date"
+                      className="h-8 text-xs"
+                      value={routeForm.route_date}
+                      onChange={(e) => setRouteForm((f) => ({ ...f, route_date: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Vehículo (Flota Propia)</Label>
+                    <Select
+                      value={routeForm.vehicle_id}
+                      onValueChange={(v) => setRouteForm((f) => ({ ...f, vehicle_id: v }))}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Sin vehículo asignado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NONE">Sin vehículo / Tercerizado</SelectItem>
+                        {(vehiclesQ.data ?? [])
+                          .filter((v: any) => v.active || v.id === routeForm.vehicle_id)
+                          .map((v: any) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.plate} ({v.vehicle_type || "General"})
+                              {v.capacity_kg ? ` · ${Number(v.capacity_kg).toLocaleString("es-CL")} kg` : ""}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nombre del Chofer / Conductor</Label>
+                    <Input
+                      placeholder="ej. Carlos Muñoz"
+                      className="h-8 text-xs"
+                      value={routeForm.driver_name}
+                      onChange={(e) => setRouteForm((f) => ({ ...f, driver_name: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:grid-cols-2 lg:col-span-4 space-y-1 pt-1">
+                    <Label className="text-xs">Notas / Observaciones de la Hoja de Ruta</Label>
+                    <Input
+                      placeholder="Instrucciones al conductor, precauciones de carga o referencias de peajes/ruta..."
+                      className="h-8 text-xs"
+                      value={routeForm.notes}
+                      onChange={(e) => setRouteForm((f) => ({ ...f, notes: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Medidores de Capacidad y Resumen */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 rounded-lg border bg-card flex flex-col justify-between">
+                    <div className="text-[11px] text-muted-foreground flex items-center justify-between">
+                      <span>Total Paradas Programadas</span>
+                      <MapPin className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <div className="text-xl font-bold font-mono text-primary mt-1">
+                      {routeStops.length} <span className="text-xs font-normal text-muted-foreground">guías</span>
+                    </div>
+                  </div>
+
+                  <div className={`p-3 rounded-lg border flex flex-col justify-between ${isWeightOverload ? "bg-red-500/10 border-red-500/40" : "bg-card"}`}>
+                    <div className="text-[11px] text-muted-foreground flex items-center justify-between">
+                      <span className={isWeightOverload ? "text-red-700 dark:text-red-300 font-semibold" : ""}>
+                        Carga Total de Peso
+                      </span>
+                      <Gauge className={`h-3.5 w-3.5 ${isWeightOverload ? "text-red-600" : "text-muted-foreground"}`} />
+                    </div>
+                    <div className="mt-1">
+                      <div className="flex items-baseline justify-between">
+                        <span className={`text-xl font-bold font-mono ${isWeightOverload ? "text-red-600" : ""}`}>
+                          {totalAssignedKg.toLocaleString("es-CL")} kg
+                        </span>
+                        {capKg && (
+                          <span className="text-[11px] font-mono text-muted-foreground">
+                            / {capKg.toLocaleString("es-CL")} kg max
+                          </span>
+                        )}
+                      </div>
+                      {capKg && (
+                        <div className="mt-1.5 w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className={`h-full transition-all ${isWeightOverload ? "bg-red-600" : "bg-primary"}`}
+                            style={{ width: `${Math.min(100, Math.round((totalAssignedKg / capKg) * 100))}%` }}
+                          />
+                        </div>
+                      )}
+                      {isWeightOverload && (
+                        <p className="text-[10px] text-red-600 font-semibold mt-1 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" /> ¡Sobrecarga de peso detectada!
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={`p-3 rounded-lg border flex flex-col justify-between ${isVolOverload ? "bg-red-500/10 border-red-500/40" : "bg-card"}`}>
+                    <div className="text-[11px] text-muted-foreground flex items-center justify-between">
+                      <span className={isVolOverload ? "text-red-700 dark:text-red-300 font-semibold" : ""}>
+                        Cubicaje Volumétrico
+                      </span>
+                      <Box className={`h-3.5 w-3.5 ${isVolOverload ? "text-red-600" : "text-muted-foreground"}`} />
+                    </div>
+                    <div className="mt-1">
+                      <div className="flex items-baseline justify-between">
+                        <span className={`text-xl font-bold font-mono ${isVolOverload ? "text-red-600" : ""}`}>
+                          {totalAssignedM3.toLocaleString("es-CL", { maximumFractionDigits: 2 })} m³
+                        </span>
+                        {capM3 && (
+                          <span className="text-[11px] font-mono text-muted-foreground">
+                            / {capM3.toLocaleString("es-CL", { maximumFractionDigits: 2 })} m³ max
+                          </span>
+                        )}
+                      </div>
+                      {capM3 && (
+                        <div className="mt-1.5 w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className={`h-full transition-all ${isVolOverload ? "bg-red-600" : "bg-primary"}`}
+                            style={{ width: `${Math.min(100, Math.round((totalAssignedM3 / capM3) * 100))}%` }}
+                          />
+                        </div>
+                      )}
+                      {isVolOverload && (
+                        <p className="text-[10px] text-red-600 font-semibold mt-1 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" /> ¡Excede capacidad cúbica del vehículo!
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sección 1: Secuencia de Paradas Asignadas */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold flex items-center gap-2">
+                        <RouteIcon className="h-4 w-4 text-primary" />
+                        Secuencia de Paradas (En Orden de Entrega)
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Utiliza las flechas para ordenar la hoja de ruta desde la primera entrega hasta la última.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {routeStops.length} {routeStops.length === 1 ? "parada" : "paradas"}
+                    </Badge>
+                  </div>
+
+                  {routeStops.length === 0 ? (
+                    <div className="p-8 text-center border rounded-lg border-dashed text-muted-foreground text-xs space-y-1">
+                      <p className="font-medium text-foreground">No hay guías de despacho asignadas a esta ruta.</p>
+                      <p>Selecciona guías disponibles en la sección inferior para agregarlas al recorrido.</p>
+                    </div>
+                  ) : (
+                    <div className="border rounded-md divide-y">
+                      {routeStops.map((stop, index) => {
+                        const guide = stop.noteData || (notesQ.data ?? []).find((n: any) => n.id === stop.dispatch_note_id);
+                        const m = calcGuideWeightAndVol(guide);
+
+                        return (
+                          <div
+                            key={stop.dispatch_note_id}
+                            className="p-3 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="w-6 h-6 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center font-mono shrink-0">
+                                {index + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono font-bold text-xs">
+                                    {guide?.dispatch_number ? `Guía #${guide.dispatch_number}` : "Guía s/n"}
+                                  </span>
+                                  <span className="text-xs font-medium text-foreground">
+                                    {guide?.parties?.name || "Cliente 3PL"}
+                                  </span>
+                                  {guide?.parties?.tax_id && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      ({guide.parties.tax_id})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+                                  <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                  <span className="truncate">{guide?.destination_address || "Sin dirección especificada"}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0">
+                              <div className="text-right text-[11px] font-mono hidden sm:block">
+                                <div>{m.kg ? `${m.kg.toLocaleString("es-CL")} kg` : "— kg"}</div>
+                                <div className="text-muted-foreground">{m.m3 ? `${m.m3.toLocaleString("es-CL")} m³` : "— m³"}</div>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  disabled={index === 0}
+                                  onClick={() => moveStopUp(index)}
+                                  title="Mover antes en la ruta"
+                                >
+                                  <ArrowUp className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  disabled={index === routeStops.length - 1}
+                                  onClick={() => moveStopDown(index)}
+                                  title="Mover después en la ruta"
+                                >
+                                  <ArrowDown className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => removeStop(stop.dispatch_note_id)}
+                                  title="Quitar de la ruta"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Sección 2: Guías Disponibles para Asignar */}
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-muted-foreground" />
+                        Guías de Despacho Disponibles para Ruta
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Guías registradas que aún no han sido asignadas a esta ruta de entrega.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {availableGuides.length} disponibles
+                    </Badge>
+                  </div>
+
+                  {availableGuides.length === 0 ? (
+                    <div className="p-6 text-center border rounded-lg text-muted-foreground text-xs">
+                      No hay guías adicionales disponibles en esta empresa.
+                    </div>
+                  ) : (
+                    <div className="max-h-60 overflow-y-auto rounded-md border divide-y">
+                      {availableGuides.map((guide: any) => {
+                        const m = calcGuideWeightAndVol(guide);
+                        return (
+                          <div
+                            key={guide.id}
+                            className="p-2.5 flex items-center justify-between gap-3 text-xs hover:bg-muted/30 transition-colors"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-bold text-primary">
+                                  {guide.dispatch_number ? `#${guide.dispatch_number}` : "Guía s/n"}
+                                </span>
+                                <span className="font-medium text-foreground">{guide.parties?.name}</span>
+                                <Badge variant="outline" className="text-[10px] py-0">
+                                  {TRANSFER_LABELS[guide.transfer_type as TransferType] || guide.transfer_type}
+                                </Badge>
+                              </div>
+                              <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                                Destino: {guide.destination_address || "Sin dirección"}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0">
+                              <div className="text-right text-[10px] font-mono text-muted-foreground hidden sm:block">
+                                <div>{m.kg ? `${m.kg.toLocaleString("es-CL")} kg` : "0 kg"}</div>
+                                <div>{m.m3 ? `${m.m3.toLocaleString("es-CL")} m³` : "0 m³"}</div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => addStop(guide)}
+                              >
+                                <Plus className="h-3 w-3" />
+                                Agregar a Ruta
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter className="pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRouteModalOpen(false)}
+                    disabled={saveRouteM.isPending}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => saveRouteM.mutate()}
+                    disabled={saveRouteM.isPending || routeStops.length === 0}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    {saveRouteM.isPending ? "Guardando..." : editingRouteId ? "Guardar Cambios de Ruta" : "Guardar y Planificar Ruta"}
+                  </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Dialog: Ver Hoja de Ruta TMS y Secuencia de Entregas (Sprint 21) */}
+      <Dialog open={!!selectedRouteForView} onOpenChange={(open) => !open && setSelectedRouteForView(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {selectedRouteForView && (() => {
+            const r = selectedRouteForView;
+            const stops = [...(r.route_stops || [])].sort((a: any, b: any) => a.stop_order - b.stop_order);
+
+            let totalRouteKg = 0;
+            let totalRouteM3 = 0;
+            for (const s of stops) {
+              const m = calcGuideWeightAndVol(s.dispatch_notes);
+              totalRouteKg += m.kg;
+              totalRouteM3 += m.m3;
+            }
+
+            return (
+              <div className="space-y-6 py-2">
+                <DialogHeader>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                      <DialogTitle className="flex items-center gap-2 text-lg">
+                        <Navigation className="h-5 w-5 text-primary" />
+                        {r.name || "Hoja de Ruta TMS"}
+                      </DialogTitle>
+                      <DialogDescription className="text-xs">
+                        Fecha Programada: <strong>{new Date(r.route_date + "T00:00:00").toLocaleDateString("es-CL")}</strong>
+                      </DialogDescription>
+                    </div>
+                    <Badge variant="outline" className={`text-xs px-2.5 py-0.5 ${ROUTE_STATUS_BADGES[r.status as RouteStatus]?.className}`}>
+                      {ROUTE_STATUS_LABELS[r.status as RouteStatus] || r.status}
+                    </Badge>
+                  </div>
+                </DialogHeader>
+
+                {/* Resumen de Transporte y Chofer */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-lg bg-muted/40 border text-xs">
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Vehículo Asignado</div>
+                    <div className="font-mono font-bold text-primary mt-0.5">
+                      {r.vehicles?.plate ? `${r.vehicles.plate} (${r.vehicles.vehicle_type || "Camión"})` : "Sin vehículo asignado"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Chofer / Conductor</div>
+                    <div className="font-medium text-foreground mt-0.5">
+                      {r.driver_name || "Sin conductor asignado"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Carga Total Transportada</div>
+                    <div className="font-mono font-medium mt-0.5">
+                      {totalRouteKg ? `${totalRouteKg.toLocaleString("es-CL")} kg` : "—"} · {totalRouteM3 ? `${totalRouteM3.toLocaleString("es-CL")} m³` : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Cantidad de Entregas</div>
+                    <div className="font-mono font-bold text-primary mt-0.5">
+                      {stops.length} {stops.length === 1 ? "parada" : "paradas"}
+                    </div>
+                  </div>
+                  {r.notes && (
+                    <div className="col-span-2 sm:col-span-4 pt-2 border-t text-[11px] text-muted-foreground">
+                      <strong className="text-foreground">Notas de Ruta:</strong> {r.notes}
+                    </div>
+                  )}
+                </div>
+
+                {/* Barra de Control de Estado de la Ruta */}
+                <div className="p-3.5 rounded-lg border bg-card space-y-2">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                      <span className="text-xs font-semibold">Gestión del Ciclo de Vida de la Ruta</span>
+                      <p className="text-[11px] text-muted-foreground">
+                        El estado de la ruta es independiente del estado individual de cada guía de despacho.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {r.status === "planificada" && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="gap-1.5 h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                            onClick={() => updateRouteStatusM.mutate({ routeId: r.id, status: "en_curso" })}
+                            disabled={updateRouteStatusM.isPending}
+                          >
+                            <Play className="h-3.5 w-3.5" />
+                            Iniciar Ruta (En Curso)
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs text-slate-600 hover:text-red-600"
+                            onClick={() => updateRouteStatusM.mutate({ routeId: r.id, status: "cancelada" })}
+                            disabled={updateRouteStatusM.isPending}
+                          >
+                            <XCircle className="h-3.5 w-3.5 mr-1" />
+                            Cancelar
+                          </Button>
+                        </>
+                      )}
+
+                      {r.status === "en_curso" && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="gap-1.5 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={() => updateRouteStatusM.mutate({ routeId: r.id, status: "finalizada" })}
+                            disabled={updateRouteStatusM.isPending}
+                          >
+                            <CheckCheck className="h-3.5 w-3.5" />
+                            Finalizar Ruta
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs text-slate-600 hover:text-red-600"
+                            onClick={() => updateRouteStatusM.mutate({ routeId: r.id, status: "cancelada" })}
+                            disabled={updateRouteStatusM.isPending}
+                          >
+                            <XCircle className="h-3.5 w-3.5 mr-1" />
+                            Cancelar Ruta
+                          </Button>
+                        </>
+                      )}
+
+                      {(r.status === "finalizada" || r.status === "cancelada") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs"
+                          onClick={() => updateRouteStatusM.mutate({ routeId: r.id, status: "planificada" })}
+                          disabled={updateRouteStatusM.isPending}
+                        >
+                          Reabrir como Planificada
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Secuencia Detallada de Paradas */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <RouteIcon className="h-4 w-4 text-primary" />
+                    Entregas Secuenciadas en Hoja de Ruta ({stops.length})
+                  </h3>
+
+                  {stops.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-4 text-center border rounded-md">
+                      Esta ruta no tiene paradas asignadas.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {stops.map((stop: any, index: number) => {
+                        const note = stop.dispatch_notes;
+                        const m = calcGuideWeightAndVol(note);
+                        const linesCount = note?.dispatch_note_lines?.length || 0;
+                        const pickedLines = (note?.dispatch_note_lines || []).filter((l: any) => l.picked).length;
+                        const packedLines = (note?.dispatch_note_lines || []).filter((l: any) => l.packed).length;
+
+                        return (
+                          <div
+                            key={stop.id}
+                            className="p-3 rounded-lg border bg-card text-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
+                          >
+                            <div className="flex items-start gap-3">
+                              <span className="w-7 h-7 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center font-mono shrink-0 mt-0.5">
+                                #{stop.stop_order || index + 1}
+                              </span>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono font-bold text-primary">
+                                    {note?.dispatch_number ? `Guía #${note.dispatch_number}` : "Guía s/n"}
+                                  </span>
+                                  <span className="font-semibold text-foreground">
+                                    {note?.parties?.name || "Cliente 3PL"}
+                                  </span>
+                                  {note?.parties?.tax_id && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      · {note.parties.tax_id}
+                                    </span>
+                                  )}
+                                  <Badge variant="outline" className="text-[10px] py-0">
+                                    {TRANSFER_LABELS[note?.transfer_type as TransferType] || note?.transfer_type}
+                                  </Badge>
+                                </div>
+
+                                <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
+                                  <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                  <span>{note?.destination_address || "Sin dirección"}</span>
+                                </div>
+
+                                <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1 flex-wrap">
+                                  <span>Líneas: <strong>{linesCount}</strong></span>
+                                  <span>Picking: <strong>{pickedLines}/{linesCount}</strong></span>
+                                  <span>Packing: <strong>{packedLines}/{linesCount}</strong></span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right text-[11px] font-mono shrink-0">
+                              <div className="font-semibold">{m.kg ? `${m.kg.toLocaleString("es-CL")} kg` : "— kg"}</div>
+                              <div className="text-muted-foreground">{m.m3 ? `${m.m3.toLocaleString("es-CL")} m³` : "— m³"}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter className="pt-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedRouteForView(null)}>
+                    Cerrar Hoja de Ruta
                   </Button>
                 </DialogFooter>
               </div>

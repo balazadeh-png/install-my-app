@@ -2,6 +2,33 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 21: TMS — Rutas de Reparto y Gestión de Flota Propia] - 2026-09-27
+
+### Añadido
+* **Migración SQL de TMS Rutas y Flota Propia** ([`supabase/migrations/20260927000020_sprint21_tms_rutas_flota.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000020_sprint21_tms_rutas_flota.sql)):
+  * Tabla `vehicles`: registro de camiones y utilitarios propios (`plate` en mayúsculas, `vehicle_type`, `capacity_kg`, `capacity_m3`, `active`), restricción de unicidad por empresa `(entity_id, plate)` y políticas RLS multiempresa.
+  * Enum `route_status`: estados operacionales de ruta (`planificada`, `en_curso`, `finalizada`, `cancelada`).
+  * Tabla `routes`: planificación de hojas de ruta (`route_date`, `vehicle_id` nullable para flota propia o transporte tercerizado, `driver_name`, `status`, `name`, `notes`, `entity_id`) y RLS multiempresa.
+  * Tabla `route_stops`: asignación y secuenciación de entregas (`route_id` ON DELETE CASCADE, `dispatch_note_id`, `stop_order`, `notes`), restricción de unicidad `(route_id, dispatch_note_id)` y RLS validado contra `routes.entity_id`.
+* **Módulo de Flota Propia en Frontend ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Pestaña "Flota Propia" con tabla de vehículos registrados, patente, carrocería, capacidades de peso/volumen y badge de disponibilidad.
+  * Modal para registrar o editar vehículos con validación de patente y switch de activación rápida.
+* **Módulo de Rutas TMS en Frontend ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Pestaña "Rutas TMS" con tarjetas de métricas en tiempo real (Rutas Planificadas, En Curso, Finalizadas y Total Vehículos Activos).
+  * Modal interactivo "Planificar Ruta de Reparto":
+    * Selección de fecha, nombre de ruta, conductor y vehículo de flota propia (o transporte tercerizado).
+    * Cálculo y medidores dinámicos de peso total (`kg`) y cubicaje (`m³`) de la carga asignada con barras de porcentaje y advertencias visuales de sobrecarga.
+    * Secuenciación de paradas con botones Arriba (`moveStopUp`), Abajo (`moveStopDown`) y Eliminar.
+    * Catálogo de guías disponibles para agregar con un clic.
+  * Modal de Hoja de Ruta TMS:
+    * Visualización detallada de paradas ordenadas (#1, #2, #3...) con dirección, cliente 3PL, líneas, estado de picking y packing.
+    * Acciones de control de ciclo de vida de la ruta ("Iniciar Ruta", "Finalizar Ruta", "Cancelar Ruta", "Reabrir").
+    * **Garantía de Independencia de Ciclos de Vida**: El cambio de estado de la ruta no altera los estados documentales de las guías de despacho individuales.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Tipado de `vehicles`, `routes`, `route_stops` y enum `route_status`.
+
+---
+
 ## [Sprint 20: WMS — Picking, Packing y Trazabilidad de Lotes] - 2026-09-27
 
 ### Añadido

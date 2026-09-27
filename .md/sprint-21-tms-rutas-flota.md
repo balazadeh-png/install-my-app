@@ -51,9 +51,9 @@ CREATE TABLE IF NOT EXISTS public.route_stops (
 
 ## Criterios de aceptación
 
-- [ ] Se puede registrar un vehículo propio con capacidad.
-- [ ] Se puede crear una ruta para una fecha, asignarle vehículo/conductor, y ordenar dentro de ella un conjunto de guías de despacho existentes.
-- [ ] Cambiar el estado de la ruta (planificada → en curso → finalizada) no modifica el estado de las guías individuales — son cosas independientes.
+- [x] Se puede registrar un vehículo propio con capacidad.
+- [x] Se puede crear una ruta para una fecha, asignarle vehículo/conductor, y ordenar dentro de ella un conjunto de guías de despacho existentes.
+- [x] Cambiar el estado de la ruta (planificada → en curso → finalizada) no modifica el estado de las guías individuales — son cosas independientes.
 
 ---
 
