@@ -12,16 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Truck, Users } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Truck, Users, Globe, ShieldAlert, FileCheck, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
     meta: [
-      { title: "Guías de Despacho 3PL — EasyERP" },
-      { name: "description", content: "Gestión de clientes 3PL y guías de despacho (Res. 154) en borrador." },
-      { property: "og:title", content: "Guías de Despacho 3PL — EasyERP" },
-      { property: "og:description", content: "Clientes 3PL, bodegas asignadas y guías de despacho." },
+      { title: "Guías de Despacho 3PL & Comercio Exterior — EasyERP" },
+      { name: "description", content: "Gestión de clientes 3PL, guías de despacho (Res. 154) y operaciones de comercio exterior (SICEX)." },
+      { property: "og:title", content: "Guías de Despacho 3PL & Comercio Exterior — EasyERP" },
+      { property: "og:description", content: "Clientes 3PL, bodegas asignadas, guías de despacho y operaciones SICEX." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -222,6 +223,109 @@ function DispatchPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // ---------- Comercio Exterior (SICEX - Sprint 17) ----------
+  const ftOperationsQ = useQuery({
+    queryKey: ["foreign_trade_operations", activeEntityId],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("foreign_trade_operations" as any)
+        .select("*, parties(name, tax_id), dispatch_notes(dispatch_number), foreign_trade_certificates(*)")
+        .eq("entity_id", activeEntityId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as any[]) ?? [];
+    },
+  });
+
+  const [ftForm, setFtForm] = useState({
+    party_id: "",
+    operation_type: "exportacion" as "exportacion" | "importacion",
+    country_code: "",
+    dus_number: "",
+    booking_number: "",
+    dispatch_note_id: "",
+    notes: "",
+  });
+
+  const [selectedOpForCert, setSelectedOpForCert] = useState<string>("");
+  const [certForm, setCertForm] = useState({
+    certificate_type: "Fitosanitario SAG",
+    certificate_number: "",
+    issued_by: "SAG",
+    valid_until: "",
+  });
+
+  const saveFtOpM = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Sin empresa activa");
+      if (!ftForm.party_id) throw new Error("Selecciona un cliente 3PL");
+      const { error } = await supabase.from("foreign_trade_operations" as any).insert({
+        entity_id: activeEntityId,
+        party_id: ftForm.party_id,
+        operation_type: ftForm.operation_type,
+        country_code: ftForm.country_code.trim().toUpperCase() || null,
+        dus_number: ftForm.dus_number.trim() || null,
+        booking_number: ftForm.booking_number.trim() || null,
+        dispatch_note_id: ftForm.dispatch_note_id || null,
+        notes: ftForm.notes.trim() || null,
+        customs_status: "pendiente", // Siempre 'pendiente'
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Operación Comex registrada en estado Pendiente");
+      setFtForm({
+        party_id: "",
+        operation_type: "exportacion",
+        country_code: "",
+        dus_number: "",
+        booking_number: "",
+        dispatch_note_id: "",
+        notes: "",
+      });
+      qc.invalidateQueries({ queryKey: ["foreign_trade_operations"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addCertM = useMutation({
+    mutationFn: async (opId: string) => {
+      if (!certForm.certificate_type.trim()) throw new Error("Ingresa el tipo de certificado");
+      const { error } = await supabase.from("foreign_trade_certificates" as any).insert({
+        operation_id: opId,
+        certificate_type: certForm.certificate_type.trim(),
+        certificate_number: certForm.certificate_number.trim() || null,
+        issued_by: certForm.issued_by.trim() || null,
+        valid_until: certForm.valid_until || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Certificado agregado");
+      setCertForm({
+        certificate_type: "Fitosanitario SAG",
+        certificate_number: "",
+        issued_by: "SAG",
+        valid_until: "",
+      });
+      qc.invalidateQueries({ queryKey: ["foreign_trade_operations"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteCertM = useMutation({
+    mutationFn: async (certId: string) => {
+      const { error } = await supabase.from("foreign_trade_certificates" as any).delete().eq("id", certId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Certificado eliminado");
+      qc.invalidateQueries({ queryKey: ["foreign_trade_operations"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -229,8 +333,8 @@ function DispatchPage() {
           <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-1" />Volver</Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="h-6 w-6" />Guías de Despacho 3PL</h1>
-          <p className="text-sm text-muted-foreground">Mercadería en custodia de clientes 3PL. Las guías quedan en borrador hasta resolver la emisión DTE.</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="h-6 w-6" />Guías de Despacho 3PL & Comex</h1>
+          <p className="text-sm text-muted-foreground">Mercadería en custodia de clientes 3PL (Res. 154 SII) y operaciones de comercio exterior (SICEX).</p>
         </div>
       </div>
 
@@ -239,6 +343,7 @@ function DispatchPage() {
           <TabsTrigger value="notes"><Truck className="h-4 w-4 mr-1" />Guías</TabsTrigger>
           <TabsTrigger value="new"><Plus className="h-4 w-4 mr-1" />Nueva guía</TabsTrigger>
           <TabsTrigger value="clients"><Users className="h-4 w-4 mr-1" />Clientes 3PL</TabsTrigger>
+          <TabsTrigger value="foreign_trade"><Globe className="h-4 w-4 mr-1" />Comercio Exterior</TabsTrigger>
         </TabsList>
 
         <TabsContent value="notes">
@@ -404,6 +509,340 @@ function DispatchPage() {
                   )}
                   <Button onClick={() => savePartyM.mutate()} disabled={savePartyM.isPending}>Guardar</Button>
                 </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ------------------------------------------------------------- */}
+        {/* PESTAÑA 4: COMERCIO EXTERIOR (SICEX)                          */}
+        {/* ------------------------------------------------------------- */}
+        <TabsContent value="foreign_trade" className="space-y-6">
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
+            <div>
+              <span className="font-semibold">Mecánica interna SICEX / Aduanas:</span> Toda operación de comercio exterior
+              se registra en estado <strong>Pendiente</strong>. La habilitación de credenciales y certificado digital para
+              SICEX corresponde a un trámite ante el Servicio Nacional de Aduanas. No se realiza ningún envío real a SICEX todavía.
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Formulario Nueva Operación Comex */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-primary" />
+                  Nueva Operación de Comercio Exterior
+                </CardTitle>
+                <CardDescription>Registra un expediente aduanero para un cliente 3PL.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1">
+                  <Label>Cliente 3PL *</Label>
+                  <Select
+                    value={ftForm.party_id}
+                    onValueChange={(v) => setFtForm((f) => ({ ...f, party_id: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={clients3pl.length ? "Seleccionar cliente" : "No hay clientes 3PL"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients3pl.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} {p.tax_id ? `(${p.tax_id})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label>Tipo de Operación *</Label>
+                    <Select
+                      value={ftForm.operation_type}
+                      onValueChange={(v: "exportacion" | "importacion") =>
+                        setFtForm((f) => ({ ...f, operation_type: v }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="exportacion">Exportación (DUS)</SelectItem>
+                        <SelectItem value="importacion">Importación (DIN)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>País (Código o Nombre)</Label>
+                    <Input
+                      placeholder="Ej: US, CN, Brasil"
+                      value={ftForm.country_code}
+                      onChange={(e) => setFtForm((f) => ({ ...f, country_code: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label>N° DUS / DIN</Label>
+                    <Input
+                      placeholder="Ej: DUS-2026-987"
+                      value={ftForm.dus_number}
+                      onChange={(e) => setFtForm((f) => ({ ...f, dus_number: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Booking / BL (opcional)</Label>
+                    <Input
+                      placeholder="Ej: MAEU-12345"
+                      value={ftForm.booking_number}
+                      onChange={(e) => setFtForm((f) => ({ ...f, booking_number: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Guía de Despacho Asociada (opcional)</Label>
+                  <Select
+                    value={ftForm.dispatch_note_id}
+                    onValueChange={(v) => setFtForm((f) => ({ ...f, dispatch_note_id: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="-- Sin vincular a guía --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">-- Sin vincular --</SelectItem>
+                      {(notesQ.data ?? [])
+                        .filter((n) => !ftForm.party_id || n.party_id === ftForm.party_id)
+                        .map((n) => (
+                          <SelectItem key={n.id} value={n.id}>
+                            {n.dispatch_number || "Borrador"} · {n.destination_address?.slice(0, 25)}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Notas / Observaciones</Label>
+                  <Textarea
+                    placeholder="Instrucciones, aduana de salida, agencia..."
+                    rows={2}
+                    value={ftForm.notes}
+                    onChange={(e) => setFtForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
+                </div>
+
+                <Button
+                  onClick={() => saveFtOpM.mutate()}
+                  disabled={saveFtOpM.isPending || !ftForm.party_id}
+                  className="w-full"
+                >
+                  {saveFtOpM.isPending ? "Guardando..." : "Guardar Operación"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Sub-formulario para agregar certificado a la operación seleccionada */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileCheck className="h-4 w-4 text-emerald-600" />
+                  Adjuntar Certificado a Operación
+                </CardTitle>
+                <CardDescription>
+                  Certificados fitosanitarios (SAG), zoosanitarios, de origen o ISP.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1">
+                  <Label>Seleccionar Operación *</Label>
+                  <Select value={selectedOpForCert} onValueChange={setSelectedOpForCert}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={(ftOperationsQ.data ?? []).length ? "Selecciona operación..." : "No hay operaciones registradas"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(ftOperationsQ.data ?? []).map((op: any) => (
+                        <SelectItem key={op.id} value={op.id}>
+                          {op.dus_number || "Sin DUS"} · {op.parties?.name} ({op.operation_type})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedOpForCert && (
+                  <div className="space-y-3 p-3 rounded-lg border bg-muted/20">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Tipo de Certificado *</Label>
+                        <Select
+                          value={certForm.certificate_type}
+                          onValueChange={(v) => setCertForm((c) => ({ ...c, certificate_type: v }))}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Fitosanitario SAG">Fitosanitario (SAG)</SelectItem>
+                            <SelectItem value="Zoosanitario SAG/SERNAPESCA">Zoosanitario (SAG/SERNAPESCA)</SelectItem>
+                            <SelectItem value="Certificado de Origen">Certificado de Origen (SOFOFA)</SelectItem>
+                            <SelectItem value="Certificado ISP">Certificado ISP</SelectItem>
+                            <SelectItem value="Otro">Otro Certificado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">N° Certificado</Label>
+                        <Input
+                          className="h-8 text-xs font-mono"
+                          placeholder="Ej: SAG-2026-90"
+                          value={certForm.certificate_number}
+                          onChange={(e) => setCertForm((c) => ({ ...c, certificate_number: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Entidad Emisora</Label>
+                        <Input
+                          className="h-8 text-xs"
+                          placeholder="Ej: SAG, SOFOFA"
+                          value={certForm.issued_by}
+                          onChange={(e) => setCertForm((c) => ({ ...c, issued_by: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Vigencia (Vencimiento)</Label>
+                        <Input
+                          className="h-8 text-xs font-mono"
+                          type="date"
+                          value={certForm.valid_until}
+                          onChange={(e) => setCertForm((c) => ({ ...c, valid_until: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      onClick={() => addCertM.mutate(selectedOpForCert)}
+                      disabled={addCertM.isPending || !certForm.certificate_type}
+                      className="w-full h-8 text-xs"
+                    >
+                      {addCertM.isPending ? "Guardando..." : "Adjuntar Certificado"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tabla de Operaciones de Comercio Exterior Registradas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Operaciones Registradas & Certificados Adjuntos
+              </CardTitle>
+              <CardDescription>
+                Historial de expedientes aduaneros, vinculaciones con guías y certificados con fecha de vigencia.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(ftOperationsQ.data ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  Aún no hay operaciones de comercio exterior registradas.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {(ftOperationsQ.data ?? []).map((op: any) => (
+                    <div key={op.id} className="rounded-lg border p-4 space-y-3 bg-card">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={op.operation_type === "exportacion" ? "default" : "secondary"}
+                            className="text-[10px] uppercase font-mono"
+                          >
+                            {op.operation_type}
+                          </Badge>
+                          <span className="font-mono font-semibold text-sm text-primary">
+                            {op.dus_number || "SIN DUS"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">· Cliente:</span>
+                          <span className="text-xs font-medium">{op.parties?.name}</span>
+                          {op.country_code && (
+                            <span className="text-xs text-muted-foreground">
+                              (Destino/Origen: <strong>{op.country_code}</strong>)
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {op.dispatch_notes && (
+                            <Badge variant="outline" className="text-[10px] font-mono gap-1 text-primary">
+                              <Truck className="h-3 w-3" />
+                              Guía: {op.dispatch_notes.dispatch_number || "Borrador"}
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px] uppercase font-mono bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                            {op.customs_status}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Lista de certificados de esta operación */}
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                          <FileCheck className="h-3.5 w-3.5 text-emerald-600" />
+                          Certificados adjuntos ({(op.foreign_trade_certificates ?? []).length}):
+                        </span>
+
+                        {(op.foreign_trade_certificates ?? []).length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic pl-4">
+                            Sin certificados adjuntos a esta operación.
+                          </p>
+                        ) : (
+                          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 pl-2">
+                            {op.foreign_trade_certificates.map((cert: any) => {
+                              const isExpired = cert.valid_until && new Date(cert.valid_until) < new Date();
+                              return (
+                                <div
+                                  key={cert.id}
+                                  className="flex items-center justify-between p-2 rounded border bg-muted/30 text-xs"
+                                >
+                                  <div>
+                                    <div className="font-medium">{cert.certificate_type}</div>
+                                    <div className="font-mono text-[11px] text-muted-foreground">
+                                      N° {cert.certificate_number || "S/N"} · {cert.issued_by || "—"}
+                                    </div>
+                                    <div className="text-[10px] font-mono mt-0.5">
+                                      Vigencia:{" "}
+                                      <span className={isExpired ? "text-destructive font-bold" : "text-emerald-600"}>
+                                        {cert.valid_until || "Indefinida"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => deleteCertM.mutate(cert.id)}
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

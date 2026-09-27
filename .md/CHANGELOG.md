@@ -10,7 +10,7 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
   * `foreign_trade_operations`: registro de expedientes aduaneros para clientes 3PL (`entity_id`, `party_id`, `operation_type`, `country_code`, `dus_number`, `booking_number`, `customs_status` con valor predeterminado `'pendiente'`, notas y vínculo opcional con `dispatch_notes`).
   * `foreign_trade_certificates`: repositorio de certificados fitosanitarios (SAG), zoosanitarios (SAG/SERNAPESCA), de origen (SOFOFA/Cámara de Comercio), registros sanitarios (ISP) u otros, con número, emisor y fecha de vigencia (`valid_until`), asociados en cascada a la operación.
   * Políticas de seguridad RLS multiempresa en ambas tablas aplicando `public.user_has_company_access(auth.uid(), entity_id)` y roles autorizados (`admin`, `inventory`, `sales`, `accountant`).
-* **Pestaña de Comercio Exterior (SICEX) en el Módulo Logístico ([`dispatch-notes.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch-notes.tsx))**:
+* **Pestaña de Comercio Exterior (SICEX) en el Módulo Logístico ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
   * Pestaña interactiva "Comercio Exterior (SICEX)" junto a "Guías de Despacho (Res. 154)".
   * Formulario modal para registrar operaciones Comex vinculadas a clientes 3PL, país de destino/origen, N° DUS / DIN, BL/Booking y guía de despacho opcional, con opción de adjuntar certificado inicial.
   * Modal dedicado de gestión de certificados aduaneros: visualización de vigencias (Vigente / Vencido), formulario para adjuntar nuevos certificados fito/zoo/origen y eliminación.
@@ -40,7 +40,7 @@ Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se r
     * Folio de despacho (`dispatch_number`, borrador referencial hasta integración DTE) y estado (`draft`).
   * `dispatch_note_lines`: detalle métrico por ítem despachado (`item_id`, `qty`, `uom`, `weight_kg`, `volume_m3`, `unit_value`).
   * Políticas de seguridad RLS en `party_warehouses`, `dispatch_notes` y `dispatch_note_lines` aplicando `user_has_company_access(auth.uid(), entity_id)` y roles (`admin`, `inventory`, `sales`, `accountant`).
-* **Módulo y Pantalla de Guías de Despacho ([`dispatch-notes.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch-notes.tsx))**:
+* **Módulo y Pantalla de Guías de Despacho ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
   * Formulario integral para emitir guías en estado `draft` con selector de cliente 3PL (filtrado a `is_3pl_client = true`), bodega de origen autorizada (`party_warehouses`), transportista, patente, tipo de traslado y líneas de carga con cálculo de peso y volumen total.
   * Tarjetas KPI en tiempo real: Total Guías 3PL, Clientes Activos, Peso Total (kg) y Volumen Total (m³).
   * Modal de inspección y visualización detallada del documento.

@@ -42,7 +42,7 @@ export const moduleNavItems = [
   { name: "pos", label: "Punto de Venta (POS)", path: "/pos", icon: Store },
   { name: "purchases", label: "Compras", path: "/purchases", icon: ShoppingCart },
   { name: "inventory", label: "Inventario", path: "/inventory", icon: Package },
-  { name: "dispatch-notes", label: "Guías de Despacho (3PL)", path: "/dispatch-notes", icon: Truck },
+  { name: "dispatch", label: "Guías de Despacho (3PL)", path: "/dispatch", icon: Truck },
   { name: "production", label: "Producción", path: "/production", icon: Factory },
   { name: "assets", label: "Activos Fijos", path: "/assets", icon: Building2 },
   { name: "cash", label: "Bancos / Tesorería", path: "/cash", icon: DollarSign },
