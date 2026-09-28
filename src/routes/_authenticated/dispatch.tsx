@@ -4905,6 +4905,15 @@ function DispatchPage() {
                     disabled={confirmPickingM.isPending}
                   >
                     <Check className="h-3.5 w-3.5" />
+                    {confirmPickingM.isPending ? "Confirmando..." : "Confirmar Picking"}
+                  </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* Modal Dialog: Crear/Editar Vehículo de Flota Propia (Sprint 21) */}
       <Dialog open={vehicleModalOpen} onOpenChange={setVehicleModalOpen}>
         <DialogContent className="max-w-md">
