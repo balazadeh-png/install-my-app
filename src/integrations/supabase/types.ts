@@ -374,6 +374,64 @@ export type Database = {
           },
         ]
       }
+      client_alerts: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          item_id: string | null
+          message: string
+          party_id: string | null
+          severity: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          item_id?: string | null
+          message: string
+          party_id?: string | null
+          severity: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          item_id?: string | null
+          message?: string
+          party_id?: string | null
+          severity?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_alerts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_alerts_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_default_accounts: {
         Row: {
           cogs_account_id: string | null
@@ -1736,6 +1794,8 @@ export type Database = {
           is_stock_item: boolean | null
           name: string
           sku: string | null
+          unit_volume_m3: number | null
+          units_per_pallet: number | null
           uom_id: string | null
           updated_at: string
           valuation_method: string | null
@@ -1751,6 +1811,8 @@ export type Database = {
           is_stock_item?: boolean | null
           name: string
           sku?: string | null
+          unit_volume_m3?: number | null
+          units_per_pallet?: number | null
           uom_id?: string | null
           updated_at?: string
           valuation_method?: string | null
@@ -1766,6 +1828,8 @@ export type Database = {
           is_stock_item?: boolean | null
           name?: string
           sku?: string | null
+          unit_volume_m3?: number | null
+          units_per_pallet?: number | null
           uom_id?: string | null
           updated_at?: string
           valuation_method?: string | null
@@ -2264,25 +2328,34 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          last_used_at: string | null
           name: string | null
           party_id: string
-          token: string
+          token: string | null
+          token_hash: string
+          token_prefix: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           is_active?: boolean
+          last_used_at?: string | null
           name?: string | null
           party_id: string
-          token: string
+          token?: string | null
+          token_hash: string
+          token_prefix?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           is_active?: boolean
+          last_used_at?: string | null
           name?: string | null
           party_id?: string
-          token?: string
+          token?: string | null
+          token_hash?: string
+          token_prefix?: string | null
         }
         Relationships: [
           {
@@ -3881,6 +3954,13 @@ export type Database = {
             foreignKeyName: "stock_valuation_layers_stock_ledger_entry_id_fkey"
             columns: ["stock_ledger_entry_id"]
             isOneToOne: false
+            referencedRelation: "kardex_movements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_valuation_layers_stock_ledger_entry_id_fkey"
+            columns: ["stock_ledger_entry_id"]
+            isOneToOne: false
             referencedRelation: "stock_ledger_entries"
             referencedColumns: ["id"]
           },
@@ -4079,30 +4159,36 @@ export type Database = {
       }
       warehouse_locations: {
         Row: {
+          area_m2: number | null
           code: string
           created_at: string
           entity_id: string
           id: string
           is_active: boolean
           name: string | null
+          pallet_positions: number
           warehouse_id: string
         }
         Insert: {
+          area_m2?: number | null
           code: string
           created_at?: string
           entity_id: string
           id?: string
           is_active?: boolean
           name?: string | null
+          pallet_positions?: number
           warehouse_id: string
         }
         Update: {
+          area_m2?: number | null
           code?: string
           created_at?: string
           entity_id?: string
           id?: string
           is_active?: boolean
           name?: string | null
+          pallet_positions?: number
           warehouse_id?: string
         }
         Relationships: [
@@ -4128,10 +4214,14 @@ export type Database = {
           capacity_m3: number | null
           code: string
           created_at: string
+          default_units_per_pallet: number | null
           entity_id: string | null
           id: string
           is_active: boolean
           name: string
+          storage_capacity: number | null
+          storage_measure_basis: Database["public"]["Enums"]["storage_measure_basis"]
+          storage_measure_method: Database["public"]["Enums"]["storage_measure_method"]
           updated_at: string
         }
         Insert: {
@@ -4139,10 +4229,14 @@ export type Database = {
           capacity_m3?: number | null
           code: string
           created_at?: string
+          default_units_per_pallet?: number | null
           entity_id?: string | null
           id?: string
           is_active?: boolean
           name: string
+          storage_capacity?: number | null
+          storage_measure_basis?: Database["public"]["Enums"]["storage_measure_basis"]
+          storage_measure_method?: Database["public"]["Enums"]["storage_measure_method"]
           updated_at?: string
         }
         Update: {
@@ -4150,10 +4244,14 @@ export type Database = {
           capacity_m3?: number | null
           code?: string
           created_at?: string
+          default_units_per_pallet?: number | null
           entity_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
+          storage_capacity?: number | null
+          storage_measure_basis?: Database["public"]["Enums"]["storage_measure_basis"]
+          storage_measure_method?: Database["public"]["Enums"]["storage_measure_method"]
           updated_at?: string
         }
         Relationships: [
@@ -4168,6 +4266,166 @@ export type Database = {
       }
     }
     Views: {
+      kardex_movements: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          entity_id: string | null
+          id: string | null
+          item_id: string | null
+          location_id: string | null
+          memo: string | null
+          movement_type:
+            | Database["public"]["Enums"]["stock_movement_type"]
+            | null
+          party_id: string | null
+          posting_date: string | null
+          qty_change: number | null
+          total_value: number | null
+          valuation_rate: number | null
+          voucher_id: string | null
+          voucher_type: string | null
+          warehouse_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string | null
+          item_id?: string | null
+          location_id?: string | null
+          memo?: string | null
+          movement_type?:
+            | Database["public"]["Enums"]["stock_movement_type"]
+            | null
+          party_id?: string | null
+          posting_date?: string | null
+          qty_change?: number | null
+          total_value?: never
+          valuation_rate?: number | null
+          voucher_id?: string | null
+          voucher_type?: string | null
+          warehouse_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          id?: string | null
+          item_id?: string | null
+          location_id?: string | null
+          memo?: string | null
+          movement_type?:
+            | Database["public"]["Enums"]["stock_movement_type"]
+            | null
+          party_id?: string | null
+          posting_date?: string | null
+          qty_change?: number | null
+          total_value?: never
+          valuation_rate?: number | null
+          voucher_id?: string | null
+          voucher_type?: string | null
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_ledger_entries_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_entity_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_ledger_entries_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          channel: string | null
+          company_id: string | null
+          created_at: string | null
+          entity_id: string | null
+          external_order_id: string | null
+          external_sku: string | null
+          id: string | null
+          item_id: string | null
+          order_date: string | null
+          order_status: Database["public"]["Enums"]["order_status"] | null
+          party_id: string | null
+          qty: number | null
+          sales_order_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_lines_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_entity_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_invoice_balances: {
         Row: {
           balance_due: number | null
@@ -4319,6 +4577,10 @@ export type Database = {
         Args: { _entity_id: string; _period_end: string; _period_start: string }
         Returns: Json
       }
+      check_and_create_stockout_alerts: {
+        Args: { p_company_id: string; p_party_id?: string }
+        Returns: Json
+      }
       close_accounting_period: { Args: { _period_id: string }; Returns: Json }
       close_pos_session: {
         Args: { _counted_amount: number; _session_id: string }
@@ -4368,6 +4630,20 @@ export type Database = {
         Args: { _date: string; _destination: string; _origin: string }
         Returns: number
       }
+      get_inventory_stockout_forecast: {
+        Args: { p_company_id: string; p_party_id?: string }
+        Returns: {
+          avg_daily_consumption: number
+          company_id: string
+          current_stock: number
+          days_to_stockout: number
+          item_code: string
+          item_id: string
+          item_name: string
+          party_id: string
+          status: string
+        }[]
+      }
       get_next_entry_number: {
         Args: { _entity_id: string; _prefix?: string }
         Returns: string
@@ -4378,7 +4654,6 @@ export type Database = {
           created_at: string
           email: string
           id: string
-          party_id: string
           user_id: string
         }[]
       }
@@ -4390,6 +4665,24 @@ export type Database = {
           _start_date: string
         }
         Returns: Json
+      }
+      get_storage_usage: {
+        Args: {
+          p_entity_id: string
+          p_party_id: string
+          p_period_end: string
+          p_period_start: string
+        }
+        Returns: {
+          basis: Database["public"]["Enums"]["storage_measure_basis"]
+          method: Database["public"]["Enums"]["storage_measure_method"]
+          missing_data: number
+          quantity: number
+          rate_type: string
+          unit: string
+          warehouse_id: string
+          warehouse_name: string
+        }[]
       }
       has_role: {
         Args: {
@@ -4409,6 +4702,11 @@ export type Database = {
         }
         Returns: Json
       }
+      mark_all_client_alerts_read: {
+        Args: { p_party_id: string }
+        Returns: number
+      }
+      mark_client_alert_read: { Args: { p_alert_id: string }; Returns: boolean }
       post_journal_entry: { Args: { _journal_entry_id: string }; Returns: Json }
       post_purchase_invoice: { Args: { _invoice_id: string }; Returns: Json }
       post_sales_invoice: { Args: { _invoice_id: string }; Returns: Json }
@@ -4433,6 +4731,29 @@ export type Database = {
       run_monthly_depreciation: {
         Args: { _entity_id: string; _period_date: string }
         Returns: Json
+      }
+      stock_balance_at: {
+        Args: { p_date: string; p_entity_id: string; p_party_id: string }
+        Returns: {
+          item_id: string
+          location_id: string
+          qty: number
+          warehouse_id: string
+        }[]
+      }
+      storage_measure_on: {
+        Args: {
+          p_date: string
+          p_default_upp: number
+          p_entity_id: string
+          p_method: Database["public"]["Enums"]["storage_measure_method"]
+          p_party_id: string
+          p_warehouse_id: string
+        }
+        Returns: {
+          missing_data: number
+          quantity: number
+        }[]
       }
       update_dj_status: {
         Args: {
@@ -4507,6 +4828,8 @@ export type Database = {
         | "picking_unit"
         | "transport_km"
         | "recargo_fijo"
+        | "storage_m3"
+        | "storage_unit"
       sii_book_type:
         | "libro_diario"
         | "libro_mayor"
@@ -4526,6 +4849,14 @@ export type Database = {
         | "en_ruta"
         | "entregado"
         | "no_entregado"
+      storage_measure_basis: "period_end" | "daily_average" | "daily_peak"
+      storage_measure_method:
+        | "manual"
+        | "pallet_positions"
+        | "units_per_pallet"
+        | "area_m2"
+        | "volume_m3"
+        | "units"
       tax_calculation_status: "draft" | "reviewed" | "filed"
       tax_form_type: "f29" | "f22"
       tax_regime_type:
@@ -4713,6 +5044,8 @@ export const Constants = {
         "picking_unit",
         "transport_km",
         "recargo_fijo",
+        "storage_m3",
+        "storage_unit",
       ],
       sii_book_type: [
         "libro_diario",
@@ -4735,6 +5068,15 @@ export const Constants = {
         "en_ruta",
         "entregado",
         "no_entregado",
+      ],
+      storage_measure_basis: ["period_end", "daily_average", "daily_peak"],
+      storage_measure_method: [
+        "manual",
+        "pallet_positions",
+        "units_per_pallet",
+        "area_m2",
+        "volume_m3",
+        "units",
       ],
       tax_calculation_status: ["draft", "reviewed", "filed"],
       tax_form_type: ["f29", "f22"],
