@@ -22,6 +22,13 @@
       "when": 1790638935063,
       "tag": "0002_demo_seed_enum_casts",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790638952964,
+      "tag": "0003_demo_seed_alias_fix",
+      "breakpoints": true
     }
   ]
 }
