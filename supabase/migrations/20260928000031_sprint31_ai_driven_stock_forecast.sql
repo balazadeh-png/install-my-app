@@ -21,11 +21,13 @@ SELECT
   sle.warehouse_id,
   sle.location_id,
   sle.item_id,
+  sle.movement_type,
   sle.qty_change,
   sle.valuation_rate,
-  sle.total_value,
+  ROUND(sle.qty_change * sle.valuation_rate, 2) AS total_value,
   sle.voucher_type,
-  sle.voucher_no,
+  sle.voucher_id,
+  sle.memo,
   sle.posting_date,
   sle.created_at
 FROM public.stock_ledger_entries sle;
@@ -43,7 +45,7 @@ SELECT
   so.channel,
   so.external_order_id,
   so.status AS order_status,
-  so.order_date,
+  so.created_at::date AS order_date,
   so.created_at
 FROM public.sales_order_lines sol
 JOIN public.sales_orders so ON so.id = sol.sales_order_id;
