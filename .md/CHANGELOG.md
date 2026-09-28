@@ -2,6 +2,31 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 25: Contratos y Tarifarios para Clientes 3PL] - 2026-09-27
+
+### Añadido
+* **Migración SQL de Contratos y Tarifarios** ([`supabase/migrations/20260927000024_sprint25_contratos_tarifarios.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000024_sprint25_contratos_tarifarios.sql)):
+  * Enum `billing_frequency`: frecuencia de facturación del contrato (`mensual`, `quincenal`).
+  * Enum `service_rate_type`: tipos de tarifas de servicios 3PL (`storage_pallet`, `storage_m2`, `picking_unit`, `transport_km`, `recargo_fijo`).
+  * Tabla `service_contracts`: contrato marco de servicios 3PL por cliente (`entity_id` FK a `entities`, `party_id` FK a `parties`, `billing_frequency`, `active`, `notes`, restricción de unicidad `UNIQUE (entity_id, party_id)`). Habilitada con RLS multiempresa.
+  * Tabla `service_rate_lines`: desglose de tarifas pactadas vinculadas al contrato (`contract_id` FK on delete cascade, `rate_type`, `unit_price`, `description`). Habilitada con RLS subordinada a la empresa del contrato.
+  * Columna `distance_km numeric(10,2)` en tabla `dispatch_notes`: distancia recorrida en kilómetros para efectos de tarificación de transporte.
+* **Gestión de Contratos y Tarifas en Frontend ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Sección "Contrato de Servicios y Tarifario 3PL" dentro de la ficha de edición de clientes 3PL.
+  * Creación y actualización de contrato con selector de frecuencia de facturación (`mensual` o `quincenal`) y conmutador para pausar o reactivar el contrato.
+  * Tabla de tarifas pactadas con badges por tipo de tarifa, descripción, precio unitario y eliminación de líneas.
+  * Formulario inline para agregar nuevas tarifas por pallet, m², unidad de picking, km recorrido o recargo fijo.
+* **Captura de Kilómetros en Guías de Despacho ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Campo numérico opcional "Distancia (km, opcional)" en el formulario de creación de guías de despacho.
+  * Visualización de la distancia en kilómetros en la tabla principal de guías de despacho.
+  * Visualización y campo editable con botón "Guardar" para registrar o actualizar la distancia recorrida directamente desde el modal de detalle y picking de la guía.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Tipado de `service_contracts` y `service_rate_lines` en `Tables`.
+  * Tipado de `distance_km` en `dispatch_notes`.
+  * Tipado de `billing_frequency` y `service_rate_type` en `Enums`.
+
+---
+
 ## [Sprint 24: Portal Cliente 3PL y RLS Segregado] - 2026-09-27
 
 ### Añadido

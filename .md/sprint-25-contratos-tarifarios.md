@@ -44,9 +44,9 @@ ALTER TABLE public.dispatch_notes ADD COLUMN IF NOT EXISTS distance_km numeric(1
 
 ## Criterios de aceptación
 
-- [ ] Se puede crear un contrato activo por cliente 3PL con su frecuencia de facturación.
-- [ ] Se pueden agregar múltiples líneas de tarifa al contrato (ej. almacenaje por pallet + picking por unidad).
-- [ ] Al cerrar una guía de despacho, se puede ingresar la distancia recorrida.
+- [x] Se puede crear un contrato activo por cliente 3PL con su frecuencia de facturación.
+- [x] Se pueden agregar múltiples líneas de tarifa al contrato (ej. almacenaje por pallet + picking por unidad).
+- [x] Al cerrar una guía de despacho, se puede ingresar la distancia recorrida.
 
 ---
 

@@ -66,8 +66,8 @@ Los 13 sprints (16–28) tienen su archivo de especificación en `.md/`. La **Fa
 | 22 | sprint-22-tms-tracking-couriers.md | 21 | ✅ Implementado |
 | 23 | sprint-23-oms-pedidos-multicanal.md | 16, 20 | ✅ Implementado (Cierra Fase 2) |
 | 24 | sprint-24-portal-cliente.md | 16 | ✅ Implementado (Apertura Fase 3) |
-| 25 | sprint-25-contratos-tarifarios.md | 16 | ⏳ Siguiente (Contratos y tarifarios) |
-| 26 | sprint-26-facturacion-servicios.md | 6, 25 |
+| 25 | sprint-25-contratos-tarifarios.md | 16 | ✅ Implementado |
+| 26 | sprint-26-facturacion-servicios.md | 6, 25 | ⏳ Siguiente (Facturación de servicios) |
 | 27 | sprint-27-bi-kpis-operacionales.md | 16, 19, 20, 21 |
 | 28 | sprint-28-bi-kpis-comerciales.md | 26, 27 |
 

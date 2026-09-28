@@ -307,3 +307,22 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Vinculación de correos de usuarios registrados en el sistema mediante RPC seguro `assign_party_portal_user`.
   * Listado de usuarios autorizados con fecha de vinculación y acción para revocar o desvincular el acceso en tiempo real.
 
+---
+
+## 23. Vertical 3PL — Contratos y Tarifarios ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
+* **Contratos Marco de Servicios 3PL (`service_contracts`)**:
+  * Definición de contratos comerciales por cliente 3PL vinculados a la empresa activa (`entity_id`, `party_id`), con restricción de unicidad para garantizar un único contrato rector por relación comercial.
+  * Configuración de frecuencia de liquidación mediante enum `billing_frequency` (`mensual`, `quincenal`).
+  * Control de estado (`active: true/false`) con posibilidad de pausar o reactivar contratos en cualquier momento sin perder el histórico de tarifas.
+* **Matriz de Tarifas de Servicio (`service_rate_lines`)**:
+  * Desglose granular de tarifas pactadas vinculadas al contrato, clasificadas por `service_rate_type`:
+    1. **Almacenaje por Pallet (`storage_pallet`)**: Tarifa unitaria cobrada por posición pallet estándar al mes o quincena.
+    2. **Almacenaje por m² (`storage_m2`)**: Tarifa por metro cuadrado de bodega ocupado.
+    3. **Picking por Unidad (`picking_unit`)**: Tarifa variable por unidad física extraída y embalada en los procesos WMS.
+    4. **Transporte por Km (`transport_km`)**: Tarifa variable por kilómetro recorrido en rutas TMS o traslados locales.
+    5. **Recargo Fijo / Otros (`recargo_fijo`)**: Cargos fijos por administración, seguro de carga, recargo por combustible o despachos en días festivos.
+  * Edición ágil: alta, visualización formateada en moneda nacional (CLP) y eliminación de conceptos tarifarios desde la misma ficha del cliente.
+* **Captura y Tarificación de Kilómetros en Guías de Despacho (`dispatch_notes.distance_km`)**:
+  * Registro de la distancia en kilómetros (`distance_km`) tanto en el formulario de emisión de guías como en el modal de detalle y picking de la guía.
+  * Permite respaldar y auditar el cobro por kilómetro (`transport_km`) para su liquidación automatizada en el Sprint 26.
+

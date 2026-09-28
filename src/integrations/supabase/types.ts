@@ -751,6 +751,7 @@ export type Database = {
           departure_at: string
           destination_address: string
           dispatch_number: string | null
+          distance_km: number | null
           entity_id: string
           id: string
           notes: string | null
@@ -774,6 +775,7 @@ export type Database = {
           departure_at: string
           destination_address: string
           dispatch_number?: string | null
+          distance_km?: number | null
           entity_id: string
           id?: string
           notes?: string | null
@@ -797,6 +799,7 @@ export type Database = {
           departure_at?: string
           destination_address?: string
           dispatch_number?: string | null
+          distance_km?: number | null
           entity_id?: string
           id?: string
           notes?: string | null
@@ -4526,6 +4529,89 @@ export type Database = {
           },
         ]
       }
+      service_contracts: {
+        Row: {
+          active: boolean
+          billing_frequency: Database["public"]["Enums"]["billing_frequency"]
+          created_at: string
+          entity_id: string
+          id: string
+          notes: string | null
+          party_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          billing_frequency?: Database["public"]["Enums"]["billing_frequency"]
+          created_at?: string
+          entity_id: string
+          id?: string
+          notes?: string | null
+          party_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          billing_frequency?: Database["public"]["Enums"]["billing_frequency"]
+          created_at?: string
+          entity_id?: string
+          id?: string
+          notes?: string | null
+          party_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_contracts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_contracts_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_rate_lines: {
+        Row: {
+          contract_id: string
+          created_at: string
+          description: string | null
+          id: string
+          rate_type: Database["public"]["Enums"]["service_rate_type"]
+          unit_price: number
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          rate_type: Database["public"]["Enums"]["service_rate_type"]
+          unit_price: number
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          rate_type?: Database["public"]["Enums"]["service_rate_type"]
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_rate_lines_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "service_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       assign_party_portal_user: {
@@ -4693,6 +4779,7 @@ export type Database = {
         | "inventory"
         | "viewer"
       asset_status: "active" | "fully_depreciated" | "disposed"
+      billing_frequency: "mensual" | "quincenal"
       depreciation_method: "linea_recta" | "acelerada"
       dispatch_status: "draft" | "issued" | "cancelled"
       dispatch_transfer_type:
@@ -4726,6 +4813,12 @@ export type Database = {
         | "completed"
         | "cancelled"
       route_status: "planificada" | "en_curso" | "finalizada" | "cancelada"
+      service_rate_type:
+        | "storage_pallet"
+        | "storage_m2"
+        | "picking_unit"
+        | "transport_km"
+        | "recargo_fijo"
       stop_delivery_status:
         | "pendiente"
         | "en_ruta"

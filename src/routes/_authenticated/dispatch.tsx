@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Truck, Users, UserPlus, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed, Upload, Key, Copy, RefreshCw, ShoppingCart, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Truck, Users, UserPlus, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed, Upload, Key, Copy, RefreshCw, ShoppingCart, FileText, Receipt } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
@@ -37,6 +37,22 @@ const TRANSFER_LABELS: Record<TransferType, string> = {
   consignacion: "Consignación",
   exportacion: "Exportación",
   otro: "Otro",
+};
+
+// Sprint 25: Contratos y Tarifarios 3PL
+type BillingFrequency = "mensual" | "quincenal";
+const BILLING_FREQUENCY_LABELS: Record<BillingFrequency, string> = {
+  mensual: "Mensual",
+  quincenal: "Quincenal",
+};
+
+type ServiceRateType = "storage_pallet" | "storage_m2" | "picking_unit" | "transport_km" | "recargo_fijo";
+const SERVICE_RATE_LABELS: Record<ServiceRateType, { label: string; unit: string; description: string }> = {
+  storage_pallet: { label: "Almacenaje por Pallet", unit: "$/pallet/mes", description: "Tarifa por pallet estándar almacenado" },
+  storage_m2: { label: "Almacenaje por m²", unit: "$/m²/mes", description: "Tarifa por metro cuadrado ocupado" },
+  picking_unit: { label: "Picking por Unidad", unit: "$/unidad", description: "Costo por cada unidad pickeada y embalada" },
+  transport_km: { label: "Transporte por Km", unit: "$/km", description: "Tarifa variable por kilómetro recorrido" },
+  recargo_fijo: { label: "Recargo Fijo / Otros", unit: "$ fijo", description: "Recargo fijo (combustible, fds, administración)" },
 };
 
 type RouteStatus = "planificada" | "en_curso" | "finalizada" | "cancelada";
@@ -230,6 +246,7 @@ function DispatchPage() {
     courier_name: "",
     courier_tracking_number: "",
     courier_status: "En preparación",
+    distance_km: "",
   });
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const allowedWh = warehouses.filter((w) => pws.some((p) => p.party_id === partyId && p.warehouse_id === w.id));
@@ -264,6 +281,7 @@ function DispatchPage() {
           courier_name: form.courier_name.trim() || null,
           courier_tracking_number: form.courier_tracking_number.trim() || null,
           courier_status: form.courier_tracking_number.trim() ? form.courier_status.trim() || "En preparación" : null,
+          distance_km: form.distance_km ? Number(form.distance_km) : null,
           status: "draft",
         })
         .select("id")
@@ -293,6 +311,7 @@ function DispatchPage() {
         courier_name: "",
         courier_tracking_number: "",
         courier_status: "En preparación",
+        distance_km: "",
       }));
       qc.invalidateQueries({ queryKey: ["dispatch_notes"] });
     },
@@ -1615,6 +1634,124 @@ function DispatchPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Sprint 25: Contratos y Tarifarios 3PL
+  const [newRateType, setNewRateType] = useState<ServiceRateType>("storage_pallet");
+  const [newRatePrice, setNewRatePrice] = useState("");
+  const [newRateDesc, setNewRateDesc] = useState("");
+
+  const contractQ = useQuery({
+    queryKey: ["service_contract", editPartyId, activeEntityId],
+    enabled: !!editPartyId && !!edit3pl && !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("service_contracts")
+        .select(`
+          id,
+          entity_id,
+          party_id,
+          billing_frequency,
+          active,
+          notes,
+          created_at,
+          service_rate_lines(id, contract_id, rate_type, unit_price, description, created_at)
+        `)
+        .eq("entity_id", activeEntityId!)
+        .eq("party_id", editPartyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const upsertContractM = useMutation({
+    mutationFn: async (payload: { billing_frequency: BillingFrequency; active: boolean; notes?: string }) => {
+      if (!activeEntityId || !editPartyId) throw new Error("Faltan datos de empresa o cliente");
+      if (contractQ.data?.id) {
+        const { error } = await supabase
+          .from("service_contracts")
+          .update({
+            billing_frequency: payload.billing_frequency,
+            active: payload.active,
+            notes: payload.notes || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", contractQ.data.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("service_contracts")
+          .insert({
+            entity_id: activeEntityId,
+            party_id: editPartyId,
+            billing_frequency: payload.billing_frequency,
+            active: payload.active,
+            notes: payload.notes || null,
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Contrato de servicios actualizado");
+      qc.invalidateQueries({ queryKey: ["service_contract", editPartyId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addRateLineM = useMutation({
+    mutationFn: async () => {
+      if (!contractQ.data?.id) throw new Error("Primero debes activar el contrato");
+      const priceNum = Number(newRatePrice);
+      if (isNaN(priceNum) || priceNum <= 0) throw new Error("Ingresa un precio unitario mayor a cero");
+      const { error } = await supabase
+        .from("service_rate_lines")
+        .insert({
+          contract_id: contractQ.data.id,
+          rate_type: newRateType,
+          unit_price: priceNum,
+          description: newRateDesc.trim() || null,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Línea de tarifa agregada");
+      setNewRatePrice("");
+      setNewRateDesc("");
+      qc.invalidateQueries({ queryKey: ["service_contract", editPartyId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteRateLineM = useMutation({
+    mutationFn: async (rateLineId: string) => {
+      const { error } = await supabase
+        .from("service_rate_lines")
+        .delete()
+        .eq("id", rateLineId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Línea de tarifa eliminada");
+      qc.invalidateQueries({ queryKey: ["service_contract", editPartyId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateGuideDistanceM = useMutation({
+    mutationFn: async ({ id, distance_km }: { id: string; distance_km: number | null }) => {
+      const { error } = await supabase
+        .from("dispatch_notes")
+        .update({ distance_km, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      toast.success("Distancia recorrida actualizada");
+      qc.invalidateQueries({ queryKey: ["dispatch_notes"] });
+      setSelectedGuide((prev: any) => (prev ? { ...prev, distance_km: vars.distance_km } : null));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -1693,7 +1830,12 @@ function DispatchPage() {
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className="text-xs">{new Date(n.departure_at).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" })}</TableCell>
+                          <TableCell className="text-xs">
+                            <div>{new Date(n.departure_at).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" })}</div>
+                            {n.distance_km != null && (
+                              <div className="text-[10px] font-mono text-muted-foreground">{n.distance_km} km</div>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <Badge variant={isAllPicked ? "default" : pickedCount > 0 ? "secondary" : "outline"} className={isAllPicked ? "bg-emerald-600 text-white hover:bg-emerald-700 text-[11px]" : "text-[11px]"}>
                               {pickedCount}/{totalLines}
@@ -1783,6 +1925,17 @@ function DispatchPage() {
                 <div className="space-y-1"><Label>Patente *</Label><Input value={form.vehicle_plate} onChange={(e) => setF("vehicle_plate", e.target.value.toUpperCase())} /></div>
                 <div className="space-y-1"><Label>Salida *</Label><Input type="datetime-local" value={form.departure_at} onChange={(e) => setF("departure_at", e.target.value)} /></div>
                 <div className="space-y-1"><Label>Llegada</Label><Input type="datetime-local" value={form.arrival_at} onChange={(e) => setF("arrival_at", e.target.value)} /></div>
+                <div className="space-y-1">
+                  <Label>Distancia (km, opcional)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="ej. 45.0"
+                    value={form.distance_km}
+                    onChange={(e) => setF("distance_km", e.target.value)}
+                  />
+                </div>
                 <div className="space-y-1 md:col-span-3 grid md:grid-cols-2 gap-4">
                   <div className="space-y-1"><Label>Dirección origen *</Label><Input value={form.origin_address} onChange={(e) => setF("origin_address", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Dirección destino *</Label><Input value={form.destination_address} onChange={(e) => setF("destination_address", e.target.value)} /></div>
@@ -2654,6 +2807,210 @@ function DispatchPage() {
                                 </Button>
                               </div>
                             ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Contrato de Servicios y Tarifario 3PL (Sprint 25) */}
+                      <div className="space-y-3 rounded-md border p-3.5 bg-muted/20">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <Label className="text-xs font-semibold flex items-center gap-1.5">
+                              <Receipt className="h-3.5 w-3.5 text-primary" />
+                              Contrato de Servicios y Tarifario 3PL
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground">
+                              Define la frecuencia de facturación y las tarifas pactadas para almacenaje, picking y transporte.
+                            </p>
+                          </div>
+                          {contractQ.data && (
+                            <Badge variant={contractQ.data.active ? "default" : "secondary"} className={contractQ.data.active ? "bg-emerald-600 text-white" : ""}>
+                              {contractQ.data.active ? "Contrato Activo" : "Inactivo"}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {contractQ.isLoading ? (
+                          <p className="text-[11px] text-muted-foreground">Cargando contrato...</p>
+                        ) : !contractQ.data ? (
+                          <div className="rounded border border-dashed p-3 text-center space-y-2 bg-background/50">
+                            <p className="text-xs text-muted-foreground">Este cliente aún no tiene un contrato de servicios 3PL registrado.</p>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-8 text-xs gap-1.5"
+                              onClick={() => upsertContractM.mutate({ billing_frequency: "mensual", active: true })}
+                              disabled={upsertContractM.isPending}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Crear Contrato de Servicios
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 pt-1">
+                            {/* Configuración de Frecuencia y Estado */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-2.5 rounded bg-background border text-xs">
+                              <div className="space-y-1">
+                                <Label className="text-[11px] text-muted-foreground">Frecuencia de Facturación</Label>
+                                <Select
+                                  value={contractQ.data.billing_frequency}
+                                  onValueChange={(val: BillingFrequency) =>
+                                    upsertContractM.mutate({
+                                      billing_frequency: val,
+                                      active: contractQ.data.active,
+                                      notes: contractQ.data.notes || undefined,
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="mensual">Mensual</SelectItem>
+                                    <SelectItem value="quincenal">Quincenal</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <Label className="text-[11px] text-muted-foreground">Estado del Contrato</Label>
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Button
+                                    type="button"
+                                    variant={contractQ.data.active ? "outline" : "default"}
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() =>
+                                      upsertContractM.mutate({
+                                        billing_frequency: contractQ.data.billing_frequency,
+                                        active: !contractQ.data.active,
+                                        notes: contractQ.data.notes || undefined,
+                                      })
+                                    }
+                                    disabled={upsertContractM.isPending}
+                                  >
+                                    {contractQ.data.active ? "Pausar Contrato" : "Reactivar Contrato"}
+                                  </Button>
+                                  <span className="text-[11px] text-muted-foreground">
+                                    Creado el {new Date(contractQ.data.created_at).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Tabla de Tarifas Pactadas */}
+                            <div className="space-y-2">
+                              <Label className="text-xs font-semibold">Tarifas Pactadas ({contractQ.data.service_rate_lines?.length || 0})</Label>
+
+                              {(!contractQ.data.service_rate_lines || contractQ.data.service_rate_lines.length === 0) ? (
+                                <p className="text-[11px] text-muted-foreground italic py-1">
+                                  Aún no se han definido líneas tarifarias. Agrega las tarifas de almacenaje, picking o transporte a continuación.
+                                </p>
+                              ) : (
+                                <div className="rounded border overflow-x-auto bg-background">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow className="text-[11px]">
+                                        <TableHead className="py-2">Concepto / Tipo</TableHead>
+                                        <TableHead className="py-2">Descripción</TableHead>
+                                        <TableHead className="py-2 text-right">Precio Pactado</TableHead>
+                                        <TableHead className="py-2 text-right w-12" />
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {contractQ.data.service_rate_lines.map((line: any) => {
+                                        const meta = SERVICE_RATE_LABELS[line.rate_type as ServiceRateType] || { label: line.rate_type, unit: "$" };
+                                        return (
+                                          <TableRow key={line.id} className="text-xs">
+                                            <TableCell className="py-2 font-medium">
+                                              <Badge variant="outline" className="text-[10px] mr-1.5 font-normal">
+                                                {meta.label}
+                                              </Badge>
+                                            </TableCell>
+                                            <TableCell className="py-2 text-muted-foreground text-[11px]">
+                                              {line.description || "—"}
+                                            </TableCell>
+                                            <TableCell className="py-2 text-right font-mono font-semibold">
+                                              ${Number(line.unit_price).toLocaleString("es-CL", { minimumFractionDigits: 2 })}
+                                              <span className="text-[10px] text-muted-foreground ml-1 font-sans">{meta.unit}</span>
+                                            </TableCell>
+                                            <TableCell className="py-2 text-right">
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10"
+                                                onClick={() => deleteRateLineM.mutate(line.id)}
+                                                disabled={deleteRateLineM.isPending}
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              )}
+
+                              {/* Formulario Agregar Línea de Tarifa */}
+                              <div className="rounded border p-2.5 bg-background space-y-2">
+                                <Label className="text-[11px] font-semibold text-muted-foreground">+ Agregar Nueva Tarifa</Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-muted-foreground">Tipo de Tarifa</Label>
+                                    <Select value={newRateType} onValueChange={(val: ServiceRateType) => setNewRateType(val)}>
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {(Object.keys(SERVICE_RATE_LABELS) as ServiceRateType[]).map((k) => (
+                                          <SelectItem key={k} value={k} className="text-xs">
+                                            {SERVICE_RATE_LABELS[k].label} ({SERVICE_RATE_LABELS[k].unit})
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-muted-foreground">Precio Unitario ($)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      placeholder="ej. 3500"
+                                      value={newRatePrice}
+                                      onChange={(e) => setNewRatePrice(e.target.value)}
+                                      className="h-8 text-xs font-mono"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-muted-foreground">Glosa / Detalle (opcional)</Label>
+                                    <div className="flex gap-1.5">
+                                      <Input
+                                        placeholder="ej. Tarifa mensual pallet seco"
+                                        value={newRateDesc}
+                                        onChange={(e) => setNewRateDesc(e.target.value)}
+                                        className="h-8 text-xs flex-1"
+                                      />
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        className="h-8 text-xs shrink-0"
+                                        onClick={() => addRateLineM.mutate()}
+                                        disabled={!newRatePrice || addRateLineM.isPending}
+                                      >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Agregar
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -3712,6 +4069,34 @@ function DispatchPage() {
                   <div>
                     <span className="text-muted-foreground block text-[11px]">Fecha Salida</span>
                     <span className="font-semibold text-foreground">{new Date(selectedGuide.departure_at).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" })}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Distancia (km)</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        placeholder="km"
+                        defaultValue={selectedGuide.distance_km ?? ""}
+                        id={`guide-dist-input-${selectedGuide.id}`}
+                        className="h-7 w-20 text-xs font-mono"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2"
+                        disabled={updateGuideDistanceM.isPending}
+                        onClick={() => {
+                          const input = document.getElementById(`guide-dist-input-${selectedGuide.id}`) as HTMLInputElement;
+                          const val = input?.value ? Number(input.value) : null;
+                          updateGuideDistanceM.mutate({ id: selectedGuide.id, distance_km: val });
+                        }}
+                      >
+                        {updateGuideDistanceM.isPending ? "..." : "Guardar"}
+                      </Button>
+                    </div>
                   </div>
                   <div className="col-span-2">
                     <span className="text-muted-foreground block text-[11px]">Dirección Origen</span>
