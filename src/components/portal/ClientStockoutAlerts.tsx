@@ -102,7 +102,7 @@ export function ClientStockoutAlerts({
       if (!companyId) throw new Error("No se ha definido la empresa activa");
       const { data, error } = await supabase.rpc("check_and_create_stockout_alerts", {
         p_company_id: companyId,
-        p_party_id: partyId || undefined,
+        ...(partyId ? { p_party_id: partyId } : {}),
       });
       if (error) throw error;
       return data;

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Package, Truck, ShoppingCart, Search, Printer, Eye, MapPin, Building2, AlertTriangle, ExternalLink, Calendar, Sparkles, TrendingDown, RefreshCw, ShieldCheck } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClientStockoutAlerts } from "@/components/portal/ClientStockoutAlerts";
 
 export const Route = createFileRoute("/_portal/portal")({
