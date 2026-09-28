@@ -33,9 +33,9 @@ ALTER TABLE public.sales_invoices ADD COLUMN IF NOT EXISTS adjustment_of_invoice
 
 ## Criterios de aceptación
 
-- [ ] Generar la factura de un cliente para un período produce un `sales_invoices` + líneas coherentes con su contrato y su consumo real de ese período.
-- [ ] Correr "Generar facturas del período" no duplica facturas si se corre dos veces para el mismo cliente y rango de fechas (debe detectarlo y avisar, no crear una segunda).
-- [ ] Se puede crear una nota de crédito/débito referenciando la factura original.
+- [x] Generar la factura de un cliente para un período produce un `sales_invoices` + líneas coherentes con su contrato y su consumo real de ese período.
+- [x] Correr "Generar facturas del período" no duplica facturas si se corre dos veces para el mismo cliente y rango de fechas (debe detectarlo y avisar, no crear una segunda).
+- [x] Se puede crear una nota de crédito/débito referenciando la factura original.
 
 ---
 

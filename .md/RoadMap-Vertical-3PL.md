@@ -67,8 +67,8 @@ Los 13 sprints (16–28) tienen su archivo de especificación en `.md/`. La **Fa
 | 23 | sprint-23-oms-pedidos-multicanal.md | 16, 20 | ✅ Implementado (Cierra Fase 2) |
 | 24 | sprint-24-portal-cliente.md | 16 | ✅ Implementado (Apertura Fase 3) |
 | 25 | sprint-25-contratos-tarifarios.md | 16 | ✅ Implementado |
-| 26 | sprint-26-facturacion-servicios.md | 6, 25 | ⏳ Siguiente (Facturación de servicios) |
-| 27 | sprint-27-bi-kpis-operacionales.md | 16, 19, 20, 21 |
-| 28 | sprint-28-bi-kpis-comerciales.md | 26, 27 |
+| 26 | sprint-26-facturacion-servicios.md | 6, 25 | ✅ Implementado (Cierra Fase 3) |
+| 27 | sprint-27-bi-kpis-operacionales.md | 16, 19, 20, 21 | ⏳ Siguiente (Apertura Fase 4: Inteligencia y BI) |
+| 28 | sprint-28-bi-kpis-comerciales.md | 26, 27 | |
 
 Dependencias externas que ningún sprint resuelve por sí solo (siguen abiertas, cada una marcada en su archivo): emisor DTE (16/26), habilitación SICEX (17), integración específica de couriers/GPS (22), integración específica de canal de e-commerce (23).

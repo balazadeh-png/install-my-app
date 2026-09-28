@@ -115,3 +115,16 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
   * `service_contracts`: Contrato marco por cliente 3PL (`entity_id`, `party_id`, `billing_frequency`, `active`, `notes`), con unicidad `UNIQUE (entity_id, party_id)` y RLS multiempresa.
   * `service_rate_lines`: Matriz de precios unitarios por servicio pactado (`contract_id`, `rate_type`, `unit_price`, `description`), base para el cálculo automático de liquidaciones y facturación en el Sprint 26.
   * Extensión `distance_km` en `dispatch_notes`: Registro métrico de distancia recorrida en kilómetros para la valorización de traslados bajo el concepto `transport_km`.
+* **Vertical 3PL — Facturación de Servicios y Notas de Ajuste (Cierre Fase 3)**:
+  * Reutilización de `sales_invoices` y `sales_invoice_lines` (Sprint 6): Las facturas de servicios logísticos no se almacenan en tablas separadas, garantizando una contabilidad unificada, emisión fiscal consolidada y posting contable estándar.
+  * Columna `adjustment_of_invoice_id` en `sales_invoices`: Vinculación directa autorreferencial a la factura de venta original para modelar notas de crédito (descuentos, rebajas de tarifa) y notas de débito (cargos adicionales o consumos omitidos) sin crear entidades paralelas.
+  * Server Function `generateServiceInvoiceFn` (`@tanstack/react-start`):
+    * Medición de consumos reales del período (`period_start` a `period_end`):
+      * `storage_pallet` / `storage_m2`: Saldos de custodia del cliente en `stock_balances`.
+      * `picking_unit`: Sumatoria de unidades de líneas con `picked = true` en guías del período.
+      * `transport_km`: Sumatoria de `distance_km` en guías del período.
+      * `recargo_fijo`: Cargo unitario completo estipulado en el tarifario.
+    * Control de duplicidad: Verificación de clave estructurada en `memo` (`Servicios 3PL [period_start al period_end]`) para evitar doble cobro.
+    * Emisión de factura en estado borrador (`draft`) con cálculo de IVA del 19% y líneas de venta detalladas por concepto.
+  * Pestaña "Facturación 3PL" en UI: Panel con selector de períodos, liquidación masiva en lote, resumen KPI, monitoreo de estado por contrato, historial con visor de conceptos e interfaz para emitir notas de ajuste asociadas.
+

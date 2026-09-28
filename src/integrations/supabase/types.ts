@@ -2970,6 +2970,7 @@ export type Database = {
       }
       sales_invoices: {
         Row: {
+          adjustment_of_invoice_id: string | null
           business_unit_id: string | null
           cost_center_id: string | null
           created_at: string
@@ -2992,6 +2993,7 @@ export type Database = {
           warehouse_id: string | null
         }
         Insert: {
+          adjustment_of_invoice_id?: string | null
           business_unit_id?: string | null
           cost_center_id?: string | null
           created_at?: string
@@ -3014,6 +3016,7 @@ export type Database = {
           warehouse_id?: string | null
         }
         Update: {
+          adjustment_of_invoice_id?: string | null
           business_unit_id?: string | null
           cost_center_id?: string | null
           created_at?: string
@@ -3036,6 +3039,13 @@ export type Database = {
           warehouse_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_invoices_adjustment_of_invoice_id_fkey"
+            columns: ["adjustment_of_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_invoices_business_unit_id_fkey"
             columns: ["business_unit_id"]

@@ -2,6 +2,35 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 26: Facturación de Servicios 3PL y Notas de Ajuste] - 2026-09-27
+
+### Añadido
+* **Migración SQL para Facturación Unificada y Ajustes** ([`supabase/migrations/20260927000025_sprint26_facturacion_servicios.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000025_sprint26_facturacion_servicios.sql)):
+  * Agregada columna `adjustment_of_invoice_id uuid REFERENCES public.sales_invoices(id) ON DELETE SET NULL` a la tabla `sales_invoices`.
+  * Índice `idx_sales_invoices_adjustment_of_invoice_id` para búsquedas eficientes de trazabilidad entre facturas y sus notas de crédito/débito de ajuste.
+  * Reutilización directa del modelo existente de `sales_invoices` y `sales_invoice_lines` del Sprint 6 sin duplicar esquemas de facturación ni crear subsistemas paralelos.
+* **Función Servidor de Liquidación Automática de Servicios 3PL** ([`src/lib/billing3pl.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/billing3pl.functions.ts)):
+  * `generateServiceInvoiceFn`: Server Function protegida con `requireSupabaseAuth` que automatiza el cálculo de liquidación para un cliente 3PL y un rango de fechas (`period_start` a `period_end`).
+  * Medición de consumos reales:
+    * **Almacenaje por Pallet / m²**: Saldo de stock en custodia desde `stock_balances` al cierre de período.
+    * **Picking**: Conteo de unidades desde `dispatch_note_lines` con `picked=true` en despachos realizados dentro del período.
+    * **Transporte**: Suma de `distance_km` recorridos en guías de despacho durante el período.
+    * **Recargo Fijo**: Aplicación de cargos fijos operacionales estipulados en contrato.
+  * Prevención estricta de duplicados mediante clave estructurada de período en `memo` (`"Servicios 3PL [period_start al period_end]"`), evitando doble facturación.
+  * Creación de factura en `sales_invoices` en estado borrador (`draft`) con cálculo de IVA (19%) y líneas detalladas en `sales_invoice_lines`.
+* **Pestaña de Facturación 3PL en Frontend ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Pestaña interactiva "Facturación 3PL" con selector de rango de fechas de liquidación.
+  * Botón "Liquidar Período en Lote" con ejecución asíncrona sobre todos los contratos 3PL activos, reporte de éxitos, omisiones y errores.
+  * Cuatro tarjetas métricas KPI: contratos vigentes, documentos totales, facturación acumulada 3PL y notas de ajuste emitidas.
+  * Tabla de contratos activos con visualización de estado en el período seleccionado (Facturado con enlace / Pendiente) y botón para facturación individual inmediata.
+  * Tabla de historial de facturas 3PL y notas de ajuste con desglose de importes netos, IVA, totales y estado.
+  * Modal de inspección de detalle de factura con tabla desglosada de conceptos liquidados (pallets, unidades pickeadas, km, tarifas unitarias y totales).
+  * Modal para emitir Notas de Ajuste (Crédito o Débito) referenciando la factura original vía `adjustment_of_invoice_id`, con cálculo dinámico de impuestos e inserción en tabla de ventas.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Tipado de `adjustment_of_invoice_id` en `Row`, `Insert`, `Update` y `Relationships` de `sales_invoices`.
+
+---
+
 ## [Sprint 25: Contratos y Tarifarios para Clientes 3PL] - 2026-09-27
 
 ### Añadido

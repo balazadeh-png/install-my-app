@@ -326,3 +326,26 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Registro de la distancia en kilómetros (`distance_km`) tanto en el formulario de emisión de guías como en el modal de detalle y picking de la guía.
   * Permite respaldar y auditar el cobro por kilómetro (`transport_km`) para su liquidación automatizada en el Sprint 26.
 
+---
+
+## 24. Vertical 3PL — Facturación de Servicios y Notas de Ajuste ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
+* **Modelo Unificado de Facturación y Ajustes (`sales_invoices`, `sales_invoice_lines`)**:
+  * Reutilización de la infraestructura central de facturas de venta del ERP (Sprint 6), integrando las liquidaciones 3PL directamente en el Libro de Ventas y el ciclo contable sin crear tablas de facturación redundantes.
+  * Nueva columna `adjustment_of_invoice_id` en `sales_invoices` (FK autorreferencial): Permite registrar notas de crédito (descuentos, rebajas de tarifa) o notas de débito (cargos adicionales o consumos no liquidados) enlazadas formalmente a la factura original.
+* **Motor Server Function de Liquidación Automática (`generateServiceInvoiceFn`)**:
+  * Función de servidor protegida con autenticación que recibe la empresa, cliente 3PL y rango de fechas (`period_start` a `period_end`).
+  * Mide los consumos reales contrastándolos con las tarifas pactadas en `service_rate_lines`:
+    * **Almacenaje**: Saldos de inventario en custodia al cierre de período extraídos de `stock_balances`.
+    * **Picking**: Conteo de unidades efectivamente preparadas en bodega (`picked = true`) en guías despachadas durante el rango.
+    * **Transporte**: Sumatoria de distancias en kilómetros (`distance_km`) de los traslados del período.
+    * **Recargos Fijos**: Incorporación de cargos operativos fijos definidos en contrato.
+  * Prevención rigurosa de duplicados mediante clave estructurada de período en `memo` (`Servicios 3PL [period_start al period_end]`), evitando facturaciones redundantes.
+  * Emisión de la factura en estado borrador (`draft`) con cálculo de IVA (19%) y desglose de líneas de venta.
+* **Pestaña "Facturación 3PL" en Pantalla de Despacho**:
+  * Controles de período (fechas Desde/Hasta) con disparador de liquidación masiva en lote para todos los contratos vigentes.
+  * Tarjetas KPI de control: contratos activos, documentos emitidos, total facturado y notas de ajuste registradas.
+  * Tabla de estado de contratos 3PL con indicación visual de si el cliente ya fue liquidado en el período y botón de liquidación individual.
+  * Tabla de historial de documentos emitidos con visualización de estado borrador/emitida, desglose neto, IVA y total.
+  * Modal interactivo para inspeccionar el desglose de conceptos liquidados por cada factura.
+  * Modal para emitir Notas de Ajuste vinculadas a cualquier factura emitida, permitiendo ingresar motivo y monto neto con recálculo dinámico de IVA y total.
+

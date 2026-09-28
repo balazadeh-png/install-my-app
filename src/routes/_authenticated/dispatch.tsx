@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveEntity } from "@/context/ActiveEntityContext";
+import { generateServiceInvoiceFn } from "@/lib/billing3pl.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Truck, Users, UserPlus, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed, Upload, Key, Copy, RefreshCw, ShoppingCart, FileText, Receipt } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Truck, Users, UserPlus, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed, Upload, Key, Copy, RefreshCw, ShoppingCart, FileText, Receipt, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
@@ -1752,6 +1754,213 @@ function DispatchPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Sprint 26: Facturación de Servicios 3PL
+  const generateInvoiceServerFn = useServerFn(generateServiceInvoiceFn);
+
+  const [billingPeriodStart, setBillingPeriodStart] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
+  });
+  const [billingPeriodEnd, setBillingPeriodEnd] = useState(() => {
+    return new Date().toISOString().split("T")[0];
+  });
+  const [selectedInvoiceForAdjustment, setSelectedInvoiceForAdjustment] = useState<any | null>(null);
+  const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState<any | null>(null);
+  const [adjustmentReason, setAdjustmentReason] = useState("");
+  const [adjustmentAmount, setAdjustmentAmount] = useState<number>(0);
+  const [adjustmentType, setAdjustmentType] = useState<"credit" | "debit">("credit");
+  const [isGeneratingBatch, setIsGeneratingBatch] = useState(false);
+  const [singleGeneratingPartyId, setSingleGeneratingPartyId] = useState<string | null>(null);
+
+  const allServiceContractsQ = useQuery({
+    queryKey: ["all_service_contracts", activeEntityId],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("service_contracts")
+        .select(`
+          id,
+          entity_id,
+          party_id,
+          billing_frequency,
+          active,
+          notes,
+          created_at,
+          parties:party_id (id, name, tax_id),
+          service_rate_lines (id, contract_id, rate_type, unit_price, description)
+        `)
+        .eq("entity_id", activeEntityId!)
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const serviceInvoicesQ = useQuery({
+    queryKey: ["service_invoices_3pl", activeEntityId],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales_invoices")
+        .select(`
+          id,
+          entity_id,
+          party_id,
+          invoice_number,
+          issue_date,
+          due_date,
+          currency_code,
+          subtotal_amount,
+          tax_amount,
+          total_amount,
+          memo,
+          status,
+          adjustment_of_invoice_id,
+          created_at,
+          parties:party_id (id, name, tax_id),
+          sales_invoice_lines (id, description, qty, unit_price, tax_rate, line_total)
+        `)
+        .eq("entity_id", activeEntityId!)
+        .or("memo.ilike.%Servicios 3PL%,adjustment_of_invoice_id.not.is.null")
+        .order("issue_date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const generateSingleInvoiceM = useMutation({
+    mutationFn: async (partyId: string) => {
+      if (!activeEntityId) throw new Error("Entidad activa no seleccionada");
+      setSingleGeneratingPartyId(partyId);
+      return await generateInvoiceServerFn({
+        data: {
+          entity_id: activeEntityId,
+          party_id: partyId,
+          period_start: billingPeriodStart,
+          period_end: billingPeriodEnd,
+        },
+      });
+    },
+    onSuccess: (res) => {
+      setSingleGeneratingPartyId(null);
+      toast.success(`Factura 3PL borrador generada para ${res.party_name} por $${res.total.toLocaleString("es-CL")}`);
+      qc.invalidateQueries({ queryKey: ["service_invoices_3pl", activeEntityId] });
+    },
+    onError: (err: any) => {
+      setSingleGeneratingPartyId(null);
+      toast.error(err.message || "Error al liquidar servicio 3PL");
+    },
+  });
+
+  const handleBatchGenerateInvoices = async () => {
+    const contracts = allServiceContractsQ.data || [];
+    if (contracts.length === 0) {
+      toast.info("No hay contratos activos para facturar");
+      return;
+    }
+    setIsGeneratingBatch(true);
+    let successCount = 0;
+    let skippedCount = 0;
+    const errors: string[] = [];
+
+    for (const c of contracts) {
+      try {
+        await generateInvoiceServerFn({
+          data: {
+            entity_id: activeEntityId!,
+            party_id: c.party_id,
+            period_start: billingPeriodStart,
+            period_end: billingPeriodEnd,
+          },
+        });
+        successCount++;
+      } catch (e: any) {
+        if (e.message?.includes("Ya existe una factura") || e.message?.includes("No se registró consumo")) {
+          skippedCount++;
+        } else {
+          errors.push(`${(c.parties as any)?.name || c.party_id}: ${e.message}`);
+        }
+      }
+    }
+
+    setIsGeneratingBatch(false);
+    qc.invalidateQueries({ queryKey: ["service_invoices_3pl", activeEntityId] });
+
+    if (successCount > 0) {
+      toast.success(`Facturación masiva completada: ${successCount} factura(s) borrador generada(s).`);
+    }
+    if (skippedCount > 0) {
+      toast.info(`${skippedCount} cliente(s) omitido(s) (ya facturados o sin consumos en el período).`);
+    }
+    if (errors.length > 0) {
+      toast.error(`Errores (${errors.length}): ${errors[0]}`);
+    }
+  };
+
+  const createAdjustmentInvoiceM = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId || !selectedInvoiceForAdjustment) throw new Error("Faltan datos de la factura original");
+      if (!adjustmentAmount || adjustmentAmount <= 0) throw new Error("El monto del ajuste debe ser mayor a 0");
+      if (!adjustmentReason.trim()) throw new Error("Debe indicar el motivo del ajuste");
+
+      const isCredit = adjustmentType === "credit";
+      const subtotal = Number(adjustmentAmount);
+      const tax = Math.round(subtotal * 0.19);
+      const total = subtotal + tax;
+
+      const todayStr = new Date().toISOString().split("T")[0];
+      const prefix = isCredit ? "NC-AJUSTE" : "ND-AJUSTE";
+      const folio = `${prefix}-${Date.now().toString().slice(-6)}`;
+
+      const memoText = `Nota de Ajuste (${isCredit ? "Crédito / Descuento" : "Débito / Recargo"}) a Factura #${selectedInvoiceForAdjustment.invoice_number || selectedInvoiceForAdjustment.id.slice(0, 8)}: ${adjustmentReason.trim()}`;
+
+      const { data: inv, error: invErr } = await supabase
+        .from("sales_invoices")
+        .insert({
+          entity_id: activeEntityId,
+          party_id: selectedInvoiceForAdjustment.party_id,
+          invoice_number: folio,
+          issue_date: todayStr,
+          status: "draft",
+          currency_code: selectedInvoiceForAdjustment.currency_code || "CLP",
+          exchange_rate: 1.0,
+          subtotal_amount: subtotal,
+          tax_amount: tax,
+          total_amount: total,
+          memo: memoText,
+          adjustment_of_invoice_id: selectedInvoiceForAdjustment.id,
+        })
+        .select()
+        .single();
+
+      if (invErr) throw invErr;
+
+      const { error: lineErr } = await supabase
+        .from("sales_invoice_lines" as any)
+        .insert({
+          sales_invoice_id: inv.id,
+          description: `Ajuste 3PL (${isCredit ? "Descuento / Crédito" : "Cargo Adicional / Débito"}): ${adjustmentReason.trim()}`,
+          qty: 1,
+          unit_price: subtotal,
+          tax_rate: 19,
+          line_total: subtotal,
+        });
+
+      if (lineErr) throw lineErr;
+
+      return inv;
+    },
+    onSuccess: () => {
+      toast.success("Nota de ajuste creada exitosamente en borrador");
+      setSelectedInvoiceForAdjustment(null);
+      setAdjustmentReason("");
+      setAdjustmentAmount(0);
+      qc.invalidateQueries({ queryKey: ["service_invoices_3pl", activeEntityId] });
+    },
+    onError: (err: any) => toast.error(err.message || "Error al crear nota de ajuste"),
+  });
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -1765,7 +1974,7 @@ function DispatchPage() {
       </div>
 
       <Tabs defaultValue="notes">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 h-auto gap-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 h-auto gap-1">
           <TabsTrigger value="notes"><Truck className="h-4 w-4 mr-1" />Guías</TabsTrigger>
           <TabsTrigger value="new"><Plus className="h-4 w-4 mr-1" />Nueva guía</TabsTrigger>
           <TabsTrigger value="orders"><Package className="h-4 w-4 mr-1" />Pedidos OMS</TabsTrigger>
@@ -1774,6 +1983,7 @@ function DispatchPage() {
           <TabsTrigger value="reception"><ArrowDownToLine className="h-4 w-4 mr-1" />Recepción WMS</TabsTrigger>
           <TabsTrigger value="traceability"><Layers className="h-4 w-4 mr-1" />Trazabilidad</TabsTrigger>
           <TabsTrigger value="clients"><Users className="h-4 w-4 mr-1" />Clientes 3PL</TabsTrigger>
+          <TabsTrigger value="billing"><Receipt className="h-4 w-4 mr-1" />Facturación 3PL</TabsTrigger>
           <TabsTrigger value="foreign_trade"><Globe className="h-4 w-4 mr-1" />Comex (SICEX)</TabsTrigger>
         </TabsList>
 
@@ -3019,6 +3229,368 @@ function DispatchPage() {
 
                   <Button onClick={() => savePartyM.mutate()} disabled={savePartyM.isPending}>Guardar</Button>
                 </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ------------------------------------------------------------- */}
+        {/* PESTAÑA: FACTURACIÓN DE SERVICIOS 3PL (SPRINT 26)             */}
+        {/* ------------------------------------------------------------- */}
+        <TabsContent value="billing" className="space-y-6">
+          {/* Header y Control de Período */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border bg-card/60 backdrop-blur-sm shadow-sm">
+            <div>
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Receipt className="h-5 w-5 text-primary" />
+                Liquidación y Facturación de Servicios 3PL
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Cálculo automatizado de consumos reales (almacenaje, picking y transporte) con emisión a facturas de venta SII.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5 text-xs">
+                <Label htmlFor="period_start" className="text-xs text-muted-foreground font-normal">Desde:</Label>
+                <Input
+                  id="period_start"
+                  type="date"
+                  value={billingPeriodStart}
+                  onChange={(e) => setBillingPeriodStart(e.target.value)}
+                  className="h-8 w-36 text-xs"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <Label htmlFor="period_end" className="text-xs text-muted-foreground font-normal">Hasta:</Label>
+                <Input
+                  id="period_end"
+                  type="date"
+                  value={billingPeriodEnd}
+                  onChange={(e) => setBillingPeriodEnd(e.target.value)}
+                  className="h-8 w-36 text-xs"
+                />
+              </div>
+              <Button
+                size="sm"
+                onClick={handleBatchGenerateInvoices}
+                disabled={isGeneratingBatch || !allServiceContractsQ.data?.length}
+                className="gap-1.5 bg-primary text-primary-foreground h-8 text-xs font-medium shadow-sm hover:shadow"
+              >
+                <Zap className={`h-3.5 w-3.5 ${isGeneratingBatch ? "animate-spin text-amber-300" : "text-amber-400 fill-amber-400"}`} />
+                {isGeneratingBatch ? "Liquidando..." : "Liquidar Período en Lote"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  qc.invalidateQueries({ queryKey: ["all_service_contracts", activeEntityId] });
+                  qc.invalidateQueries({ queryKey: ["service_invoices_3pl", activeEntityId] });
+                }}
+                className="h-8 w-8 p-0"
+                title="Actualizar datos"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Tarjetas KPI */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="border bg-card/50">
+              <CardHeader className="p-4 pb-2">
+                <CardDescription className="text-xs">Contratos 3PL Vigentes</CardDescription>
+                <CardTitle className="text-2xl font-bold flex items-center justify-between">
+                  <span>{(allServiceContractsQ.data ?? []).length}</span>
+                  <FileText className="h-5 w-5 text-muted-foreground/60" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 text-[11px] text-muted-foreground">
+                Clientes activos con tarifario configurado
+              </CardContent>
+            </Card>
+
+            <Card className="border bg-card/50">
+              <CardHeader className="p-4 pb-2">
+                <CardDescription className="text-xs">Documentos Emitidos (Total)</CardDescription>
+                <CardTitle className="text-2xl font-bold flex items-center justify-between text-blue-600 dark:text-blue-400">
+                  <span>{(serviceInvoicesQ.data ?? []).length}</span>
+                  <Receipt className="h-5 w-5 text-blue-500/60" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 text-[11px] text-muted-foreground">
+                Facturas y notas de ajuste registradas
+              </CardContent>
+            </Card>
+
+            <Card className="border bg-card/50">
+              <CardHeader className="p-4 pb-2">
+                <CardDescription className="text-xs">Facturación Acumulada 3PL</CardDescription>
+                <CardTitle className="text-2xl font-bold flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                  <span>
+                    ${(serviceInvoicesQ.data ?? [])
+                      .filter((i: any) => !i.adjustment_of_invoice_id)
+                      .reduce((sum: number, i: any) => sum + (Number(i.total_amount) || 0), 0)
+                      .toLocaleString("es-CL")}
+                  </span>
+                  <CheckCheck className="h-5 w-5 text-emerald-500/60" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 text-[11px] text-muted-foreground">
+                Monto bruto facturado en servicios logísticos
+              </CardContent>
+            </Card>
+
+            <Card className="border bg-card/50">
+              <CardHeader className="p-4 pb-2">
+                <CardDescription className="text-xs">Notas de Ajuste</CardDescription>
+                <CardTitle className="text-2xl font-bold flex items-center justify-between text-amber-600 dark:text-amber-400">
+                  <span>{(serviceInvoicesQ.data ?? []).filter((i: any) => i.adjustment_of_invoice_id).length}</span>
+                  <Edit className="h-5 w-5 text-amber-500/60" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 text-[11px] text-muted-foreground">
+                Ajustes o notas de crédito/débito vinculadas
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tabla 1: Estado de Liquidación por Cliente para el Período */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Clientes con Contrato 3PL y Estado en el Período [{billingPeriodStart} al {billingPeriodEnd}]
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Consulte el tarifario de cada cliente o ejecute la liquidación individual inmediata.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {allServiceContractsQ.isLoading ? (
+                <p className="text-xs text-muted-foreground py-6 text-center">Cargando contratos 3PL...</p>
+              ) : (allServiceContractsQ.data ?? []).length === 0 ? (
+                <div className="text-center py-8 space-y-2">
+                  <p className="text-sm font-medium">No hay clientes con contratos 3PL activos.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Configure las tarifas en la pestaña <strong>"Clientes 3PL"</strong> habilitando la opción "Cliente 3PL".
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cliente / RUT</TableHead>
+                      <TableHead>Frecuencia</TableHead>
+                      <TableHead>Tarifas Configuradas</TableHead>
+                      <TableHead>Estado Período</TableHead>
+                      <TableHead className="text-right">Acción</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(allServiceContractsQ.data ?? []).map((contract: any) => {
+                      const party = contract.parties;
+                      const periodKey = `[${billingPeriodStart} al ${billingPeriodEnd}]`;
+                      const existingInv = (serviceInvoicesQ.data ?? []).find(
+                        (inv: any) =>
+                          inv.party_id === contract.party_id &&
+                          inv.memo?.includes(periodKey) &&
+                          inv.status !== "cancelled"
+                      );
+                      const isGeneratingThis = singleGeneratingPartyId === contract.party_id;
+
+                      return (
+                        <TableRow key={contract.id}>
+                          <TableCell>
+                            <div className="font-medium text-xs text-foreground">{party?.name || "Sin nombre"}</div>
+                            {party?.tax_id && <div className="text-[11px] text-muted-foreground font-mono">{party.tax_id}</div>}
+                          </TableCell>
+                          <TableCell className="text-xs capitalize">
+                            <Badge variant="outline" className="text-[11px] font-normal">
+                              {BILLING_FREQUENCY_LABELS[contract.billing_frequency as BillingFrequency] || contract.billing_frequency}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1 max-w-md">
+                              {(contract.service_rate_lines || []).map((r: any) => (
+                                <Badge key={r.id} variant="secondary" className="text-[10px] py-0 px-1.5 font-normal">
+                                  {SERVICE_RATE_LABELS[r.rate_type as ServiceRateType]?.label || r.rate_type}: ${Number(r.unit_price).toLocaleString("es-CL")}
+                                </Badge>
+                              ))}
+                              {(!contract.service_rate_lines || contract.service_rate_lines.length === 0) && (
+                                <span className="text-[11px] text-amber-600 italic">Sin tarifas</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {existingInv ? (
+                              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 gap-1 text-[11px]">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Facturado ({existingInv.invoice_number ? `#${existingInv.invoice_number}` : "Borrador"})
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-amber-600 border-amber-500/30 bg-amber-500/10 text-[11px]">
+                                Pendiente
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {existingInv ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => setSelectedInvoiceForDetails(existingInv)}
+                              >
+                                <Eye className="h-3 w-3" /> Ver Factura
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="h-7 text-xs gap-1"
+                                onClick={() => generateSingleInvoiceM.mutate(contract.party_id)}
+                                disabled={isGeneratingThis || generateSingleInvoiceM.isPending}
+                              >
+                                <Zap className={`h-3 w-3 text-amber-300 ${isGeneratingThis ? "animate-spin" : ""}`} />
+                                {isGeneratingThis ? "Facturando..." : "Facturar Período"}
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Tabla 2: Historial de Facturas de Servicio 3PL y Notas de Ajuste */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Receipt className="h-4 w-4 text-primary" />
+                    Historial de Facturas 3PL y Notas de Ajuste
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Registro de facturas en tabla unificada de ventas (EasyERP) con soporte para notas de ajuste y créditos.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {serviceInvoicesQ.isLoading ? (
+                <p className="text-xs text-muted-foreground py-6 text-center">Cargando facturas de servicio...</p>
+              ) : (serviceInvoicesQ.data ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground py-8 text-center">No se han emitido facturas de servicio 3PL aún.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Folio / Doc</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Fecha Emisión</TableHead>
+                      <TableHead>Detalle / Glosa</TableHead>
+                      <TableHead className="text-right">Neto</TableHead>
+                      <TableHead className="text-right">IVA (19%)</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(serviceInvoicesQ.data ?? []).map((inv: any) => {
+                      const isAdjustment = !!inv.adjustment_of_invoice_id;
+                      const party = inv.parties;
+                      return (
+                        <TableRow key={inv.id} className={isAdjustment ? "bg-amber-500/[0.03]" : ""}>
+                          <TableCell className="font-mono text-xs font-semibold">
+                            {inv.invoice_number || `ID ${inv.id.slice(0, 8)}`}
+                          </TableCell>
+                          <TableCell>
+                            {isAdjustment ? (
+                              <Badge variant="outline" className="text-amber-600 border-amber-500/30 bg-amber-500/10 text-[10px]">
+                                Nota de Ajuste
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">
+                                Factura 3PL
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium text-xs">{party?.name || "—"}</div>
+                            {party?.tax_id && <div className="text-[10px] text-muted-foreground font-mono">{party.tax_id}</div>}
+                          </TableCell>
+                          <TableCell className="text-xs">{inv.issue_date}</TableCell>
+                          <TableCell className="text-xs max-w-xs truncate" title={inv.memo || ""}>
+                            {inv.memo || "Servicios Logísticos 3PL"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            ${Number(inv.subtotal_amount || 0).toLocaleString("es-CL")}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                            ${Number(inv.tax_amount || 0).toLocaleString("es-CL")}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs font-bold text-foreground">
+                            ${Number(inv.total_amount || 0).toLocaleString("es-CL")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={
+                                inv.status === "draft"
+                                  ? "text-blue-600 border-blue-500/30 bg-blue-500/10 text-[10px]"
+                                  : inv.status === "posted"
+                                  ? "text-emerald-600 border-emerald-500/30 bg-emerald-500/10 text-[10px]"
+                                  : "text-muted-foreground text-[10px]"
+                              }
+                            >
+                              {inv.status === "draft" ? "Borrador" : inv.status === "posted" ? "Emitida" : inv.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs px-2"
+                                onClick={() => setSelectedInvoiceForDetails(inv)}
+                                title="Ver desglose y líneas"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                              {!isAdjustment && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs px-2 gap-1 text-amber-600 hover:text-amber-700"
+                                  onClick={() => {
+                                    setSelectedInvoiceForAdjustment(inv);
+                                    setAdjustmentAmount(0);
+                                    setAdjustmentReason("");
+                                    setAdjustmentType("credit");
+                                  }}
+                                  title="Emitir nota de crédito o ajuste"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                  Ajuste
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
@@ -5858,6 +6430,189 @@ function DispatchPage() {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO: DETALLE DE FACTURA / LÍNEAS DE CONSUMO 3PL */}
+      <Dialog open={!!selectedInvoiceForDetails} onOpenChange={(open) => !open && setSelectedInvoiceForDetails(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              Detalle de Factura {selectedInvoiceForDetails?.invoice_number ? `#${selectedInvoiceForDetails.invoice_number}` : ""}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Glosa: {selectedInvoiceForDetails?.memo}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedInvoiceForDetails && (
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-muted/40 rounded-lg">
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Cliente</span>
+                  <span className="font-semibold text-foreground">{selectedInvoiceForDetails.parties?.name || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Fecha Emisión</span>
+                  <span className="font-semibold text-foreground">{selectedInvoiceForDetails.issue_date}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Estado</span>
+                  <Badge variant="outline" className="text-[10px] mt-0.5">
+                    {selectedInvoiceForDetails.status === "draft" ? "Borrador (editable en Ventas)" : selectedInvoiceForDetails.status}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Moneda</span>
+                  <span className="font-semibold text-foreground">{selectedInvoiceForDetails.currency_code || "CLP"}</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-xs mb-2">Desglose de Conceptos Facturados</h4>
+                <div className="border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/30">
+                        <TableHead>Concepto / Servicio</TableHead>
+                        <TableHead className="text-right">Cant.</TableHead>
+                        <TableHead className="text-right">Tarifa Unit.</TableHead>
+                        <TableHead className="text-right">Total Neto</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(selectedInvoiceForDetails.sales_invoice_lines || []).map((l: any) => (
+                        <TableRow key={l.id}>
+                          <TableCell className="font-medium">{l.description}</TableCell>
+                          <TableCell className="text-right font-mono">{Number(l.qty).toLocaleString("es-CL")}</TableCell>
+                          <TableCell className="text-right font-mono">${Number(l.unit_price).toLocaleString("es-CL")}</TableCell>
+                          <TableCell className="text-right font-mono font-semibold">${Number(l.line_total).toLocaleString("es-CL")}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <div className="w-56 space-y-1 text-right text-xs">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal Neto:</span>
+                    <span className="font-mono">${Number(selectedInvoiceForDetails.subtotal_amount || 0).toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>IVA (19%):</span>
+                    <span className="font-mono">${Number(selectedInvoiceForDetails.tax_amount || 0).toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-sm text-foreground pt-1 border-t">
+                    <span>Total Factura:</span>
+                    <span className="font-mono">${Number(selectedInvoiceForDetails.total_amount || 0).toLocaleString("es-CL")}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setSelectedInvoiceForDetails(null)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO: CREAR NOTA DE AJUSTE (CRÉDITO O DÉBITO) */}
+      <Dialog open={!!selectedInvoiceForAdjustment} onOpenChange={(open) => !open && setSelectedInvoiceForAdjustment(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Edit className="h-5 w-5 text-amber-500" />
+              Emitir Nota de Ajuste a Factura
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Ajuste de tarifa o consumos vinculado a la Factura #{selectedInvoiceForAdjustment?.invoice_number || selectedInvoiceForAdjustment?.id.slice(0, 8)}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedInvoiceForAdjustment && (
+            <div className="space-y-4 text-xs py-2">
+              <div className="p-3 bg-muted/40 rounded-lg space-y-1 text-xs">
+                <div><span className="text-muted-foreground">Cliente: </span><strong>{selectedInvoiceForAdjustment.parties?.name}</strong></div>
+                <div><span className="text-muted-foreground">Total Factura Original: </span><strong className="font-mono">${Number(selectedInvoiceForAdjustment.total_amount || 0).toLocaleString("es-CL")}</strong></div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tipo de Ajuste</Label>
+                <Select value={adjustmentType} onValueChange={(v: "credit" | "debit") => setAdjustmentType(v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="credit">Nota de Crédito (Descuento / Reintegro de tarifa)</SelectItem>
+                    <SelectItem value="debit">Nota de Débito (Cobro Adicional / Consumo no liquidado)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="adj_amount" className="text-xs">Monto Neto del Ajuste ($ CLP)</Label>
+                <Input
+                  id="adj_amount"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={adjustmentAmount || ""}
+                  onChange={(e) => setAdjustmentAmount(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  placeholder="Ej: 45000"
+                  className="h-8 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="adj_reason" className="text-xs">Motivo o Justificación del Ajuste</Label>
+                <Input
+                  id="adj_reason"
+                  type="text"
+                  value={adjustmentReason}
+                  onChange={(e) => setAdjustmentReason(e.target.value)}
+                  placeholder="Ej: Descuento por 3 pallets no utilizados en semana 2"
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              {adjustmentAmount > 0 && (
+                <div className="p-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs space-y-1">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Monto Neto:</span>
+                    <span className="font-mono">${adjustmentAmount.toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>IVA (19%):</span>
+                    <span className="font-mono">${Math.round(adjustmentAmount * 0.19).toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-foreground border-t pt-1">
+                    <span>Total {adjustmentType === "credit" ? "Nota de Crédito" : "Nota de Débito"}:</span>
+                    <span className="font-mono">${Math.round(adjustmentAmount * 1.19).toLocaleString("es-CL")}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="pt-2">
+            <Button variant="outline" size="sm" onClick={() => setSelectedInvoiceForAdjustment(null)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={() => createAdjustmentInvoiceM.mutate()}
+              disabled={createAdjustmentInvoiceM.isPending || !adjustmentAmount || !adjustmentReason.trim()}
+            >
+              {createAdjustmentInvoiceM.isPending ? "Generando..." : "Crear Nota de Ajuste"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
