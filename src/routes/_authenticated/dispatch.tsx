@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Truck, Users, UserPlus, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed, Upload, Key, Copy, RefreshCw, ShoppingCart, FileText, Receipt, Zap } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Truck, Users, UserPlus, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed, Upload, Key, Copy, RefreshCw, ShoppingCart, FileText, Receipt, Zap, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
@@ -1963,14 +1963,22 @@ function DispatchPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-1" />Volver</Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="h-6 w-6" />Operaciones 3PL, WMS & TMS</h1>
-          <p className="text-sm text-muted-foreground">Guías de despacho (Res. 154 SII), OMS pedidos multicanal, WMS picking/packing, TMS rutas y flota propia, trazabilidad y Comercio Exterior (SICEX).</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-1" />Volver</Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><Truck className="h-6 w-6" />Operaciones 3PL, WMS & TMS</h1>
+            <p className="text-sm text-muted-foreground">Guías de despacho (Res. 154 SII), OMS pedidos multicanal, WMS picking/packing, TMS rutas y flota propia, trazabilidad y Comercio Exterior (SICEX).</p>
+          </div>
         </div>
+        <Button variant="outline" size="sm" asChild className="gap-1.5 self-start sm:self-auto text-xs font-medium">
+          <Link to="/dashboard-3pl">
+            <TrendingUp className="h-3.5 w-3.5 text-primary" />
+            Dashboard BI 3PL
+          </Link>
+        </Button>
       </div>
 
       <Tabs defaultValue="notes">

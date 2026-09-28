@@ -33,10 +33,10 @@ CREATE TABLE IF NOT EXISTS public.operational_cost_inputs (
 
 ## Criterios de aceptación
 
-- [ ] El dashboard muestra OTIF general y por cliente para un rango de fechas.
-- [ ] Muestra una lista de guías en alerta de SLA (draft hace más de N días).
-- [ ] Si se ingresa `capacity_m3` en al menos una bodega, muestra su % de ocupación; si no, lo omite sin romper la pantalla.
-- [ ] El costo por unidad es opcional y solo aparece si se cargó un `operational_cost_inputs` para el período consultado.
+- [x] El dashboard muestra OTIF general y por cliente para un rango de fechas.
+- [x] Muestra una lista de guías en alerta de SLA (draft hace más de N días).
+- [x] Si se ingresa `capacity_m3` en al menos una bodega, muestra su % de ocupación; si no, lo omite sin romper la pantalla.
+- [x] El costo por unidad es opcional y solo aparece si se cargó un `operational_cost_inputs` para el período consultado.
 
 ---
 

@@ -2034,6 +2034,47 @@ export type Database = {
           },
         ]
       }
+      operational_cost_inputs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          id: string
+          notes: string | null
+          period_end: string
+          period_start: string
+          total_cost: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          id?: string
+          notes?: string | null
+          period_end: string
+          period_start: string
+          total_cost: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          id?: string
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          total_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_cost_inputs_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parties: {
         Row: {
           classification: string
@@ -3651,6 +3692,7 @@ export type Database = {
       warehouses: {
         Row: {
           active: boolean | null
+          capacity_m3: number | null
           code: string
           created_at: string
           entity_id: string | null
@@ -3661,6 +3703,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          capacity_m3?: number | null
           code: string
           created_at?: string
           entity_id?: string | null
@@ -3671,6 +3714,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          capacity_m3?: number | null
           code?: string
           created_at?: string
           entity_id?: string | null

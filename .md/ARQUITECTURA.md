@@ -127,4 +127,14 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
     * Control de duplicidad: Verificación de clave estructurada en `memo` (`Servicios 3PL [period_start al period_end]`) para evitar doble cobro.
     * Emisión de factura en estado borrador (`draft`) con cálculo de IVA del 19% y líneas de venta detalladas por concepto.
   * Pestaña "Facturación 3PL" en UI: Panel con selector de períodos, liquidación masiva en lote, resumen KPI, monitoreo de estado por contrato, historial con visor de conceptos e interfaz para emitir notas de ajuste asociadas.
+* **Vertical 3PL — BI y KPIs Operacionales (Apertura Fase 4: Inteligencia)**:
+  * Extensión en `warehouses`: Columna `capacity_m3 numeric(20,2)` para definir la capacidad volumétrica cúbica máxima instalada de cada bodega.
+  * `operational_cost_inputs`: Tabla de captura manual de costos operativos globales de bodega (`entity_id`, `period_start`, `period_end`, `total_cost`, `notes`), habilitada con RLS multiempresa.
+  * Métricas analíticas de solo lectura sobre el ecosistema transaccional 3PL:
+    * **OTIF (On-Time In-Full)**: Índice porcentual de guías despachadas con `arrival_at` dentro de las 24 horas posteriores a `departure_at` y empaque total confirmado (`packed = true` en todas sus líneas).
+    * **Monitoreo de SLA**: Filtro preventivo de guías en estado `draft` que exceden $N$ días sin confirmación de picking, desglosando avance de preparación y cliente responsable.
+    * **Costo Operativo por Unidad**: Razón matemática entre el gasto operacional del período cargado en `operational_cost_inputs` y la sumatoria de unidades preparadas en `dispatch_note_lines.qty` (`picked = true`).
+    * **Ocupación Volumétrica**: Contraste porcentual entre el volumen cúbico estimado en custodia (derivado de saldos en `stock_balances`) y los m³ máximos configurados en `warehouses.capacity_m3`.
+  * Dashboard interactivo en `/dashboard-3pl`: Filtros de fecha, umbral de SLA dinámico, selector de clientes y bodegas, tablas analíticas y modales para parametrización de capacidades y costos.
+
 

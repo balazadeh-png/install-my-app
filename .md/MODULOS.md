@@ -349,3 +349,28 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Modal interactivo para inspeccionar el desglose de conceptos liquidados por cada factura.
   * Modal para emitir Notas de Ajuste vinculadas a cualquier factura emitida, permitiendo ingresar motivo y monto neto con recálculo dinámico de IVA y total.
 
+---
+
+## 25. Vertical 3PL — Dashboard BI y KPIs Operacionales ([`/dashboard-3pl`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx))
+* **Métricas Clave de Rendimiento Logístico 3PL**:
+  * **Nivel de Servicio OTIF (On-Time In-Full)**:
+    * Mide el cumplimiento global y segregado por cliente 3PL.
+    * Criterio: Guías con `arrival_at` registrado dentro de las 24 horas de su `departure_at` planeada y con el 100% de sus líneas embaladas (`packed = true`).
+    * Desglose de guías a tiempo, entregas tardías, faltantes y cálculo de tiempo promedio de tránsito en horas.
+  * **Alertas Tempranas de SLA (Cuellos de Botella)**:
+    * Detección preventiva de guías en estado `draft` que superan el umbral tolerable en días (configurable dinámicamente, por defecto 2 días) con unidades pendientes de picking.
+    * Barras de avance porcentual de preparación por orden y acceso directo a la gestión operativa.
+  * **Costo Operativo por Unidad Procesada**:
+    * Contrastación analítica entre el gasto operativo total ingresado en `operational_cost_inputs` y las unidades efectivamente pickeadas en el período.
+    * Si no existen costos registrados para el rango de fechas, se ofrece un botón de carga rápida evitando inferencias arbitrarias.
+  * **Capacidad Volumétrica y Ocupación de Bodegas**:
+    * Nueva columna `capacity_m3` en `warehouses` para parametrizar el cubicaje máximo de almacenamiento.
+    * Cálculo porcentual de ocupación contra el inventario físico en custodia (`stock_balances`), con alertas visuales de saturación ($> 90\%$) y modal para configurar o editar metros cúbicos en tiempo real.
+* **Control de Costos Operativos de Bodega (`operational_cost_inputs`)**:
+  * Tabla de insumos de costos de bodega por período con control RLS multiempresa.
+  * Modal interactivo para registrar costos mensuales consolidados (mano de obra, naves, embalaje).
+* **Navegación Integrada**:
+  * Botón de acceso directo "Dashboard BI 3PL" en la cabecera del módulo de Despacho (`/dispatch`).
+  * Elemento en el menú principal global de módulos (`AppHeader`).
+
+

@@ -2,6 +2,33 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 27: Dashboard BI y KPIs Operacionales 3PL] - 2026-09-27
+
+### Añadido
+* **Migración SQL de Capacidad Volumétrica y Costos Operativos** ([`supabase/migrations/20260927000026_sprint27_bi_kpis_operacionales.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000026_sprint27_bi_kpis_operacionales.sql)):
+  * Agregada columna `capacity_m3 numeric(20,2)` a `public.warehouses` para registrar la capacidad volumétrica máxima en metros cúbicos por bodega.
+  * Creada tabla `public.operational_cost_inputs` (`id`, `entity_id`, `period_start`, `period_end`, `total_cost`, `notes`, `created_at`, `created_by`) para carga manual y flexible de costos operativos mensuales/quincenales de bodega, habilitada con políticas completas de Row Level Security (RLS) multiempresa.
+* **Página y Dashboard Analítico 3PL ([`dashboard-3pl.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx))**:
+  * Cuatro tarjetas de indicadores operacionales clave:
+    1. **Nivel de Servicio OTIF (On-Time In-Full)**: Porcentaje global de guías entregadas a tiempo ($\le 24$ horas entre salida y llegada) y empaque completo (100% de líneas embaladas).
+    2. **Alertas de SLA (Cuellos de Botella)**: Identificación de órdenes en estado borrador con antigüedad superior al umbral configurable (default: 2 días) y picking pendiente.
+    3. **Costo por Unidad Procesada**: Cálculo dinámico del costo operativo unitario ($ \text{Costo Total de Bodega} / \text{Unidades Pickeadas} $) basado en `operational_cost_inputs` y `dispatch_note_lines`.
+    4. **Ocupación Volumétrica de Bodegas**: Cálculo porcentual de metros cúbicos y pallets ocupados contra la capacidad configurada en `warehouses.capacity_m3`.
+  * Filtros de análisis por rango de fechas (Desde / Hasta), umbral de días SLA, cliente 3PL y bodega.
+  * Cuatro pestañas analíticas:
+    * **OTIF por Cliente**: Desglose comparativo por cliente con volumen despachado, guías a tiempo, retrasos, incompletas, tiempo de tránsito promedio y badge de nivel de servicio.
+    * **Alertas de SLA**: Tabla detallada de órdenes rezagadas con días en espera, barra de progreso de picking y enlace de gestión directa.
+    * **Capacidad de Bodegas**: Tarjetas por bodega con volumen ocupado, pallets estimados, barras de progreso de ocupación y modal para configurar o actualizar los m³ máximos.
+    * **Costos Operativos**: Historial de insumos de costos operativos cargados con modal para ingresar nuevos períodos de gasto.
+* **Navegación e Integración ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx) y [`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Enlace al "Dashboard BI 3PL" en el menú de navegación superior global.
+  * Botón de acceso directo "Dashboard BI 3PL" en la cabecera de Operaciones 3PL (`dispatch.tsx`).
+* **Tipos TypeScript y Rutas ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts) y [`routeTree.gen.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routeTree.gen.ts))**:
+  * Tipado de `capacity_m3` en `warehouses` y tabla `operational_cost_inputs`.
+  * Registro de ruta autenticada `/dashboard-3pl` en el árbol de rutas de TanStack Router.
+
+---
+
 ## [Sprint 26: Facturación de Servicios 3PL y Notas de Ajuste] - 2026-09-27
 
 ### Añadido

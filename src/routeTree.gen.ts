@@ -17,6 +17,7 @@ import { Route as AuthenticatedAssetsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedCashRouteImport } from './routes/_authenticated/cash'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDeclaracionesJuradasRouteImport } from './routes/_authenticated/declaraciones-juradas'
+import { Route as AuthenticatedDashboard3plRouteImport } from './routes/_authenticated/dashboard-3pl'
 import { Route as AuthenticatedDispatchRouteImport } from './routes/_authenticated/dispatch'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
 import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
@@ -67,6 +68,12 @@ const AuthenticatedDeclaracionesJuradasRoute =
   AuthenticatedDeclaracionesJuradasRouteImport.update({
     id: '/declaraciones-juradas',
     path: '/declaraciones-juradas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDashboard3plRoute =
+  AuthenticatedDashboard3plRouteImport.update({
+    id: '/dashboard-3pl',
+    path: '/dashboard-3pl',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedDispatchRoute = AuthenticatedDispatchRouteImport.update({
@@ -133,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/cash': typeof AuthenticatedCashRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
+  '/dashboard-3pl': typeof AuthenticatedDashboard3plRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/pos': typeof AuthenticatedPosRoute
@@ -153,6 +161,7 @@ export interface FileRoutesByTo {
   '/cash': typeof AuthenticatedCashRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
+  '/dashboard-3pl': typeof AuthenticatedDashboard3plRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/pos': typeof AuthenticatedPosRoute
@@ -175,6 +184,7 @@ export interface FileRoutesById {
   '/_authenticated/cash': typeof AuthenticatedCashRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
+  '/_authenticated/dashboard-3pl': typeof AuthenticatedDashboard3plRoute
   '/_authenticated/dispatch': typeof AuthenticatedDispatchRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/pos': typeof AuthenticatedPosRoute
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/cash'
     | '/dashboard'
     | '/declaraciones-juradas'
+    | '/dashboard-3pl'
     | '/dispatch'
     | '/inventory'
     | '/pos'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/cash'
     | '/dashboard'
     | '/declaraciones-juradas'
+    | '/dashboard-3pl'
     | '/dispatch'
     | '/inventory'
     | '/pos'
@@ -238,6 +250,7 @@ export interface FileRouteTypes {
     | '/_authenticated/cash'
     | '/_authenticated/dashboard'
     | '/_authenticated/declaraciones-juradas'
+    | '/_authenticated/dashboard-3pl'
     | '/_authenticated/dispatch'
     | '/_authenticated/inventory'
     | '/_authenticated/pos'
@@ -314,6 +327,13 @@ declare module '@tanstack/react-router' {
       path: '/declaraciones-juradas'
       fullPath: '/declaraciones-juradas'
       preLoaderRoute: typeof AuthenticatedDeclaracionesJuradasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard-3pl': {
+      id: '/_authenticated/dashboard-3pl'
+      path: '/dashboard-3pl'
+      fullPath: '/dashboard-3pl'
+      preLoaderRoute: typeof AuthenticatedDashboard3plRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dispatch': {
@@ -402,6 +422,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCashRoute: typeof AuthenticatedCashRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDeclaracionesJuradasRoute: typeof AuthenticatedDeclaracionesJuradasRoute
+  AuthenticatedDashboard3plRoute: typeof AuthenticatedDashboard3plRoute
   AuthenticatedDispatchRoute: typeof AuthenticatedDispatchRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedPosRoute: typeof AuthenticatedPosRoute
@@ -421,6 +442,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDeclaracionesJuradasRoute:
     AuthenticatedDeclaracionesJuradasRoute,
+  AuthenticatedDashboard3plRoute: AuthenticatedDashboard3plRoute,
   AuthenticatedDispatchRoute: AuthenticatedDispatchRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedPosRoute: AuthenticatedPosRoute,
