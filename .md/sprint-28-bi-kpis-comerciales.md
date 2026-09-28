@@ -20,9 +20,9 @@ Rentabilidad por cliente: cuánto factura cada cliente 3PL contra una estimació
 
 ## Criterios de aceptación
 
-- [ ] Para un período con facturas emitidas, se ve el ingreso real por cliente, ordenable de mayor a menor.
-- [ ] Si hay `operational_cost_inputs` para ese período, se ve también el costo estimado y el margen, con una etiqueta visible de "estimado".
-- [ ] Si no hay costo cargado, no se muestra ningún margen — solo el ingreso.
+- [x] Para un período con facturas emitidas, se ve el ingreso real por cliente, ordenable de mayor a menor.
+- [x] Si hay `operational_cost_inputs` para ese período, se ve también el costo estimado y el margen, con una etiqueta visible de "estimado".
+- [x] Si no hay costo cargado, no se muestra ningún margen — solo el ingreso.
 
 ---
 

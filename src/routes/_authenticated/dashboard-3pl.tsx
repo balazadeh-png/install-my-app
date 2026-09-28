@@ -33,16 +33,19 @@ import {
   Building2,
   FileText,
   Settings2,
+  Coins,
+  AlertCircle,
+  ArrowUpDown,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard-3pl")({
   head: () => ({
     meta: [
-      { title: "Dashboard BI y KPIs Operacionales 3PL — EasyERP" },
+      { title: "Dashboard BI y KPIs 3PL (Operacionales y Comerciales) — EasyERP" },
       {
         name: "description",
         content:
-          "Indicadores clave de rendimiento logístico 3PL: OTIF (On-Time In-Full), alertas de SLA, costo por unidad procesada y ocupación volumétrica de bodegas.",
+          "Indicadores clave de rendimiento logístico y rentabilidad comercial 3PL: OTIF (On-Time In-Full), alertas de SLA, costo por unidad procesada, ocupación volumétrica y rentabilidad por cliente.",
       },
     ],
   }),
@@ -68,6 +71,7 @@ function Dashboard3PLPage() {
   // Filtros adicionales
   const [selectedPartyFilter, setSelectedPartyFilter] = useState<string>("ALL");
   const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>("ALL");
+  const [profitabilitySortBy, setProfitabilitySortBy] = useState<"revenue" | "margin">("revenue");
 
   // Estado para Modal de Costo Operativo
   const [isCostModalOpen, setIsCostModalOpen] = useState(false);
@@ -207,6 +211,23 @@ function Dashboard3PLPage() {
         .select("warehouse_id, item_id, balance, party_id");
       if (error) throw error;
       return (data ?? []) as Array<{ warehouse_id: string; item_id: string; balance: number; party_id: string | null }>;
+    },
+  });
+
+  // 7. Facturas de venta en el período para cálculo de rentabilidad real por cliente
+  const salesInvoicesPeriodQ = useQuery({
+    queryKey: ["sales_invoices_period_profitability", activeEntityId, periodStart, periodEnd],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales_invoices")
+        .select("id, party_id, invoice_number, issue_date, subtotal_amount, total_amount, status, memo, adjustment_of_invoice_id")
+        .eq("entity_id", activeEntityId!)
+        .gte("issue_date", periodStart)
+        .lte("issue_date", periodEnd)
+        .neq("status", "cancelled");
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -448,6 +469,111 @@ function Dashboard3PLPage() {
       totalUsedM3,
     };
   }, [warehousesQ.data, stockBalancesQ.data]);
+
+  // Sprint 28: Cálculo de Rentabilidad por Cliente 3PL
+  // Combina facturación real (sales_invoices) con asignación proporcional de costos operativos
+  const profitabilityAnalysis = useMemo(() => {
+    const parties = partiesQ.data ?? [];
+    const invoices = salesInvoicesPeriodQ.data ?? [];
+    const dispatches = dispatchesQ.data ?? [];
+    const balances = stockBalancesQ.data ?? [];
+    const costInputs = operationalCostQ.data ?? [];
+
+    const totalOperationalCost = costInputs.reduce((sum, c) => sum + (Number(c.total_cost) || 0), 0);
+    const hasCostData = costInputs.length > 0 && totalOperationalCost > 0;
+
+    // Recopilar actividad por cliente
+    const clientActivity: Record<string, { pickedQty: number; custodyUnits: number; revenue: number }> = {};
+
+    for (const p of parties) {
+      clientActivity[p.id] = { pickedQty: 0, custodyUnits: 0, revenue: 0 };
+    }
+
+    // 1. Ingreso Facturado (sales_invoices en el período)
+    for (const inv of invoices) {
+      if (!clientActivity[inv.party_id]) {
+        clientActivity[inv.party_id] = { pickedQty: 0, custodyUnits: 0, revenue: 0 };
+      }
+      clientActivity[inv.party_id].revenue += Number(inv.subtotal_amount) || 0;
+    }
+
+    // 2. Unidades pickeadas en el período
+    for (const g of dispatches) {
+      const pId = g.party_id;
+      if (!pId) continue;
+      if (!clientActivity[pId]) {
+        clientActivity[pId] = { pickedQty: 0, custodyUnits: 0, revenue: 0 };
+      }
+      for (const l of (g as any).dispatch_note_lines || []) {
+        if (l.picked) clientActivity[pId].pickedQty += Number(l.qty) || 0;
+      }
+    }
+
+    // 3. Saldo en custodia actual
+    for (const b of balances) {
+      const pId = b.party_id;
+      if (!pId) continue;
+      if (!clientActivity[pId]) {
+        clientActivity[pId] = { pickedQty: 0, custodyUnits: 0, revenue: 0 };
+      }
+      clientActivity[pId].custodyUnits += Number(b.balance) || 0;
+    }
+
+    // 4. Calcular ponderación de actividad:
+    // Ponderador = Unidades pickeadas + (Unidades en custodia * 0.5)
+    let totalActivityPoints = 0;
+    const clientRows = parties.map((p) => {
+      const act = clientActivity[p.id] || { pickedQty: 0, custodyUnits: 0, revenue: 0 };
+      const activityPoints = act.pickedQty + (act.custodyUnits * 0.5);
+      totalActivityPoints += activityPoints;
+      return {
+        party_id: p.id,
+        party_name: p.name,
+        tax_id: p.tax_id,
+        revenue: act.revenue,
+        pickedQty: act.pickedQty,
+        custodyUnits: act.custodyUnits,
+        activityPoints,
+      };
+    });
+
+    // 5. Asignar costo proporcional y margen
+    const clientResults = clientRows.map((c) => {
+      const activityShare = totalActivityPoints > 0 ? (c.activityPoints / totalActivityPoints) : 0;
+      const estimatedCost = hasCostData ? Math.round(totalOperationalCost * activityShare) : null;
+      const estimatedMargin = hasCostData && estimatedCost !== null ? c.revenue - estimatedCost : null;
+      const marginPct = hasCostData && estimatedMargin !== null && c.revenue > 0 ? Math.round((estimatedMargin / c.revenue) * 100) : null;
+
+      return {
+        ...c,
+        activitySharePct: Math.round(activityShare * 100),
+        estimatedCost,
+        estimatedMargin,
+        marginPct,
+      };
+    });
+
+    // Ordenar según criterio
+    clientResults.sort((a, b) => {
+      if (profitabilitySortBy === "margin" && hasCostData) {
+        return (b.estimatedMargin || 0) - (a.estimatedMargin || 0);
+      }
+      return b.revenue - a.revenue;
+    });
+
+    const totalRevenue = clientResults.reduce((sum, c) => sum + c.revenue, 0);
+    const totalEstimatedMargin = hasCostData ? totalRevenue - totalOperationalCost : null;
+    const overallMarginPct = hasCostData && totalRevenue > 0 && totalEstimatedMargin !== null ? Math.round((totalEstimatedMargin / totalRevenue) * 100) : null;
+
+    return {
+      hasCostData,
+      totalRevenue,
+      totalOperationalCost,
+      totalEstimatedMargin,
+      overallMarginPct,
+      clients: clientResults,
+    };
+  }, [partiesQ.data, salesInvoicesPeriodQ.data, dispatchesQ.data, stockBalancesQ.data, operationalCostQ.data, profitabilitySortBy]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -752,8 +878,12 @@ function Dashboard3PLPage() {
       </div>
 
       {/* Pestañas de Análisis Detallado */}
-      <Tabs defaultValue="otif" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-1">
+      <Tabs defaultValue="profitability" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 h-auto gap-1">
+          <TabsTrigger value="profitability" className="text-xs gap-1.5 py-2">
+            <Coins className="h-4 w-4 text-emerald-500" />
+            Rentabilidad por Cliente
+          </TabsTrigger>
           <TabsTrigger value="otif" className="text-xs gap-1.5 py-2">
             <Percent className="h-4 w-4" />
             OTIF por Cliente 3PL
@@ -771,6 +901,228 @@ function Dashboard3PLPage() {
             Costos Operativos
           </TabsTrigger>
         </TabsList>
+
+        {/* PESTAÑA: RENTABILIDAD POR CLIENTE (SPRINT 28) */}
+        <TabsContent value="profitability" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Coins className="h-4 w-4 text-emerald-600" />
+                    Rentabilidad y Margen Estimado por Cliente 3PL
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Ingresos reales facturados (sales_invoices) contrastados con la cuota proporcional de costos operativos según actividad física (picking y custodia).
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Ordenar por:</span>
+                  <Select
+                    value={profitabilitySortBy}
+                    onValueChange={(v: "revenue" | "margin") => setProfitabilitySortBy(v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="revenue">Mayor Facturación ($)</SelectItem>
+                      <SelectItem value="margin" disabled={!profitabilityAnalysis.hasCostData}>
+                        Mayor Margen ($) {!profitabilityAnalysis.hasCostData ? "(Requiere costos)" : ""}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Tarjetas resumen de rentabilidad */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-muted/30 rounded-xl border text-xs">
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Facturación Total Neta (3PL)</span>
+                  <span className="text-xl font-bold font-mono text-foreground">
+                    ${profitabilityAnalysis.totalRevenue.toLocaleString("es-CL")}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Gasto Operacional Asignado</span>
+                  {profitabilityAnalysis.hasCostData ? (
+                    <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                      ${profitabilityAnalysis.totalOperationalCost.toLocaleString("es-CL")}
+                    </span>
+                  ) : (
+                    <span className="text-sm font-medium text-muted-foreground italic">Sin costos cargados</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Margen Operativo Estimado</span>
+                  {profitabilityAnalysis.hasCostData && profitabilityAnalysis.totalEstimatedMargin !== null ? (
+                    <div className="flex items-baseline gap-2">
+                      <span
+                        className={`text-xl font-bold font-mono ${
+                          profitabilityAnalysis.totalEstimatedMargin >= 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-rose-600 dark:text-rose-400"
+                        }`}
+                      >
+                        ${profitabilityAnalysis.totalEstimatedMargin.toLocaleString("es-CL")}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] font-mono ${
+                          (profitabilityAnalysis.overallMarginPct || 0) >= 20
+                            ? "text-emerald-600 border-emerald-500/30"
+                            : (profitabilityAnalysis.overallMarginPct || 0) >= 0
+                            ? "text-amber-600 border-amber-500/30"
+                            : "text-rose-600 border-rose-500/30"
+                        }`}
+                      >
+                        {profitabilityAnalysis.overallMarginPct}%
+                      </Badge>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-medium text-muted-foreground italic">Pendiente de costos</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Banner informativo si no hay costos cargados */}
+              {!profitabilityAnalysis.hasCostData && (
+                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-700 dark:text-blue-300">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">Cálculo de margen pendiente</p>
+                    <p className="text-[11px] opacity-90">
+                      Actualmente se muestra la facturación neta real de cada cliente. Para desbloquear la estimación de costo por cliente y margen de contribución, ingrese los costos del período en la pestaña <strong>"Costos Operativos"</strong>.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsCostModalOpen(true)}
+                      className="h-6 text-[11px] gap-1 mt-1 bg-background text-foreground"
+                    >
+                      <Plus className="h-3 w-3" /> Cargar Costo Operativo
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tabla de Rentabilidad */}
+              {salesInvoicesPeriodQ.isLoading ? (
+                <p className="text-xs text-muted-foreground py-6 text-center">Calculando rentabilidad por cliente...</p>
+              ) : profitabilityAnalysis.clients.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-8 text-center">No hay clientes 3PL registrados en el sistema.</p>
+              ) : (
+                <div className="border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/20">
+                        <TableHead>Cliente 3PL</TableHead>
+                        <TableHead className="text-right">Facturación Neta (Real)</TableHead>
+                        <TableHead className="text-center">Cuota Actividad WMS</TableHead>
+                        <TableHead className="text-right">
+                          {profitabilityAnalysis.hasCostData ? "Costo Asignado (Estimado*)" : "Costo Asignado"}
+                        </TableHead>
+                        <TableHead className="text-right">Margen Estimado</TableHead>
+                        <TableHead className="text-center">% Margen</TableHead>
+                        <TableHead className="text-right">Estado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {profitabilityAnalysis.clients.map((c) => {
+                        const hasRevenue = c.revenue > 0;
+                        const isProfitable = (c.estimatedMargin || 0) > 0;
+                        return (
+                          <TableRow key={c.party_id}>
+                            <TableCell>
+                              <div className="font-semibold text-xs text-foreground">{c.party_name}</div>
+                              {c.tax_id && <div className="text-[10px] text-muted-foreground font-mono">{c.tax_id}</div>}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-xs font-semibold">
+                              ${c.revenue.toLocaleString("es-CL")}
+                            </TableCell>
+                            <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                              <span>{c.activitySharePct}%</span>
+                              <span className="block text-[10px] text-muted-foreground/70">
+                                {c.pickedQty} pk / {c.custodyUnits} bal
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-xs">
+                              {profitabilityAnalysis.hasCostData && c.estimatedCost !== null ? (
+                                <span className="text-amber-600 dark:text-amber-400">
+                                  ${c.estimatedCost.toLocaleString("es-CL")}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-[11px] italic">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-xs font-bold">
+                              {profitabilityAnalysis.hasCostData && c.estimatedMargin !== null ? (
+                                <span
+                                  className={
+                                    c.estimatedMargin >= 0
+                                      ? "text-emerald-600 dark:text-emerald-400"
+                                      : "text-rose-600 dark:text-rose-400"
+                                  }
+                                >
+                                  ${c.estimatedMargin.toLocaleString("es-CL")}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-[11px] italic">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center font-mono text-xs">
+                              {profitabilityAnalysis.hasCostData && c.marginPct !== null ? (
+                                <Badge
+                                  className={`text-[10px] font-mono ${
+                                    c.marginPct >= 25
+                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                      : c.marginPct >= 10
+                                      ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                                      : "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
+                                  }`}
+                                >
+                                  {c.marginPct}%
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-[11px] italic">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {profitabilityAnalysis.hasCostData ? (
+                                hasRevenue && isProfitable ? (
+                                  <Badge variant="outline" className="text-emerald-600 border-emerald-500/30 bg-emerald-500/10 text-[10px]">
+                                    Rentable
+                                  </Badge>
+                                ) : hasRevenue ? (
+                                  <Badge variant="outline" className="text-rose-600 border-rose-500/30 bg-rose-500/10 text-[10px]">
+                                    En Pérdida
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    Sin Facturación
+                                  </Badge>
+                                )
+                              ) : (
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {hasRevenue ? "Facturado" : "Sin Movimiento"}
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground italic pt-1">
+                * El costo por cliente corresponde a una asignación proporcional de gestión calculada sobre el total de costos operativos declarados y ponderada por la actividad física en bodega (unidades pickeadas y saldos en custodia). No constituye un costeo contable formal por absorción ni reemplaza la contabilidad analítica.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* PESTAÑA 1: OTIF POR CLIENTE */}
         <TabsContent value="otif" className="space-y-4">

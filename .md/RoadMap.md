@@ -156,3 +156,31 @@ Los sprints 11-13 son terreno regulatorio que cambia todos los años — los pro
 1. Un sprint a la vez. Pega el prompt correspondiente en Lovable, revisa el preview, valida los criterios de aceptación del archivo antes de pasar al siguiente.
 2. Al cerrar cada sprint, agrega una entrada en `CHANGELOG.md` (mismo formato que ya usas) y actualiza `MODULOS.md`/`ARQUITECTURA.md` si el sprint agregó un módulo o cambió el modelo de datos.
 3. Si reordenas sprints dentro de la Fase 1 (excepto el 1 y 2, que van primero sí o sí), actualiza la tabla de la sección 4 para que quede como fuente de verdad de en qué vamos.
+
+---
+
+## 8. Vertical 3PL (Sprints 16 a 28) — ✅ 100% Implementada y Validada
+
+La vertical de bodegaje, transporte y logística para terceros (3PL) fue diseñada y construida íntegramente sobre el núcleo contable y transaccional de EasyERP, cubriendo 13 sprints organizados en 4 fases estructurales (ver detalle exhaustivo en `RoadMap-Vertical-3PL.md`):
+
+1. **Fase 1 — Cumplimiento (Sprints 16, 17, 18):**
+   - Sprint 16: Modelo de datos 3PL (`parties.is_3pl_client`, `party_warehouses`, `party_id` en kardex) y Guía de Despacho (Res. Ex. SII 154/2024).
+   - Sprint 17: Comercio exterior con conexión SICEX, DUS, carpetas de embarque y certificados sanitarios.
+   - Sprint 18: Libros Legales heredados, validación de no-contaminación contable en cuentas de orden y certificación en `PRODUCCION-3PL.md`.
+
+2. **Fase 2 — Operación (Sprints 19, 20, 21, 22, 23):**
+   - Sprint 19: WMS — Recepción, control de calidad (aprobación/rechazo/cuarentena) y ubicación/slotting en bodega.
+   - Sprint 20: WMS — Picking, packing, validación de bultos y trazabilidad por lote y serie.
+   - Sprint 21: TMS — Planificación de despachos, optimización de rutas y gestión de flota propia y externa.
+   - Sprint 22: TMS — Tracking GPS en tiempo real, mapa interactivo y conector a couriers (Blue Express, Chilexpress, Starken).
+   - Sprint 23: OMS — Pedidos multicanal (e-commerce, B2B, manual), webhook receiver y enrutamiento inteligente a bodegas.
+
+3. **Fase 3 — Comercial (Sprints 24, 25, 26):**
+   - Sprint 24: Portal de Clientes 3PL con acceso aislado y seguro vía RLS por `party_id` para consulta de inventario, pedidos y documentos.
+   - Sprint 25: Contratos y matrices de tarifas (almacenaje por m³/pallet, picking, despacho por km/tramo y cobro mínimo mensual).
+   - Sprint 26: Facturación mensual de servicios logísticos integrada directamente a `sales_invoices` y comprobantes contables GL, con liquidación en lote y notas de crédito/débito de ajuste.
+
+4. **Fase 4 — Inteligencia y BI (Sprints 27, 28):**
+   - Sprint 27: Dashboard BI y KPIs Operacionales (OTIF por cliente, monitoreo y alertas de SLA en riesgo, costo por unidad procesada mediante `operational_cost_inputs` y ocupación volumétrica m³ de naves).
+   - Sprint 28: BI y KPIs Comerciales (Rentabilidad por cliente 3PL: facturación neta real vs. asignación proporcional de costos de gestión, margen estimado y filtros de ordenamiento).
+

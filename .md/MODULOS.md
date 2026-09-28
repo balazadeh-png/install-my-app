@@ -373,4 +373,27 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Botón de acceso directo "Dashboard BI 3PL" en la cabecera del módulo de Despacho (`/dispatch`).
   * Elemento en el menú principal global de módulos (`AppHeader`).
 
+---
+
+## 26. Vertical 3PL — BI y KPIs Comerciales (Rentabilidad por Cliente) ([`/dashboard-3pl`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx))
+* **Análisis de Rentabilidad por Cliente 3PL**:
+  * Pestaña analítica "Rentabilidad por Cliente" integrada en el Dashboard BI 3PL, proporcionando a la dirección una evaluación económica certera de cada cuenta comercial.
+  * **Ingreso Real por Facturación**:
+    * Lectura directa desde `sales_invoices` (Sprint 6 y Sprint 26) para todas las facturas no canceladas del cliente dentro del rango temporal seleccionado.
+    * Refleja con exactitud el ingreso neto facturado por servicios logísticos (almacenaje, picking, transporte y recargos).
+  * **Asignación de Costos de Gestión Operativa**:
+    * Reparto proporcional y transparente del costo operativo total (`operational_cost_inputs.total_cost`) basado en la participación de cada cliente en la actividad física de la bodega:
+      $$\text{Puntos de Actividad} = \text{Unidades Pickeadas} + (\text{Saldos en Custodia} \times 0.5)$$
+    * Evita la complejidad de un modelo ABC completo sin sacrificar la coherencia operativa y de gestión.
+  * **Margen de Contribución Estimado**:
+    * Cálculo de Margen = Facturación Neta - Costo Asignado Estimado, y margen porcentual sobre ventas.
+    * Badges de salud comercial: "Rentable" (margen positivo), "En Pérdida" (costo estimado supera ingresos) o "Facturado / Sin Movimiento".
+  * **Rigor Metodológico y Cero Números Ficticios**:
+    * Etiquetado explícito de costos y márgenes como "Estimado*" para no confundir una asignación de gestión con costeo contable por absorción.
+    * En caso de no existir costos operativos registrados para el período, el sistema muestra exclusivamente la facturación real con un banner informativo y botón de acción para cargar los costos del mes, impidiendo inventar cifras de margen.
+  * **Controles y Filtros**:
+    * Selector para ordenar clientes por mayor facturación ("Mayor Ingreso") o por mayor margen ("Mayor Margen").
+    * Filtro interactivo por cliente y sincronización automática con los controles de fechas del dashboard.
+
+
 

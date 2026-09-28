@@ -53,7 +53,7 @@ Extender EasyERP con una vertical funcional para empresas 3PL (bodegaje y transp
 
 ## Estado de los prompts
 
-Los 13 sprints (16–28) tienen su archivo de especificación en `.md/`. La **Fase 1 (Cumplimiento: Sprints 16, 17 y 18)** se encuentra completamente implementada y validada (septiembre 2026), con certificación de no-contaminación contable en `.md/PRODUCCION-3PL.md`.
+Los 13 sprints (16–28) tienen su archivo de especificación en `.md/` y se encuentran **100% implementados y validados** (septiembre 2026), cubriendo las 4 fases: Cumplimiento, Operación, Comercial e Inteligencia.
 
 | # | Archivo | Depende de | Estado |
 |---|---|---|:---:|
@@ -69,6 +69,6 @@ Los 13 sprints (16–28) tienen su archivo de especificación en `.md/`. La **Fa
 | 25 | sprint-25-contratos-tarifarios.md | 16 | ✅ Implementado |
 | 26 | sprint-26-facturacion-servicios.md | 6, 25 | ✅ Implementado (Cierra Fase 3) |
 | 27 | sprint-27-bi-kpis-operacionales.md | 16, 19, 20, 21 | ✅ Implementado (Apertura Fase 4: Inteligencia y BI) |
-| 28 | sprint-28-bi-kpis-comerciales.md | 26, 27 | ⏳ Siguiente (BI/KPIs comerciales — Cierra Roadmap) |
+| 28 | sprint-28-bi-kpis-comerciales.md | 26, 27 | ✅ Implementado (Cierra Fase 4 y Roadmap Vertical 3PL) |
 
 Dependencias externas que ningún sprint resuelve por sí solo (siguen abiertas, cada una marcada en su archivo): emisor DTE (16/26), habilitación SICEX (17), integración específica de couriers/GPS (22), integración específica de canal de e-commerce (23).

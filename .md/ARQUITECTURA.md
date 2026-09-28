@@ -136,5 +136,14 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
     * **Costo Operativo por Unidad**: Razón matemática entre el gasto operacional del período cargado en `operational_cost_inputs` y la sumatoria de unidades preparadas en `dispatch_note_lines.qty` (`picked = true`).
     * **Ocupación Volumétrica**: Contraste porcentual entre el volumen cúbico estimado en custodia (derivado de saldos en `stock_balances`) y los m³ máximos configurados en `warehouses.capacity_m3`.
   * Dashboard interactivo en `/dashboard-3pl`: Filtros de fecha, umbral de SLA dinámico, selector de clientes y bodegas, tablas analíticas y modales para parametrización de capacidades y costos.
+* **Vertical 3PL — BI y KPIs Comerciales (Cierre de Fase 4 y Roadmap 3PL)**:
+  * Reutilización de entidades contables y operativas existentes: `sales_invoices` (ingresos reales), `dispatch_note_lines` (actividad de picking), `stock_balances` (saldos en custodia) y `operational_cost_inputs` (costos de gestión declarados). Sin requerir nuevas tablas ni alterar esquemas existentes.
+  * Análisis de Rentabilidad por Cliente 3PL:
+    * **Ingreso Real**: Suma de facturación neta de servicios logísticos emitida en el período (`sales_invoices.total_amount` con `status != 'cancelled'`).
+    * **Asignación Proporcional de Costos**: Ponderación de la actividad física en bodega por cliente ($\text{unidades pickeadas} + 0.5 \times \text{saldos en custodia}$) sobre el total general, distribuyendo proporcionalmente el `total_cost` operacional cargado en `operational_cost_inputs`.
+    * **Margen Estimado de Contribución**: Diferencia entre facturación neta y costo proporcional asignado, junto con su porcentaje sobre ventas.
+    * **Rigor e Integridad Metodológica**: Presentación con advertencia explícita de "Costo/Margen Estimado" para gestión operativa interna, suprimiendo automáticamente cualquier cálculo de margen cuando no existan costos cargados en el período, impidiendo la generación de números ficticios.
+    * **Visualización y Ordenamiento**: Tabla de rentabilidad con alternancia de ordenamiento (por mayor ingreso o por mayor margen), badges semánticos de rendimiento ("Rentable", "En Pérdida", "Facturado") y botón de acción directa para ingreso de costos.
+
 
 

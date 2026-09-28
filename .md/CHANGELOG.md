@@ -2,6 +2,25 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 28: BI y KPIs Comerciales 3PL — Cierre de Roadmap 3PL] - 2026-09-27
+
+### Añadido
+* **Módulo de Rentabilidad por Cliente 3PL ([`dashboard-3pl.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx))**:
+  * Nueva pestaña analítica **"Rentabilidad por Cliente"** que combina datos financieros reales con costeo de gestión operativo.
+  * **Ingreso Real por Cliente**: Suma de facturación neta (`total_amount`) proveniente directamente de `sales_invoices` (Sprint 6 y Sprint 26) para facturas no canceladas emitidas dentro del rango temporal seleccionado.
+  * **Asignación Proporcional de Costos de Gestión**: Distribución transparente y proporcional del costo operativo del período (`operational_cost_inputs.total_cost`) entre clientes según su ponderación de actividad física en bodega:
+    $$\text{Puntos de Actividad} = \text{Unidades Pickeadas} + (\text{Saldos en Custodia} \times 0.5)$$
+  * **Margen de Contribución Estimado**: Cálculo de Margen = Ingreso Real - Costo Asignado Estimado, y porcentaje de margen sobre ventas.
+  * **Transparencia y Rigor Metodológico**:
+    * Etiquetado explícito de costos y márgenes como "Estimado*" para evitar confusiones con contabilidad analítica formal o costeo por absorción.
+    * Si no existen insumos de costos registrados en el período, el sistema muestra exclusivamente la facturación neta real junto con un aviso y botón de acción para cargar los costos operativos de bodega, impidiendo la generación de márgenes ficticios o inventados.
+  * **Ordenamiento Dinámico y Filtros**:
+    * Selector para ordenar clientes por mayor facturación ("Mayor Ingreso") o por mayor margen ("Mayor Margen").
+    * Badges de estado comercial: "Rentable" (margen positivo), "En Pérdida" (costo asignado superior a facturación) o "Facturado / Sin Movimiento".
+  * **Metadatos y Título del Dashboard**: Actualizados para reflejar tanto los KPIs operacionales como los comerciales.
+
+---
+
 ## [Sprint 27: Dashboard BI y KPIs Operacionales 3PL] - 2026-09-27
 
 ### Añadido
