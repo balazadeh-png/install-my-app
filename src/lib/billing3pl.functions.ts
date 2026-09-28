@@ -225,7 +225,7 @@ export const generateServiceInvoiceFn = createServerFn({ method: "POST" })
         currency_code: entity.base_currency_code || "CLP",
         exchange_rate: 1.0,
         issue_date: todayStr!,
-        due_date: dueDateStr,
+        due_date: dueDateStr ?? null,
         subtotal_amount: subtotal,
         tax_amount: tax,
         total_amount: grandTotal,
