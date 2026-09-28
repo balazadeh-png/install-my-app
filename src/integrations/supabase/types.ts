@@ -4608,6 +4608,39 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_demo_data: { Args: never; Returns: Json }
+      demo_acc: { Args: { p_code: string; p_e: string }; Returns: string }
+      demo_post_je: {
+        Args: {
+          p_date: string
+          p_e: string
+          p_lines: Json
+          p_memo: string
+          p_voucher: string
+        }
+        Returns: string
+      }
+      demo_purchase_invoice: {
+        Args: {
+          p_date: string
+          p_e: string
+          p_lines: Json
+          p_memo: string
+          p_party: string
+        }
+        Returns: string
+      }
+      demo_sales_invoice: {
+        Args: {
+          p_date: string
+          p_e: string
+          p_lines: Json
+          p_party: string
+          p_wh: string
+        }
+        Returns: string
+      }
+      demo_wh_addr: { Args: { p_code: string }; Returns: string }
       dispose_fixed_asset: {
         Args: {
           _asset_id: string
@@ -4730,6 +4763,11 @@ export type Database = {
       }
       run_monthly_depreciation: {
         Args: { _entity_id: string; _period_date: string }
+        Returns: Json
+      }
+      seed_demo_base: { Args: { p_start: string }; Returns: string }
+      seed_demo_month: {
+        Args: { p_entity: string; p_month: string }
         Returns: Json
       }
       stock_balance_at: {
