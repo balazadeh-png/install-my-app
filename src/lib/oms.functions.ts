@@ -96,7 +96,7 @@ export const ingestOmsOrderInternal = async (input: IngestOmsOrderInput) => {
       p_external_order_id: externalOrderId,
       p_destination_address: destinationAddress,
       p_lines: input.lines as any,
-      p_notes: notes ?? undefined,
+      ...(notes ? { p_notes: notes } : {}),
     });
 
     if (!rpcErr && rpcRes) {
@@ -202,8 +202,8 @@ export const ingestOmsOrderFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const res = await ingestOmsOrderInternal(data);
-      return { success: true, ...res };
+      const res = await ingestOmsOrderInternal(data as IngestOmsOrderInput);
+      return { success: true, ...(res as object) };
     } catch (err: any) {
       console.error("Error in ingestOmsOrderFn:", err);
       return { success: false, error: err.message || "Error procesando el pedido OMS" };

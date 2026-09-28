@@ -90,7 +90,7 @@ export const generateServiceInvoiceFn = createServerFn({ method: "POST" })
     if (existingInvoices && existingInvoices.length > 0) {
       const inv = existingInvoices[0];
       throw new Error(
-        `Ya existe una factura registrada para el cliente "${party.name}" en el período ${period_start} a ${period_end} (${inv.invoice_number ? `Folio #${inv.invoice_number}` : `ID ${inv.id.slice(0, 8)}`}).`
+        `Ya existe una factura registrada para el cliente "${party.name}" en el período ${period_start} a ${period_end} (${inv!.invoice_number ? `Folio #${inv!.invoice_number}` : `ID ${inv!.id.slice(0, 8)}`}).`
       );
     }
 
@@ -224,7 +224,7 @@ export const generateServiceInvoiceFn = createServerFn({ method: "POST" })
         party_id,
         currency_code: entity.base_currency_code || "CLP",
         exchange_rate: 1.0,
-        issue_date: todayStr,
+        issue_date: todayStr!,
         due_date: dueDateStr,
         subtotal_amount: subtotal,
         tax_amount: tax,

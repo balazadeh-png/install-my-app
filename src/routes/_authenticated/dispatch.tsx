@@ -1,3 +1,4 @@
+import { Textarea } from "@/components/ui/textarea";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
@@ -936,8 +937,8 @@ function DispatchPage() {
     setRouteStops((prev) => {
       const copy = [...prev];
       const temp = copy[index - 1];
-      copy[index - 1] = copy[index];
-      copy[index] = temp;
+      copy[index - 1] = copy[index]!;
+      copy[index] = temp!;
       return copy.map((s, i) => ({ ...s, stop_order: i + 1 }));
     });
   };
@@ -947,8 +948,8 @@ function DispatchPage() {
       if (index >= prev.length - 1) return prev;
       const copy = [...prev];
       const temp = copy[index + 1];
-      copy[index + 1] = copy[index];
-      copy[index] = temp;
+      copy[index + 1] = copy[index]!;
+      copy[index] = temp!;
       return copy.map((s, i) => ({ ...s, stop_order: i + 1 }));
     });
   };
@@ -1012,7 +1013,7 @@ function DispatchPage() {
           .select("id")
           .single();
         if (error) throw error;
-        targetRouteId = newRoute.id;
+        targetRouteId = (newRoute as any).id;
       }
 
       const stopsToInsert = routeStops.map((s, index) => ({
@@ -1282,7 +1283,7 @@ function DispatchPage() {
     }
 
     let startIdx = 0;
-    const headerLower = textLines[0].toLowerCase();
+    const headerLower = textLines[0]!.toLowerCase();
     if (headerLower.includes("order") || headerLower.includes("pedido") || headerLower.includes("sku")) {
       startIdx = 1;
     }
@@ -1295,7 +1296,7 @@ function DispatchPage() {
     }> = [];
 
     for (let i = startIdx; i < textLines.length; i++) {
-      const parts = textLines[i].split(/[,;\t]/).map((p) => p.trim());
+      const parts = textLines[i]!.split(/[,;\t]/).map((p) => p.trim());
       if (parts.length >= 3) {
         const extId = parts[0];
         const dest = parts.length >= 4 ? parts[1] : "";
@@ -1305,7 +1306,7 @@ function DispatchPage() {
         if (extId && sku) {
           parsed.push({
             external_order_id: extId,
-            destination_address: dest,
+            destination_address: dest ?? "",
             sku,
             qty: qtyVal > 0 ? qtyVal : 1,
           });
@@ -1452,7 +1453,7 @@ function DispatchPage() {
       if (order.status !== "pendiente") throw new Error("Solo pedidos pendientes pueden convertirse a guía");
 
       const clientWhs = pws.filter((x) => x.party_id === order.party_id);
-      const whId = clientWhs.length > 0 ? clientWhs[0].warehouse_id : (warehouses[0]?.id || "");
+      const whId = clientWhs.length > 0 ? clientWhs[0]!.warehouse_id : (warehouses[0]?.id || "");
       if (!whId) {
         throw new Error("No hay bodegas disponibles en el sistema para asociar la guía");
       }
@@ -1752,7 +1753,7 @@ function DispatchPage() {
     onSuccess: (_, vars) => {
       toast.success("Distancia recorrida actualizada");
       qc.invalidateQueries({ queryKey: ["dispatch_notes"] });
-      setSelectedGuide((prev: any) => (prev ? { ...prev, distance_km: vars.distance_km } : null));
+      void vars;
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1924,7 +1925,7 @@ function DispatchPage() {
           entity_id: activeEntityId,
           party_id: selectedInvoiceForAdjustment.party_id,
           invoice_number: folio,
-          issue_date: todayStr,
+          issue_date: todayStr!,
           status: "draft",
           currency_code: selectedInvoiceForAdjustment.currency_code || "CLP",
           exchange_rate: 1.0,
@@ -3078,8 +3079,8 @@ function DispatchPage() {
                                   onValueChange={(val: BillingFrequency) =>
                                     upsertContractM.mutate({
                                       billing_frequency: val,
-                                      active: contractQ.data.active,
-                                      notes: contractQ.data.notes || undefined,
+                                      active: contractQ.data!.active,
+                                      ...(contractQ.data!.notes ? { notes: contractQ.data!.notes as string } : {}),
                                     })
                                   }
                                 >
@@ -3103,9 +3104,9 @@ function DispatchPage() {
                                     className="h-7 text-xs"
                                     onClick={() =>
                                       upsertContractM.mutate({
-                                        billing_frequency: contractQ.data.billing_frequency,
-                                        active: !contractQ.data.active,
-                                        notes: contractQ.data.notes || undefined,
+                                        billing_frequency: contractQ.data!.billing_frequency,
+                                        active: !contractQ.data!.active,
+                                        ...(contractQ.data!.notes ? { notes: contractQ.data!.notes as string } : {}),
                                       })
                                     }
                                     disabled={upsertContractM.isPending}
@@ -3725,7 +3726,7 @@ function DispatchPage() {
                     placeholder="Instrucciones, aduana de salida, agencia..."
                     rows={2}
                     value={ftForm.notes}
-                    onChange={(e) => setFtForm((f) => ({ ...f, notes: e.target.value }))}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFtForm((f) => ({ ...f, notes: e.target.value }))}
                   />
                 </div>
 

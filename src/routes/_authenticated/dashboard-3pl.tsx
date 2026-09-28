@@ -210,7 +210,7 @@ function Dashboard3PLPage() {
         .from("stock_balances" as any)
         .select("warehouse_id, item_id, balance, party_id");
       if (error) throw error;
-      return (data ?? []) as Array<{ warehouse_id: string; item_id: string; balance: number; party_id: string | null }>;
+      return (data ?? []) as unknown as Array<{ warehouse_id: string; item_id: string; balance: number; party_id: string | null }>;
     },
   });
 
@@ -236,12 +236,12 @@ function Dashboard3PLPage() {
     mutationFn: async () => {
       if (!activeEntityId) throw new Error("Entidad activa requerida");
       if (costAmount <= 0) throw new Error("El costo debe ser mayor a 0");
-      if (costPeriodEnd < costPeriodStart) throw new Error("La fecha de fin debe ser posterior a la de inicio");
+      if (costPeriodEnd! < costPeriodStart!) throw new Error("La fecha de fin debe ser posterior a la de inicio");
 
       const { error } = await supabase.from("operational_cost_inputs").insert({
         entity_id: activeEntityId,
-        period_start: costPeriodStart,
-        period_end: costPeriodEnd,
+        period_start: costPeriodStart!,
+        period_end: costPeriodEnd!,
         total_cost: costAmount,
         notes: costNotes || null,
       });
