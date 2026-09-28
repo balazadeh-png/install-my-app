@@ -11,13 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as PortalRouteRouteImport } from './routes/_portal/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAccountingRouteImport } from './routes/_authenticated/accounting'
 import { Route as AuthenticatedAssetsRouteImport } from './routes/_authenticated/assets'
 import { Route as AuthenticatedCashRouteImport } from './routes/_authenticated/cash'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedDeclaracionesJuradasRouteImport } from './routes/_authenticated/declaraciones-juradas'
 import { Route as AuthenticatedDashboard3plRouteImport } from './routes/_authenticated/dashboard-3pl'
+import { Route as AuthenticatedDeclaracionesJuradasRouteImport } from './routes/_authenticated/declaraciones-juradas'
 import { Route as AuthenticatedDispatchRouteImport } from './routes/_authenticated/dispatch'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
 import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
@@ -28,7 +29,9 @@ import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
 import { Route as AuthenticatedSiiBooksRouteImport } from './routes/_authenticated/sii-books'
 import { Route as AuthenticatedTaxesRouteImport } from './routes/_authenticated/taxes'
+import { Route as PortalPortalRouteImport } from './routes/_portal/portal'
 import { Route as ApiWebhooksApipymeRouteImport } from './routes/api/webhooks/apipyme'
+import { Route as ApiWebhooksOmsRouteImport } from './routes/api/webhooks/oms'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,6 +40,10 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRouteRoute = PortalRouteRouteImport.update({
+  id: '/_portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -64,16 +71,16 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedDeclaracionesJuradasRoute =
-  AuthenticatedDeclaracionesJuradasRouteImport.update({
-    id: '/declaraciones-juradas',
-    path: '/declaraciones-juradas',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedDashboard3plRoute =
   AuthenticatedDashboard3plRouteImport.update({
     id: '/dashboard-3pl',
     path: '/dashboard-3pl',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDeclaracionesJuradasRoute =
+  AuthenticatedDeclaracionesJuradasRouteImport.update({
+    id: '/declaraciones-juradas',
+    path: '/declaraciones-juradas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedDispatchRoute = AuthenticatedDispatchRouteImport.update({
@@ -126,9 +133,19 @@ const AuthenticatedTaxesRoute = AuthenticatedTaxesRouteImport.update({
   path: '/taxes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const PortalPortalRoute = PortalPortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => PortalRouteRoute,
+} as any)
 const ApiWebhooksApipymeRoute = ApiWebhooksApipymeRouteImport.update({
   id: '/api/webhooks/apipyme',
   path: '/api/webhooks/apipyme',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksOmsRoute = ApiWebhooksOmsRouteImport.update({
+  id: '/api/webhooks/oms',
+  path: '/api/webhooks/oms',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -139,8 +156,8 @@ export interface FileRoutesByFullPath {
   '/assets': typeof AuthenticatedAssetsRoute
   '/cash': typeof AuthenticatedCashRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
   '/dashboard-3pl': typeof AuthenticatedDashboard3plRoute
+  '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/pos': typeof AuthenticatedPosRoute
@@ -151,7 +168,9 @@ export interface FileRoutesByFullPath {
   '/setup': typeof AuthenticatedSetupRoute
   '/sii-books': typeof AuthenticatedSiiBooksRoute
   '/taxes': typeof AuthenticatedTaxesRoute
+  '/portal': typeof PortalPortalRoute
   '/api/webhooks/apipyme': typeof ApiWebhooksApipymeRoute
+  '/api/webhooks/oms': typeof ApiWebhooksOmsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -160,8 +179,8 @@ export interface FileRoutesByTo {
   '/assets': typeof AuthenticatedAssetsRoute
   '/cash': typeof AuthenticatedCashRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
   '/dashboard-3pl': typeof AuthenticatedDashboard3plRoute
+  '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/pos': typeof AuthenticatedPosRoute
@@ -172,19 +191,22 @@ export interface FileRoutesByTo {
   '/setup': typeof AuthenticatedSetupRoute
   '/sii-books': typeof AuthenticatedSiiBooksRoute
   '/taxes': typeof AuthenticatedTaxesRoute
+  '/portal': typeof PortalPortalRoute
   '/api/webhooks/apipyme': typeof ApiWebhooksApipymeRoute
+  '/api/webhooks/oms': typeof ApiWebhooksOmsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/_portal': typeof PortalRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/accounting': typeof AuthenticatedAccountingRoute
   '/_authenticated/assets': typeof AuthenticatedAssetsRoute
   '/_authenticated/cash': typeof AuthenticatedCashRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
   '/_authenticated/dashboard-3pl': typeof AuthenticatedDashboard3plRoute
+  '/_authenticated/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
   '/_authenticated/dispatch': typeof AuthenticatedDispatchRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/pos': typeof AuthenticatedPosRoute
@@ -195,7 +217,9 @@ export interface FileRoutesById {
   '/_authenticated/setup': typeof AuthenticatedSetupRoute
   '/_authenticated/sii-books': typeof AuthenticatedSiiBooksRoute
   '/_authenticated/taxes': typeof AuthenticatedTaxesRoute
+  '/_portal/portal': typeof PortalPortalRoute
   '/api/webhooks/apipyme': typeof ApiWebhooksApipymeRoute
+  '/api/webhooks/oms': typeof ApiWebhooksOmsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -206,8 +230,8 @@ export interface FileRouteTypes {
     | '/assets'
     | '/cash'
     | '/dashboard'
-    | '/declaraciones-juradas'
     | '/dashboard-3pl'
+    | '/declaraciones-juradas'
     | '/dispatch'
     | '/inventory'
     | '/pos'
@@ -218,7 +242,9 @@ export interface FileRouteTypes {
     | '/setup'
     | '/sii-books'
     | '/taxes'
+    | '/portal'
     | '/api/webhooks/apipyme'
+    | '/api/webhooks/oms'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -227,8 +253,8 @@ export interface FileRouteTypes {
     | '/assets'
     | '/cash'
     | '/dashboard'
-    | '/declaraciones-juradas'
     | '/dashboard-3pl'
+    | '/declaraciones-juradas'
     | '/dispatch'
     | '/inventory'
     | '/pos'
@@ -239,18 +265,21 @@ export interface FileRouteTypes {
     | '/setup'
     | '/sii-books'
     | '/taxes'
+    | '/portal'
     | '/api/webhooks/apipyme'
+    | '/api/webhooks/oms'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/_portal'
     | '/auth'
     | '/_authenticated/accounting'
     | '/_authenticated/assets'
     | '/_authenticated/cash'
     | '/_authenticated/dashboard'
-    | '/_authenticated/declaraciones-juradas'
     | '/_authenticated/dashboard-3pl'
+    | '/_authenticated/declaraciones-juradas'
     | '/_authenticated/dispatch'
     | '/_authenticated/inventory'
     | '/_authenticated/pos'
@@ -261,14 +290,18 @@ export interface FileRouteTypes {
     | '/_authenticated/setup'
     | '/_authenticated/sii-books'
     | '/_authenticated/taxes'
+    | '/_portal/portal'
     | '/api/webhooks/apipyme'
+    | '/api/webhooks/oms'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  PortalRouteRoute: typeof PortalRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiWebhooksApipymeRoute: typeof ApiWebhooksApipymeRoute
+  ApiWebhooksOmsRoute: typeof ApiWebhooksOmsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -285,6 +318,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_portal': {
+      id: '/_portal'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PortalRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -322,18 +362,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/declaraciones-juradas': {
-      id: '/_authenticated/declaraciones-juradas'
-      path: '/declaraciones-juradas'
-      fullPath: '/declaraciones-juradas'
-      preLoaderRoute: typeof AuthenticatedDeclaracionesJuradasRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/dashboard-3pl': {
       id: '/_authenticated/dashboard-3pl'
       path: '/dashboard-3pl'
       fullPath: '/dashboard-3pl'
       preLoaderRoute: typeof AuthenticatedDashboard3plRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/declaraciones-juradas': {
+      id: '/_authenticated/declaraciones-juradas'
+      path: '/declaraciones-juradas'
+      fullPath: '/declaraciones-juradas'
+      preLoaderRoute: typeof AuthenticatedDeclaracionesJuradasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dispatch': {
@@ -406,11 +446,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTaxesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_portal/portal': {
+      id: '/_portal/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalPortalRouteImport
+      parentRoute: typeof PortalRouteRoute
+    }
     '/api/webhooks/apipyme': {
       id: '/api/webhooks/apipyme'
       path: '/api/webhooks/apipyme'
       fullPath: '/api/webhooks/apipyme'
       preLoaderRoute: typeof ApiWebhooksApipymeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/oms': {
+      id: '/api/webhooks/oms'
+      path: '/api/webhooks/oms'
+      fullPath: '/api/webhooks/oms'
+      preLoaderRoute: typeof ApiWebhooksOmsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -421,8 +475,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAssetsRoute: typeof AuthenticatedAssetsRoute
   AuthenticatedCashRoute: typeof AuthenticatedCashRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedDeclaracionesJuradasRoute: typeof AuthenticatedDeclaracionesJuradasRoute
   AuthenticatedDashboard3plRoute: typeof AuthenticatedDashboard3plRoute
+  AuthenticatedDeclaracionesJuradasRoute: typeof AuthenticatedDeclaracionesJuradasRoute
   AuthenticatedDispatchRoute: typeof AuthenticatedDispatchRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedPosRoute: typeof AuthenticatedPosRoute
@@ -440,9 +494,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAssetsRoute: AuthenticatedAssetsRoute,
   AuthenticatedCashRoute: AuthenticatedCashRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDashboard3plRoute: AuthenticatedDashboard3plRoute,
   AuthenticatedDeclaracionesJuradasRoute:
     AuthenticatedDeclaracionesJuradasRoute,
-  AuthenticatedDashboard3plRoute: AuthenticatedDashboard3plRoute,
   AuthenticatedDispatchRoute: AuthenticatedDispatchRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedPosRoute: AuthenticatedPosRoute,
@@ -458,11 +512,25 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface PortalRouteRouteChildren {
+  PortalPortalRoute: typeof PortalPortalRoute
+}
+
+const PortalRouteRouteChildren: PortalRouteRouteChildren = {
+  PortalPortalRoute: PortalPortalRoute,
+}
+
+const PortalRouteRouteWithChildren = PortalRouteRoute._addFileChildren(
+  PortalRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  PortalRouteRoute: PortalRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiWebhooksApipymeRoute: ApiWebhooksApipymeRoute,
+  ApiWebhooksOmsRoute: ApiWebhooksOmsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

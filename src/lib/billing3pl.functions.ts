@@ -412,7 +412,6 @@ export const generateServiceInvoiceFn = createServerFn({ method: "POST" })
       .single();
     if (entityErr || !entity) throw new Error(entityErr?.message || "Empresa no encontrada");
 
-    const periodMemoKey = `Servicios 3PL [${period_start} al ${period_end}]`;
     const todayStr = new Date().toISOString().split("T")[0];
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);

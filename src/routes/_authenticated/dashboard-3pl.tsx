@@ -285,12 +285,12 @@ function Dashboard3PLPage() {
     mutationFn: async () => {
       if (!activeEntityId) throw new Error("Entidad activa requerida");
       if (costAmount <= 0) throw new Error("El costo debe ser mayor a 0");
-      if (costPeriodEnd < costPeriodStart) throw new Error("La fecha de fin debe ser posterior a la de inicio");
+      if (costPeriodEnd! < costPeriodStart!) throw new Error("La fecha de fin debe ser posterior a la de inicio");
 
       const { error } = await supabase.from("operational_cost_inputs").insert({
         entity_id: activeEntityId,
-        period_start: costPeriodStart,
-        period_end: costPeriodEnd,
+        period_start: costPeriodStart!,
+        period_end: costPeriodEnd!,
         total_cost: costAmount,
         notes: costNotes || null,
       });

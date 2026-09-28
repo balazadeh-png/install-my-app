@@ -45,7 +45,8 @@ export const Route = createFileRoute("/_portal")({
 });
 
 function PortalLayout() {
-  const { user, isAuthenticated, loading, signOut } = useAuth();
+  const { user, isAuthenticated, loading} = useAuth();
+  const signOut = () => supabase.auth.signOut();
   const [selectedPartyId, setSelectedPartyId] = useState<string>("");
 
   const portalAccessQ = useQuery({
@@ -82,7 +83,7 @@ function PortalLayout() {
 
   useEffect(() => {
     if (availableParties.length > 0 && !selectedPartyId) {
-      setSelectedPartyId(availableParties[0].id);
+      setSelectedPartyId(availableParties[0]!.id);
     }
   }, [availableParties, selectedPartyId]);
 
@@ -135,7 +136,7 @@ function PortalLayout() {
   return (
     <PortalContext.Provider
       value={{
-        activeParty,
+        activeParty: activeParty ?? null,
         availableParties,
         setActivePartyId: setSelectedPartyId,
       }}
