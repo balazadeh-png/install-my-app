@@ -33,9 +33,9 @@ import {
 import { toast } from "sonner";
 
 interface ClientStockoutAlertsProps {
-  partyId?: string;
-  companyId?: string;
-  companyName?: string;
+  partyId?: string | undefined;
+  companyId?: string | undefined;
+  companyName?: string | undefined;
 }
 
 export function ClientStockoutAlerts({
