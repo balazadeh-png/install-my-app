@@ -2,6 +2,29 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 31: AI-Driven Predictive Analytics & Automated Stock-Out Alerts] - 2026-09-28
+
+### Añadido
+* **Motor Predictivo y Automatización de Quiebres en PostgreSQL** ([`20260928000031_sprint31_ai_driven_stock_forecast.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260928000031_sprint31_ai_driven_stock_forecast.sql)):
+  * Vistas de compatibilidad `kardex_movements` (sobre `stock_ledger_entries`) y `order_items` (sobre `sales_order_lines` y `sales_orders`).
+  * Tabla `client_alerts` con segregación multi-inquilino por empresa (`company_id`) y cliente (`party_id`), índices de búsqueda y políticas RLS para lectura y actualización por portal y staff.
+  * Función PL/pgSQL `get_inventory_stockout_forecast(company_id, party_id)`: calcula el consumo diario promedio de los últimos 30 días (`qty_change < 0` en salidas de kardex), proyecta días restantes de inventario (`days_to_stockout = current_stock / avg_daily_consumption`), y clasifica ítems en `CRITICAL` (≤ 7 días o stock agotado), `WARNING` (8-14 días) o `HEALTHY` (> 14 días).
+  * Función PL/pgSQL `check_and_create_stockout_alerts(company_id, party_id)`: procesa automáticamente el motor predictivo, resuelve alertas no leídas cuando el stock se recupera, e inserta o actualiza notificaciones activas para clientes.
+  * Funciones RPC `mark_client_alert_read` y `mark_all_client_alerts_read` para gestión de notificaciones.
+* **Script de Analítica Predictiva en Python** ([`scripts/forecast_demand_trends.py`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/scripts/forecast_demand_trends.py)):
+  * Pipeline por lotes con soporte de Pandas, cálculo de medias móviles semanales (7d / 14d), estimación de burn rate y detección de quiebres de stock.
+* **Servicios de Servidor TypeScript** ([`src/lib/stockForecast.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/stockForecast.functions.ts)):
+  * `getInventoryForecastFn` y `triggerStockoutAlertsCheckFn` para consultas y ejecuciones del pronóstico.
+* **Componente y Notificaciones en Portal de Clientes** ([`ClientStockoutAlerts.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/portal/ClientStockoutAlerts.tsx) y [`portal.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_portal/portal.tsx)):
+  * Alertas visuales destacadas con `Alert variant="destructive"` e ícono `AlertTriangle` para riesgos críticos de quiebre (&le; 7 días).
+  * Alertas preventivas en ámbar para inventario entre 8 y 14 días.
+  * Opciones para descartar individualmente o marcar todas como leídas.
+  * Nueva pestaña "Predicción AI" en el portal con tabla analítica completa, búsqueda, filtros de estado y recomendaciones operacionales automatizadas.
+* **Integración en Panel 3PL de Operaciones** ([`dashboard-3pl.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx)):
+  * Pestaña "Quiebres AI" en el dashboard de control para que el operador logístico supervise artículos en riesgo de todos los clientes y dispare recalculaciones en tiempo real.
+
+---
+
 ## [Sprint 30: Medición Configurable de Almacenaje por Bodega] - 2026-09-28
 
 ### Añadido

@@ -437,5 +437,28 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Servidor `previewServiceBillingFn` que expone el desglose exacto de los cobros calculados (almacenaje desglosado por bodega y método, picking, viajes y recargos fijos), alertando de bodegas manuales o sin tarifas configuradas.
   * Modal interactivo en la pestaña de Facturación 3PL que permite a los operadores revisar los cálculos antes de emitir la factura borrador.
 
+---
+
+## 29. Vertical 3PL — Analítica Predictiva y Alertas Automatizadas de Quiebre de Stock ([`/portal`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_portal/portal.tsx) y [`/dashboard-3pl`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx))
+* **Motor Predictivo de Demanda en Base de Datos**:
+  * Función nativa `get_inventory_stockout_forecast(company_id, party_id)`:
+    * Reconstruye el consumo diario promedio (*burn rate*) a partir de las salidas del kardex (`stock_ledger_entries.qty_change < 0` / vista `kardex_movements`) registradas en los últimos 30 días móviles.
+    * Compara la tasa de salida con el stock actual disponible en custodia (`stock_balances.qty_on_hand`) para proyectar el tiempo exacto hasta el quiebre de existencias:
+      $$\text{Días hasta Quiebre} = \frac{\text{Stock Actual Disponible}}{\text{Consumo Diario Promedio (30 días)}}$$
+    * Clasificación automática de severidad: `CRITICAL` (≤ 7 días restantes o inventario en cero con demanda activa), `WARNING` (8 a 14 días restantes) y `HEALTHY` (> 14 días).
+* **Gestión Multi-Inquilino de Alertas Automatizadas (`client_alerts`)**:
+  * Tabla con RLS que almacena alertas generadas con severidad, mensaje explicativo y estado de lectura (`is_read`).
+  * Procedimiento automatizado `check_and_create_stockout_alerts`: genera advertencias para nuevos riesgos y marca automáticamente como resueltas (`is_read = true`) las alertas de productos cuyo inventario ha sido reabastecido.
+  * Funciones RPC `mark_client_alert_read` y `mark_all_client_alerts_read` para descartar avisos en interfaz.
+* **Script de Procesamiento y Machine Learning en Python (`scripts/forecast_demand_trends.py`)**:
+  * Análisis de tendencias por lotes sobre pedidos (`order_items`), cálculo de medias móviles semanales (7d / 14d) y generación de reportes JSON para soporte predictivo en jobs programados.
+* **Componentes de Alerta y Portal de Clientes**:
+  * Componente `ClientStockoutAlerts` embebido en el portal de clientes con banners tipo `Alert variant="destructive"` e ícono `AlertTriangle` para riesgos críticos inmediatos.
+  * Modal detallado de pronóstico con desglose de burn-rate, días de inventario y sugerencias de reabastecimiento.
+  * Pestaña "Predicción AI" en el portal de clientes con tabla de búsqueda y filtros de severidad.
+* **Panel de Control para el Operador Logístico**:
+  * Pestaña "Quiebres AI" en el dashboard 3PL para que el operador audite los productos críticos de todos sus clientes y dispare recalculaciones en tiempo real.
+
+
 
 

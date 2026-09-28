@@ -163,6 +163,25 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
     * `storage_measure_on`: Evalúa y cuantifica la ocupación real a una fecha dada conforme al método configurado en la bodega.
     * `get_storage_usage`: Consolida el consumo de almacenamiento en un período de facturación para alimentar la liquidación de contratos 3PL.
   * **Previsualización de Facturación**: Server function `previewServiceBillingFn` que desglosa de manera transparente el cálculo de consumos de almacenaje, picking y transporte sin comprometer registros en `sales_invoices`.
+* **Vertical 3PL — Analítica Predictiva y Alertas Automatizadas de Quiebre de Stock (Sprint 31)**:
+  * **Vistas de Compatibilidad Kardex y Órdenes**:
+    * `kardex_movements`: Vista estandarizada sobre `stock_ledger_entries` exponiendo `company_id`, `party_id`, `item_id`, `qty_change`, y fecha de imputación.
+    * `order_items`: Vista unificada sobre `sales_order_lines` y `sales_orders` para análisis de demanda por cliente y canal.
+  * **Tabla `client_alerts`**:
+    * Persistencia de notificaciones multi-empresa con aislamiento estricto por `company_id` y `party_id`.
+    * Estados de severidad tipados (`CRITICAL`, `WARNING`, `INFO`, `HEALTHY`) y bandera de lectura `is_read`.
+    * Políticas RLS independientes para lectura/gestión de staff y lectura/descarte de clientes del portal.
+  * **Motor Predictivo PL/pgSQL (`get_inventory_stockout_forecast`)**:
+    * Reconstruye el consumo diario promedio (*burn rate*) a partir de las salidas del kardex (`qty_change < 0`) en los últimos 30 días móviles.
+    * Proyecta el tiempo hasta agotamiento (`days_to_stockout = current_stock / avg_daily_consumption`).
+    * Clasificación de riesgo semántica: `CRITICAL` (&le; 7 días o stock agotado), `WARNING` (8 a 14 días), `HEALTHY` (&gt; 14 días).
+  * **Automatización y Resolución Proactiva (`check_and_create_stockout_alerts`)**:
+    * Función que evalúa el estado proyectado de cada artículo: genera alertas nuevas para quiebres inminentes y resuelve automáticamente (`is_read = true`) las alertas de artículos cuyo stock fue reabastecido.
+  * **Pipeline de Pronóstico en Python (`scripts/forecast_demand_trends.py`)**:
+    * Procesamiento batch de tendencias con medias móviles semanales (7d / 14d) y soporte de ejecución programada vía CLI o cron.
+  * **Componentes de Alerta y Portal Predictivo (`ClientStockoutAlerts.tsx` y `portal.tsx`)**:
+    * Alertas flotantes críticas (`Alert variant="destructive"`) en el portal del cliente con descarte individual o masivo.
+    * Pestaña analítica "Predicción AI" en el portal de clientes y pestaña "Quiebres AI" en el panel del operador 3PL (`dashboard-3pl.tsx`).
 
 
 

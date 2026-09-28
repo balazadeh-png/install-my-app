@@ -36,6 +36,8 @@ import {
   Coins,
   AlertCircle,
   ArrowUpDown,
+  Sparkles,
+  TrendingDown,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard-3pl")({
@@ -278,6 +280,80 @@ function Dashboard3PLPage() {
       if (error) throw error;
       return data ?? [];
     },
+  });
+
+  // 8. Alertas activas de quiebre de stock predictivo (Sprint 31)
+  const clientAlertsQ = useQuery({
+    queryKey: ["client_alerts_3pl_operator", activeEntityId, selectedPartyFilter],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      let q = supabase
+        .from("client_alerts" as any)
+        .select(`
+          id,
+          company_id,
+          party_id,
+          item_id,
+          severity,
+          message,
+          is_read,
+          created_at,
+          items (code, name),
+          parties (name)
+        `)
+        .eq("company_id", activeEntityId!)
+        .eq("is_read", false)
+        .order("created_at", { ascending: false });
+
+      if (selectedPartyFilter !== "ALL") {
+        q = q.eq("party_id", selectedPartyFilter);
+      }
+
+      const { data, error } = await q;
+      if (error) {
+        console.warn("Error cargando client_alerts:", error);
+        return [];
+      }
+      return (data as any[]) ?? [];
+    },
+  });
+
+  // 9. Pronóstico general de quiebres de inventario (Sprint 31)
+  const stockoutForecastQ = useQuery({
+    queryKey: ["stockout_forecast_3pl", activeEntityId, selectedPartyFilter],
+    enabled: !!activeEntityId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_inventory_stockout_forecast", {
+        p_company_id: activeEntityId!,
+        p_party_id: selectedPartyFilter !== "ALL" ? selectedPartyFilter : undefined,
+      });
+      if (error) {
+        console.warn("Error consultando get_inventory_stockout_forecast:", error);
+        return [];
+      }
+      return (data as any[]) ?? [];
+    },
+  });
+
+  // Mutación: Recalcular y generar alertas de quiebre de stock (Sprint 31)
+  const runStockoutAlertsM = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Entidad activa requerida");
+      const { data, error } = await supabase.rpc("check_and_create_stockout_alerts", {
+        p_company_id: activeEntityId,
+        p_party_id: selectedPartyFilter !== "ALL" ? selectedPartyFilter : undefined,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (res: any) => {
+      toast.success(
+        `Pronóstico recalculado: ${res?.critical_alerts ?? 0} críticos, ${res?.warning_alerts ?? 0} advertencias, ${res?.resolved_alerts ?? 0} resueltos.`
+      );
+      qc.invalidateQueries({ queryKey: ["client_alerts_3pl_operator"] });
+      qc.invalidateQueries({ queryKey: ["stockout_forecast_3pl"] });
+    },
+    onError: (err: any) => toast.error(err.message || "Error al recalcular alertas de stock"),
   });
 
   // Mutación: Guardar Costo Operativo
@@ -990,7 +1066,7 @@ function Dashboard3PLPage() {
 
       {/* Pestañas de Análisis Detallado */}
       <Tabs defaultValue="profitability" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 h-auto gap-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6 h-auto gap-1">
           <TabsTrigger value="profitability" className="text-xs gap-1.5 py-2">
             <Coins className="h-4 w-4 text-emerald-500" />
             Rentabilidad por Cliente
@@ -1010,6 +1086,10 @@ function Dashboard3PLPage() {
           <TabsTrigger value="costs" className="text-xs gap-1.5 py-2">
             <DollarSign className="h-4 w-4" />
             Costos Operativos
+          </TabsTrigger>
+          <TabsTrigger value="stockout" className="text-xs gap-1.5 py-2">
+            <Sparkles className="h-4 w-4 text-purple-500" />
+            Quiebres AI ({ (clientAlertsQ.data ?? []).length })
           </TabsTrigger>
         </TabsList>
 
@@ -1587,6 +1667,190 @@ function Dashboard3PLPage() {
                   </TableBody>
                 </Table>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* PESTAÑA: ALERTAS DE QUIEBRE Y PRONÓSTICO PREDICTIVO (SPRINT 31) */}
+        <TabsContent value="stockout" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    Monitor Predictivo de Quiebres de Stock y Alertas (AI Driven)
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Motor predictivo que calcula el consumo diario promedio de los últimos 30 días para proyectar días de stock restante y disparar alertas a clientes.
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={() => runStockoutAlertsM.mutate()}
+                    disabled={runStockoutAlertsM.isPending}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${runStockoutAlertsM.isPending ? "animate-spin" : ""}`} />
+                    {runStockoutAlertsM.isPending ? "Calculando..." : "Recalcular Pronósticos y Alertas"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Métricas Resumen AI */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t">
+                <div className="bg-muted/40 p-2.5 rounded-lg border text-center">
+                  <div className="text-[11px] text-muted-foreground font-medium">Alertas Activas</div>
+                  <div className="text-lg font-bold mt-0.5">{(clientAlertsQ.data ?? []).length}</div>
+                </div>
+                <div className="bg-red-50 dark:bg-red-950/20 p-2.5 rounded-lg border border-red-200 dark:border-red-900/40 text-center">
+                  <div className="text-[11px] text-red-700 dark:text-red-300 font-medium">Artículos Críticos (&le; 7d)</div>
+                  <div className="text-lg font-bold text-red-600 dark:text-red-400 mt-0.5">
+                    {(stockoutForecastQ.data ?? []).filter((f: any) => f.status === "CRITICAL").length}
+                  </div>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-950/20 p-2.5 rounded-lg border border-amber-200 dark:border-amber-900/40 text-center">
+                  <div className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">En Advertencia (8-14d)</div>
+                  <div className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                    {(stockoutForecastQ.data ?? []).filter((f: any) => f.status === "WARNING").length}
+                  </div>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/40 text-center">
+                  <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">Nivel Saludable (&gt; 14d)</div>
+                  <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    {(stockoutForecastQ.data ?? []).filter((f: any) => f.status === "HEALTHY").length}
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4 pt-0">
+              {/* Sección 1: Alertas Recientes Disparadas */}
+              {(clientAlertsQ.data ?? []).length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Notificaciones Enviadas al Portal de Clientes
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {(clientAlertsQ.data ?? []).length} pendientes de lectura
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {(clientAlertsQ.data ?? []).slice(0, 6).map((al: any) => (
+                      <div
+                        key={al.id}
+                        className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
+                          al.severity === "CRITICAL"
+                            ? "bg-red-50/60 dark:bg-red-950/20 border-red-200 dark:border-red-900/40"
+                            : "bg-amber-50/60 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40"
+                        }`}
+                      >
+                        <AlertTriangle
+                          className={`h-4 w-4 shrink-0 mt-0.5 ${
+                            al.severity === "CRITICAL" ? "text-red-600" : "text-amber-600"
+                          }`}
+                        />
+                        <div className="space-y-0.5 flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-semibold text-foreground truncate">
+                              {al.parties?.name || "Cliente 3PL"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              {new Date(al.created_at).toLocaleDateString("es-CL")}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground line-clamp-2">{al.message}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sección 2: Tabla Completa de Proyección Predictiva */}
+              <div className="space-y-2 pt-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Proyección de Agotamiento de Inventario por Ítem
+                </span>
+
+                {stockoutForecastQ.isLoading ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                    Calculando estimación predictiva de inventario...
+                  </div>
+                ) : (stockoutForecastQ.data ?? []).length === 0 ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">
+                    No se registran movimientos ni saldos para el filtro seleccionado.
+                  </div>
+                ) : (
+                  <div className="border rounded-md overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-muted/30">
+                        <TableRow className="text-xs">
+                          <TableHead>Código SKU</TableHead>
+                          <TableHead>Producto</TableHead>
+                          <TableHead className="text-right">Stock Actual</TableHead>
+                          <TableHead className="text-right">Consumo Diario (Burn Rate)</TableHead>
+                          <TableHead className="text-right">Días Restantes</TableHead>
+                          <TableHead className="text-center">Nivel de Riesgo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(stockoutForecastQ.data ?? []).map((row: any) => {
+                          const days = Number(row.days_to_stockout);
+                          const isCritical = row.status === "CRITICAL";
+                          const isWarning = row.status === "WARNING";
+
+                          return (
+                            <TableRow key={row.item_id} className="text-xs">
+                              <TableCell className="font-mono font-semibold">{row.item_code}</TableCell>
+                              <TableCell>{row.item_name}</TableCell>
+                              <TableCell className="text-right font-medium">
+                                {Number(row.current_stock).toLocaleString()} un.
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1 text-muted-foreground">
+                                  <TrendingDown className={`h-3 w-3 ${Number(row.avg_daily_consumption) > 0 ? "text-red-500" : "text-muted-foreground"}`} />
+                                  <span>{Number(row.avg_daily_consumption).toLocaleString()} un/día</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right font-bold">
+                                {days >= 999 ? (
+                                  <span className="text-muted-foreground font-normal">&gt; 90 días</span>
+                                ) : days <= 0 ? (
+                                  <span className="text-red-600 font-extrabold">0 días (Agotado)</span>
+                                ) : (
+                                  <span className={isCritical ? "text-red-600" : isWarning ? "text-amber-600" : "text-emerald-600"}>
+                                    {days} días
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {isCritical ? (
+                                  <Badge variant="destructive" className="text-[10px] uppercase font-bold">
+                                    Crítico (&le; 7d)
+                                  </Badge>
+                                ) : isWarning ? (
+                                  <Badge variant="outline" className="text-[10px] uppercase font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300">
+                                    Advertencia (8-14d)
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] uppercase font-medium bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400">
+                                    Saludable
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

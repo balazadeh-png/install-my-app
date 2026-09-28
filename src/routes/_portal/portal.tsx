@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Package, Truck, ShoppingCart, Search, Printer, Eye, MapPin, Building2, AlertTriangle, ExternalLink, Calendar } from "lucide-react";
+import { Package, Truck, ShoppingCart, Search, Printer, Eye, MapPin, Building2, AlertTriangle, ExternalLink, Calendar, Sparkles, TrendingDown, RefreshCw, ShieldCheck } from "lucide-react";
+import { ClientStockoutAlerts } from "@/components/portal/ClientStockoutAlerts";
 
 export const Route = createFileRoute("/_portal/portal")({
   head: () => ({
@@ -30,6 +30,8 @@ function CustomerPortalPage() {
   const [stockSearch, setStockSearch] = useState("");
   const [dispatchSearch, setDispatchSearch] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
+  const [forecastSearch, setForecastSearch] = useState("");
+  const [forecastStatusFilter, setForecastStatusFilter] = useState<string>("all");
   const [selectedNoteForPdf, setSelectedNoteForPdf] = useState<any>(null);
   const [selectedOrderForView, setSelectedOrderForView] = useState<any>(null);
 
@@ -127,9 +129,27 @@ function CustomerPortalPage() {
     },
   });
 
+  // 4. Pronóstico AI Predictivo de Quiebres de Stock (Sprint 31)
+  const forecastQ = useQuery({
+    queryKey: ["portal_inventory_forecast", activeParty?.entity_id, partyId],
+    enabled: !!activeParty?.entity_id && !!partyId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_inventory_stockout_forecast", {
+        p_company_id: activeParty!.entity_id,
+        p_party_id: partyId!,
+      });
+      if (error) {
+        console.warn("Forecast RPC error:", error);
+        return [];
+      }
+      return (data as any[]) ?? [];
+    },
+  });
+
   const balances = balancesQ.data ?? [];
   const dispatches = dispatchNotesQ.data ?? [];
   const orders = salesOrdersQ.data ?? [];
+  const forecast = forecastQ.data ?? [];
 
   // Cálculos de Resumen
   const totalStockUnits = balances.reduce((sum, b) => sum + (Number(b.qty_on_hand) || 0), 0);
@@ -202,9 +222,16 @@ function CustomerPortalPage() {
         </Card>
       </div>
 
+      {/* Alertas Automáticas de Quiebre de Stock (Sprint 31) */}
+      <ClientStockoutAlerts
+        partyId={partyId}
+        companyId={activeParty?.entity_id}
+        companyName={activeParty?.entities?.business_name}
+      />
+
       {/* Tabs Principales del Portal */}
       <Tabs defaultValue="stock" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg h-auto p-1 bg-muted/60">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 max-w-2xl h-auto p-1 bg-muted/60">
           <TabsTrigger value="stock" className="gap-1.5 text-xs py-2">
             <Package className="h-4 w-4" />
             <span>Mi Inventario</span>
@@ -216,6 +243,10 @@ function CustomerPortalPage() {
           <TabsTrigger value="orders" className="gap-1.5 text-xs py-2">
             <ShoppingCart className="h-4 w-4" />
             <span>Mis Pedidos OMS</span>
+          </TabsTrigger>
+          <TabsTrigger value="forecast" className="gap-1.5 text-xs py-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span>Predicción AI</span>
           </TabsTrigger>
         </TabsList>
 
@@ -579,6 +610,220 @@ function CustomerPortalPage() {
                               >
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ------------------------------------------------------------- */}
+        {/* PESTAÑA 4: ANALÍTICA PREDICTIVA Y QUIEBRES DE STOCK (AI)      */}
+        {/* ------------------------------------------------------------- */}
+        <TabsContent value="forecast" className="space-y-4">
+          <Card>
+            <CardHeader className="py-4 px-5">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span>Analítica Predictiva y Proyección de Quiebres (AI Stock)</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Modelo predictivo de inventario basado en tasa de consumo diario de los últimos 30 días (salidas de kardex y pedidos).
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={() => forecastQ.refetch()}
+                    disabled={forecastQ.isFetching}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${forecastQ.isFetching ? "animate-spin" : ""}`} />
+                    Actualizar
+                  </Button>
+                </div>
+              </div>
+
+              {/* Métricas Rápidas del Pronóstico */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t">
+                <div className="bg-muted/40 p-2.5 rounded-lg border text-center">
+                  <div className="text-[11px] text-muted-foreground font-medium">SKUs Analizados</div>
+                  <div className="text-lg font-bold mt-0.5">{forecast.length}</div>
+                </div>
+                <div className="bg-red-50 dark:bg-red-950/20 p-2.5 rounded-lg border border-red-200 dark:border-red-900/40 text-center">
+                  <div className="text-[11px] text-red-700 dark:text-red-300 font-medium">Quiebre Crítico (&le; 7d)</div>
+                  <div className="text-lg font-bold text-red-600 dark:text-red-400 mt-0.5">
+                    {forecast.filter((f: any) => f.status === "CRITICAL").length}
+                  </div>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-950/20 p-2.5 rounded-lg border border-amber-200 dark:border-amber-900/40 text-center">
+                  <div className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">Advertencia (8-14d)</div>
+                  <div className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                    {forecast.filter((f: any) => f.status === "WARNING").length}
+                  </div>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/40 text-center">
+                  <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">Nivel Saludable (&gt; 14d)</div>
+                  <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    {forecast.filter((f: any) => f.status === "HEALTHY").length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Filtros de Búsqueda y Estado */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 mt-3 pt-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Filtrar por código SKU o nombre de producto..."
+                    className="pl-8 text-xs h-8"
+                    value={forecastSearch}
+                    onChange={(e) => setForecastSearch(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+                  <Button
+                    variant={forecastStatusFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs px-2.5"
+                    onClick={() => setForecastStatusFilter("all")}
+                  >
+                    Todos
+                  </Button>
+                  <Button
+                    variant={forecastStatusFilter === "CRITICAL" ? "destructive" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs px-2.5"
+                    onClick={() => setForecastStatusFilter("CRITICAL")}
+                  >
+                    Críticos
+                  </Button>
+                  <Button
+                    variant={forecastStatusFilter === "WARNING" ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs px-2.5"
+                    onClick={() => setForecastStatusFilter("WARNING")}
+                  >
+                    Advertencia
+                  </Button>
+                  <Button
+                    variant={forecastStatusFilter === "HEALTHY" ? "outline" : "ghost"}
+                    size="sm"
+                    className="h-7 text-xs px-2.5"
+                    onClick={() => setForecastStatusFilter("HEALTHY")}
+                  >
+                    Saludables
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              {(() => {
+                const filtered = forecast.filter((item: any) => {
+                  const matchSearch =
+                    !forecastSearch ||
+                    item.item_code?.toLowerCase().includes(forecastSearch.toLowerCase()) ||
+                    item.item_name?.toLowerCase().includes(forecastSearch.toLowerCase());
+                  const matchStatus =
+                    forecastStatusFilter === "all" || item.status === forecastStatusFilter;
+                  return matchSearch && matchStatus;
+                });
+
+                if (forecastQ.isLoading) {
+                  return (
+                    <div className="p-12 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                      <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                      Calculando proyecciones de demanda predictiva...
+                    </div>
+                  );
+                }
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-12 text-center text-xs text-muted-foreground flex flex-col items-center justify-center">
+                      <ShieldCheck className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                      <p className="font-medium">No se encontraron productos en este criterio</p>
+                      <p className="text-[11px] mt-0.5">Ajusta el filtro de búsqueda o severidad.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-xs bg-muted/20">
+                        <TableHead className="w-[120px]">Código SKU</TableHead>
+                        <TableHead>Descripción del Producto</TableHead>
+                        <TableHead className="text-right">Stock Actual</TableHead>
+                        <TableHead className="text-right">Consumo Diario (Burn Rate)</TableHead>
+                        <TableHead className="text-right">Días Restantes</TableHead>
+                        <TableHead className="text-center w-[120px]">Nivel de Riesgo</TableHead>
+                        <TableHead>Recomendación AI</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((item: any) => {
+                        const days = Number(item.days_to_stockout);
+                        const isCritical = item.status === "CRITICAL";
+                        const isWarning = item.status === "WARNING";
+
+                        return (
+                          <TableRow key={item.item_id} className="text-xs">
+                            <TableCell className="font-mono font-semibold">
+                              {item.item_code}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {item.item_name}
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              {Number(item.current_stock).toLocaleString()} un.
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1 text-muted-foreground">
+                                <TrendingDown className={`h-3 w-3 ${Number(item.avg_daily_consumption) > 0 ? "text-red-500" : "text-muted-foreground"}`} />
+                                <span>{Number(item.avg_daily_consumption).toLocaleString()} un/día</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-bold">
+                              {days >= 999 ? (
+                                <span className="text-muted-foreground font-normal">&gt; 90 días</span>
+                              ) : days <= 0 ? (
+                                <span className="text-red-600">0 días (Agotado)</span>
+                              ) : (
+                                <span className={isCritical ? "text-red-600" : isWarning ? "text-amber-600" : "text-emerald-600"}>
+                                  {days} días
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {isCritical ? (
+                                <Badge variant="destructive" className="text-[10px] uppercase font-bold">
+                                  Crítico
+                                </Badge>
+                              ) : isWarning ? (
+                                <Badge variant="outline" className="text-[10px] uppercase font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300">
+                                  Advertencia
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] uppercase font-medium bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400">
+                                  Saludable
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-muted-foreground">
+                              {isCritical && days <= 0 && "Inventario en cero con demanda activa. Reposición urgente."}
+                              {isCritical && days > 0 && `Quiebre inminente en ${days} días. Solicitar reposición de lote inmediato.`}
+                              {isWarning && `Consumo sostenido. Planificar orden de reabastecimiento antes de ${days} días.`}
+                              {!isCritical && !isWarning && "Stock adecuado según proyección de demanda a 30 días."}
                             </TableCell>
                           </TableRow>
                         );
