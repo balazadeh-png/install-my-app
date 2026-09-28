@@ -48,17 +48,27 @@ function InventoryPage() {
   const [newWarehouseOpen, setNewWarehouseOpen] = useState(false);
   const [newMovementOpen, setNewMovementOpen] = useState(false);
   const [newTransferOpen, setNewTransferOpen] = useState(false);
+  const [newLocationOpen, setNewLocationOpen] = useState(false);
 
-  // Form State Item
+  // Form State Item (Sprint 30)
   const [itemCode, setItemCode] = useState("");
   const [itemName, setItemName] = useState("");
   const [itemCategory, setItemCategory] = useState("");
   const [itemUom, setItemUom] = useState("");
   const [isStockItem, setIsStockItem] = useState(true);
+  const [itemUnitsPerPallet, setItemUnitsPerPallet] = useState("");
+  const [itemUnitVolumeM3, setItemUnitVolumeM3] = useState("");
 
   // Form State Warehouse
   const [warehouseCode, setWarehouseCode] = useState("");
   const [warehouseName, setWarehouseName] = useState("");
+
+  // Form State Location WMS (Sprint 30)
+  const [locWarehouseId, setLocWarehouseId] = useState("");
+  const [locCode, setLocCode] = useState("");
+  const [locName, setLocName] = useState("");
+  const [locPalletPositions, setLocPalletPositions] = useState("1");
+  const [locAreaM2, setLocAreaM2] = useState("");
 
   // Form State Movimiento Individual (Entrada / Salida / Ajuste)
   const [movType, setMovType] = useState<"receipt" | "issue" | "adjustment">("receipt");
@@ -197,7 +207,7 @@ function InventoryPage() {
       if (!activeEntityId) return [];
       const { data, error } = await supabase
         .from("warehouse_locations" as any)
-        .select("*")
+        .select("*, warehouses(code, name)")
         .eq("entity_id", activeEntityId)
         .order("code");
       if (error) throw error;
@@ -206,10 +216,13 @@ function InventoryPage() {
     enabled: !!activeEntityId,
   });
 
-  // Mutation: Crear Item
+  // Mutation: Crear Item (Sprint 30: units_per_pallet, unit_volume_m3)
   const createItemMutation = useMutation({
     mutationFn: async () => {
       if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+      const unitsPerPalletNum = itemUnitsPerPallet ? parseInt(itemUnitsPerPallet, 10) : null;
+      const unitVolNum = itemUnitVolumeM3 ? parseFloat(itemUnitVolumeM3) : null;
+
       const { error } = await supabase.from("items").insert({
         entity_id: activeEntityId,
         code: itemCode.trim().toUpperCase(),
@@ -219,7 +232,9 @@ function InventoryPage() {
         is_stock_item: isStockItem,
         valuation_method: "FIFO",
         active: true,
-      });
+        units_per_pallet: unitsPerPalletNum && !isNaN(unitsPerPalletNum) && unitsPerPalletNum > 0 ? unitsPerPalletNum : null,
+        unit_volume_m3: unitVolNum && !isNaN(unitVolNum) && unitVolNum > 0 ? unitVolNum : null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -230,6 +245,8 @@ function InventoryPage() {
       setItemName("");
       setItemCategory("");
       setItemUom("");
+      setItemUnitsPerPallet("");
+      setItemUnitVolumeM3("");
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al crear artículo");
@@ -257,6 +274,41 @@ function InventoryPage() {
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al registrar bodega");
+    },
+  });
+
+  // Mutation: Crear Ubicación WMS (Sprint 30)
+  const createLocationMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeEntityId) throw new Error("Selecciona una empresa primero");
+      if (!locWarehouseId) throw new Error("Selecciona una bodega");
+      if (!locCode.trim()) throw new Error("Ingresa el código de ubicación");
+
+      const palletPos = locPalletPositions ? parseInt(locPalletPositions, 10) : 1;
+      const areaM2 = locAreaM2 ? parseFloat(locAreaM2) : null;
+
+      const { error } = await supabase.from("warehouse_locations" as any).insert({
+        entity_id: activeEntityId,
+        warehouse_id: locWarehouseId,
+        code: locCode.trim().toUpperCase(),
+        name: locName.trim() || null,
+        pallet_positions: isNaN(palletPos) || palletPos < 0 ? 1 : palletPos,
+        area_m2: areaM2 && !isNaN(areaM2) && areaM2 > 0 ? areaM2 : null,
+        active: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["warehouse_locations", activeEntityId] });
+      toast.success("Ubicación WMS registrada exitosamente");
+      setNewLocationOpen(false);
+      setLocCode("");
+      setLocName("");
+      setLocPalletPositions("1");
+      setLocAreaM2("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al registrar ubicación WMS");
     },
   });
 
@@ -496,6 +548,31 @@ function InventoryPage() {
                     </label>
                   </div>
                 </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="iUnitsPallet" className="text-right">Uds./Pallet</Label>
+                  <Input
+                    id="iUnitsPallet"
+                    type="number"
+                    min="1"
+                    placeholder="ej. 50 (opcional)"
+                    value={itemUnitsPerPallet}
+                    onChange={(e) => setItemUnitsPerPallet(e.target.value)}
+                    className="col-span-3 font-mono"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="iVolM3" className="text-right">Volumen (m³)</Label>
+                  <Input
+                    id="iVolM3"
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    placeholder="ej. 0.05 (m³ por unidad)"
+                    value={itemUnitVolumeM3}
+                    onChange={(e) => setItemUnitVolumeM3(e.target.value)}
+                    className="col-span-3 font-mono"
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button
@@ -551,6 +628,94 @@ function InventoryPage() {
                   disabled={createWarehouseMutation.isPending || !warehouseCode || !warehouseName}
                 >
                   Guardar Bodega
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog Crear Ubicación WMS (Sprint 30) */}
+          <Dialog open={newLocationOpen} onOpenChange={setNewLocationOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <MapPin className="mr-1.5 h-3.5 w-3.5" />
+                Nueva Ubicación
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Registrar Ubicación WMS</DialogTitle>
+                <DialogDescription>
+                  Crea una posición física dentro de una bodega con posiciones de pallet y metraje cuadrado.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-3">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="locWh" className="text-right">Bodega *</Label>
+                  <Select value={locWarehouseId} onValueChange={setLocWarehouseId}>
+                    <SelectTrigger id="locWh" className="col-span-3">
+                      <SelectValue placeholder="Seleccione bodega" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {warehouses.map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.code} - {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="locCode" className="text-right">Código *</Label>
+                  <Input
+                    id="locCode"
+                    placeholder="ej. PAS-01-RACK-01"
+                    value={locCode}
+                    onChange={(e) => setLocCode(e.target.value)}
+                    className="col-span-3 font-mono uppercase"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="locName" className="text-right">Nombre</Label>
+                  <Input
+                    id="locName"
+                    placeholder="ej. Nivel 1 - Racks Secos"
+                    value={locName}
+                    onChange={(e) => setLocName(e.target.value)}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="locPallet" className="text-right">Pos. Pallet</Label>
+                  <Input
+                    id="locPallet"
+                    type="number"
+                    min="0"
+                    placeholder="1"
+                    value={locPalletPositions}
+                    onChange={(e) => setLocPalletPositions(e.target.value)}
+                    className="col-span-3 font-mono"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="locArea" className="text-right">Área (m²)</Label>
+                  <Input
+                    id="locArea"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="ej. 1.8"
+                    value={locAreaM2}
+                    onChange={(e) => setLocAreaM2(e.target.value)}
+                    className="col-span-3 font-mono"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => createLocationMutation.mutate()}
+                  disabled={createLocationMutation.isPending || !locWarehouseId || !locCode.trim()}
+                >
+                  Guardar Ubicación
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -937,6 +1102,10 @@ function InventoryPage() {
             <Warehouse className="h-4 w-4" />
             <span>Bodegas ({warehouses.length})</span>
           </TabsTrigger>
+          <TabsTrigger value="locations" className="flex items-center gap-1.5">
+            <MapPin className="h-4 w-4" />
+            <span>Ubicaciones WMS ({locations.length})</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Tab Saldos por Bodega */}
@@ -1243,6 +1412,8 @@ function InventoryPage() {
                         <TableHead>Descripción</TableHead>
                         <TableHead>Categoría</TableHead>
                         <TableHead>Unidad</TableHead>
+                        <TableHead className="text-right">Uds./Pallet</TableHead>
+                        <TableHead className="text-right">Volumen m³</TableHead>
                         <TableHead className="text-center">Método</TableHead>
                         <TableHead className="text-center">Control Stock</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
@@ -1258,6 +1429,12 @@ function InventoryPage() {
                           </TableCell>
                           <TableCell className="text-xs font-mono">
                             {i.uom?.code || "-"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {i.units_per_pallet ? `${i.units_per_pallet} un` : "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {i.unit_volume_m3 ? `${Number(i.unit_volume_m3).toFixed(4)} m³` : "—"}
                           </TableCell>
                           <TableCell className="text-center">
                             <Badge variant="outline" className="text-xs">
@@ -1292,9 +1469,9 @@ function InventoryPage() {
         <TabsContent value="warehouses">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Bodegas & Ubicaciones de Almacenamiento</CardTitle>
+              <CardTitle className="text-base font-semibold">Bodegas & Configuración de Almacenamiento</CardTitle>
               <CardDescription>
-                Instalaciones físicas configuradas para la empresa activa.
+                Instalaciones físicas configuradas con método de medición y capacidad (Sprint 30).
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1308,19 +1485,121 @@ function InventoryPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[140px]">Código</TableHead>
+                        <TableHead className="w-[120px]">Código</TableHead>
                         <TableHead>Nombre del Almacén</TableHead>
+                        <TableHead>Método Medición</TableHead>
+                        <TableHead>Base de Cálculo</TableHead>
+                        <TableHead className="text-right">Capacidad</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {warehouses.map((w) => (
+                      {warehouses.map((w: any) => (
                         <TableRow key={w.id}>
                           <TableCell className="font-mono text-xs font-semibold text-primary">{w.code}</TableCell>
                           <TableCell className="text-xs font-semibold">{w.name}</TableCell>
+                          <TableCell className="text-xs">
+                            <Badge variant="outline" className="text-[11px]">
+                              {w.storage_measure_method === "by_location"
+                                ? "Por Ubicación"
+                                : w.storage_measure_method === "by_item_attributes"
+                                ? "Por Atributos Ítem"
+                                : w.storage_measure_method === "by_warehouse_default"
+                                ? "Por Defecto Bodega"
+                                : "Manual"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground">
+                            {w.storage_measure_basis || "pallet"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {w.storage_capacity ? `${w.storage_capacity} ${w.storage_measure_basis || "pallets"}` : "—"}
+                          </TableCell>
                           <TableCell className="text-center">
                             <Badge variant={w.active ? "outline" : "secondary"} className="text-xs">
                               {w.active ? "Operativa" : "Inactiva"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab Ubicaciones WMS (Sprint 30) */}
+        <TabsContent value="locations">
+          <Card>
+            <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-semibold">Ubicaciones WMS (Slotting / Racks / Pasillos)</CardTitle>
+                <CardDescription>
+                  Posiciones físicas dentro de las bodegas con capacidad de pallets y superficie útil.
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setNewLocationOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Nueva Ubicación
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {locations.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <MapPin className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">No hay ubicaciones WMS registradas aún.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setNewLocationOpen(true)}
+                  >
+                    Registrar primera ubicación
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[140px]">Código Ubicación</TableHead>
+                        <TableHead>Nombre / Referencia</TableHead>
+                        <TableHead>Bodega</TableHead>
+                        <TableHead className="text-right">Posiciones Pallet</TableHead>
+                        <TableHead className="text-right">Área Útil (m²)</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {locations.map((loc: any) => (
+                        <TableRow key={loc.id}>
+                          <TableCell className="font-mono text-xs font-semibold text-primary">
+                            {loc.code}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium">
+                            {loc.name || "—"}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            <Badge variant="outline" className="font-mono text-[11px]">
+                              {loc.warehouses?.code ? `${loc.warehouses.code} - ${loc.warehouses.name}` : loc.warehouse_id}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs font-bold">
+                            {loc.pallet_positions ?? 1} pos.
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {loc.area_m2 ? `${Number(loc.area_m2).toFixed(2)} m²` : "—"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={loc.active !== false ? "outline" : "secondary"} className="text-xs">
+                              {loc.active !== false ? "Activa" : "Inactiva"}
                             </Badge>
                           </TableCell>
                         </TableRow>

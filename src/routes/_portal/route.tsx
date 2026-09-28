@@ -193,8 +193,8 @@ function PortalLayout() {
           <div className="flex items-center gap-3">
             <div className="text-right hidden md:block">
               <span className="text-xs font-medium block">{user?.email}</span>
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">
-                Sesión Segura (RLS Cliente)
+              <span className="text-[10px] text-muted-foreground font-medium block truncate max-w-[180px]">
+                {activeParty?.name || "Cliente 3PL"}
               </span>
             </div>
             <Button

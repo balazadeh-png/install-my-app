@@ -80,9 +80,21 @@ function Dashboard3PLPage() {
   const [costAmount, setCostAmount] = useState<number>(0);
   const [costNotes, setCostNotes] = useState("");
 
-  // Estado para Modal de Capacidad de Bodega
-  const [editingWarehouse, setEditingWarehouse] = useState<{ id: string; name: string; capacity_m3: number | null } | null>(null);
-  const [warehouseCapacityInput, setWarehouseCapacityInput] = useState<string>("");
+  // Estado para Modal de Medición de Bodega (Sprint 30)
+  const [editingWarehouse, setEditingWarehouse] = useState<{
+    id: string;
+    name: string;
+    capacity_m3: number | null;
+    storage_measure_method?: string;
+    storage_measure_basis?: string;
+    default_units_per_pallet?: number | null;
+    storage_capacity?: number | null;
+  } | null>(null);
+  const [whMethod, setWhMethod] = useState<string>("manual");
+  const [whBasis, setWhBasis] = useState<string>("period_end");
+  const [whDefaultUpp, setWhDefaultUpp] = useState<string>("");
+  const [whStorageCapacity, setWhStorageCapacity] = useState<string>("");
+  const [whCapacityM3, setWhCapacityM3] = useState<string>("");
 
   // 1. Clientes 3PL
   const partiesQ = useQuery({
@@ -100,14 +112,14 @@ function Dashboard3PLPage() {
     },
   });
 
-  // 2. Bodegas activas
+  // 2. Bodegas activas con atributos de medición (Sprint 30)
   const warehousesQ = useQuery({
     queryKey: ["warehouses_3pl_kpis", activeEntityId],
     enabled: !!activeEntityId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("warehouses")
-        .select("id, code, name, is_active, capacity_m3")
+        .select("id, code, name, is_active, capacity_m3, storage_measure_method, storage_measure_basis, default_units_per_pallet, storage_capacity")
         .eq("entity_id", activeEntityId!)
         .eq("is_active", true)
         .order("name");
@@ -201,16 +213,53 @@ function Dashboard3PLPage() {
     },
   });
 
-  // 6. Saldos actuales en bodega para cálculo de ocupación
+  // 6. Saldos actuales en bodega para cálculo de ocupación (Sprint 29: usa qty_on_hand real)
   const stockBalancesQ = useQuery({
     queryKey: ["stock_balances_capacity_kpis", activeEntityId],
     enabled: !!activeEntityId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("stock_balances" as any)
-        .select("warehouse_id, item_id, balance, party_id");
+        .select("warehouse_id, item_id, qty_on_hand, party_id");
       if (error) throw error;
-      return (data ?? []) as Array<{ warehouse_id: string; item_id: string; balance: number; party_id: string | null }>;
+      return (data ?? []) as Array<{ warehouse_id: string; item_id: string; qty_on_hand: number; party_id: string | null }>;
+    },
+  });
+
+  // 6.1 Mediciones de almacenaje calculadas por bodega (Sprint 30)
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const storageUsageQ = useQuery({
+    queryKey: ["warehouses_storage_usage", activeEntityId, partiesQ.data, todayStr],
+    enabled: !!activeEntityId && !!partiesQ.data?.length,
+    queryFn: async () => {
+      const parties = partiesQ.data ?? [];
+      const allUsage: Array<{
+        warehouse_id: string;
+        warehouse_name: string;
+        method: string;
+        basis: string;
+        quantity: number | null;
+        unit: string;
+        rate_type: string | null;
+        missing_data: number;
+      }> = [];
+
+      for (const p of parties) {
+        const { data, error } = await supabase.rpc("get_storage_usage", {
+          p_entity_id: activeEntityId!,
+          p_party_id: p.id,
+          p_period_start: todayStr,
+          p_period_end: todayStr,
+        });
+        if (error) {
+          console.warn("Error consultando get_storage_usage para cliente:", p.id, error);
+          continue;
+        }
+        if (data) {
+          allUsage.push(...(data as any[]));
+        }
+      }
+      return allUsage;
     },
   });
 
@@ -257,27 +306,56 @@ function Dashboard3PLPage() {
     onError: (err: any) => toast.error(err.message || "Error al guardar costo operativo"),
   });
 
-  // Mutación: Guardar Capacidad Volumétrica de Bodega
-  const updateWarehouseCapacityM = useMutation({
+  // Modal de edición de medición de bodega (Sprint 30)
+  const openEditWarehouseModal = (wh: any) => {
+    setEditingWarehouse(wh);
+    setWhMethod(wh.storage_measure_method || "manual");
+    setWhBasis(wh.storage_measure_basis || "period_end");
+    setWhDefaultUpp(wh.default_units_per_pallet ? String(wh.default_units_per_pallet) : "");
+    setWhStorageCapacity(wh.storage_capacity ? String(wh.storage_capacity) : "");
+    setWhCapacityM3(wh.capacity_m3 ? String(wh.capacity_m3) : "");
+  };
+
+  // Mutación: Guardar Configuración de Medición de Bodega (Sprint 30)
+  const updateWarehouseMeasurementM = useMutation({
     mutationFn: async () => {
       if (!editingWarehouse) return;
-      const parsed = warehouseCapacityInput.trim() ? parseFloat(warehouseCapacityInput) : null;
-      if (parsed !== null && (isNaN(parsed) || parsed < 0)) {
-        throw new Error("La capacidad en m³ debe ser un número positivo");
+      const parsedUpp = whDefaultUpp.trim() ? parseFloat(whDefaultUpp) : null;
+      if (parsedUpp !== null && (isNaN(parsedUpp) || parsedUpp <= 0)) {
+        throw new Error("Las unidades por pallet por defecto deben ser un número positivo (> 0)");
+      }
+
+      const parsedCap = whStorageCapacity.trim() ? parseFloat(whStorageCapacity) : null;
+      if (parsedCap !== null && (isNaN(parsedCap) || parsedCap < 0)) {
+        throw new Error("La capacidad de almacenamiento debe ser mayor o igual a 0");
+      }
+
+      const parsedCapM3 = whCapacityM3.trim() ? parseFloat(whCapacityM3) : null;
+      if (parsedCapM3 !== null && (isNaN(parsedCapM3) || parsedCapM3 < 0)) {
+        throw new Error("La capacidad en m³ debe ser un número positivo (>= 0)");
       }
 
       const { error } = await supabase
         .from("warehouses")
-        .update({ capacity_m3: parsed, updated_at: new Date().toISOString() })
+        .update({
+          storage_measure_method: whMethod,
+          storage_measure_basis: whBasis,
+          default_units_per_pallet: parsedUpp,
+          storage_capacity: parsedCap,
+          capacity_m3: parsedCapM3,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", editingWarehouse.id);
+
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Capacidad de bodega actualizada");
+      toast.success("Configuración de medición de bodega actualizada");
       setEditingWarehouse(null);
       qc.invalidateQueries({ queryKey: ["warehouses_3pl_kpis"] });
+      qc.invalidateQueries({ queryKey: ["warehouses_storage_usage"] });
     },
-    onError: (err: any) => toast.error(err.message || "Error al actualizar capacidad"),
+    onError: (err: any) => toast.error(err.message || "Error al actualizar medición"),
   });
 
   // ============================================================================
@@ -429,46 +507,79 @@ function Dashboard3PLPage() {
     };
   }, [operationalCostQ.data, otifAnalysis.totalPickedUnitsInPeriod]);
 
-  // Cálculo de Ocupación de Bodegas
+  // Cálculo de Ocupación de Bodegas (Sprint 29 / 30: sin factores inventados, medición por bodega)
   const warehouseOccupancyAnalysis = useMemo(() => {
     const warehouses = warehousesQ.data ?? [];
     const balances = stockBalancesQ.data ?? [];
+    const usageRows = storageUsageQ.data ?? [];
+
+    const METHOD_LABELS: Record<string, string> = {
+      manual: "Manual",
+      pallet_positions: "Posiciones de Pallet",
+      units_per_pallet: "Pallets Calculados",
+      area_m2: "Área en m²",
+      volume_m3: "Volumen en m³",
+      units: "Unidades",
+    };
 
     const stats = warehouses.map((wh) => {
-      // Sumar unidades físicas en esta bodega
+      // Sumar unidades físicas reales en esta bodega (qty_on_hand)
       const whBalances = balances.filter((b) => b.warehouse_id === wh.id);
-      const totalUnits = whBalances.reduce((sum, b) => sum + (Number(b.balance) || 0), 0);
+      const totalUnits = whBalances.reduce((sum, b) => sum + (Number(b.qty_on_hand) || 0), 0);
 
-      // Aproximación volumétrica estándar: 1 pallet estándar = 50 unidades ≈ 1.5 m³
-      const estimatedPallets = totalUnits > 0 ? Math.ceil(totalUnits / 50) : 0;
-      const estimatedM3 = Number((estimatedPallets * 1.5).toFixed(1));
-
+      const method = (wh as any).storage_measure_method || "manual";
+      const basis = (wh as any).storage_measure_basis || "period_end";
+      const storageCapacity = (wh as any).storage_capacity ? Number((wh as any).storage_capacity) : null;
       const capacityM3 = wh.capacity_m3 ? Number(wh.capacity_m3) : null;
-      const occupancyRate = capacityM3 && capacityM3 > 0 ? Math.min(100, Math.round((estimatedM3 / capacityM3) * 100)) : null;
+
+      // Medición obtenida de get_storage_usage para esta bodega
+      const matchingUsage = usageRows.filter((u) => u.warehouse_id === wh.id);
+      const measuredQty = matchingUsage.reduce((sum, u) => sum + (Number(u.quantity) || 0), 0);
+      const totalMissingData = matchingUsage.reduce((sum, u) => sum + (Number(u.missing_data) || 0), 0);
+
+      const unitName =
+        matchingUsage[0]?.unit ||
+        (method === "volume_m3" ? "m³" : method === "area_m2" ? "m²" : method === "units" ? "unidades" : "pallets");
+
+      let occupancyRate: number | null = null;
+      let statusExplanation: string = "";
+
+      if (method === "manual") {
+        statusExplanation = "Requiere definir el método de medición de la bodega (Sprint 30)";
+      } else if (!storageCapacity || storageCapacity <= 0) {
+        statusExplanation = `Capacidad en ${unitName} no configurada`;
+      } else {
+        occupancyRate = Math.min(100, Math.round((measuredQty / storageCapacity) * 100));
+      }
 
       return {
         ...wh,
         totalUnits,
-        estimatedPallets,
-        estimatedM3,
+        method,
+        methodLabel: METHOD_LABELS[method] || method,
+        basis,
+        storageCapacity,
         capacityM3,
+        measuredQty,
+        unitName,
         occupancyRate,
+        statusExplanation,
+        missingData: totalMissingData,
       };
     });
 
-    const definedWarehouses = stats.filter((w) => w.capacityM3 !== null && w.capacityM3 > 0);
-    const totalCapacity = definedWarehouses.reduce((sum, w) => sum + (w.capacityM3 || 0), 0);
-    const totalUsedM3 = definedWarehouses.reduce((sum, w) => sum + w.estimatedM3, 0);
-    const globalOccupancy = totalCapacity > 0 ? Math.min(100, Math.round((totalUsedM3 / totalCapacity) * 100)) : null;
+    const activeOccupancies = stats.filter((w) => w.occupancyRate !== null);
+    const globalOccupancy =
+      activeOccupancies.length > 0
+        ? Math.round(activeOccupancies.reduce((acc, w) => acc + (w.occupancyRate || 0), 0) / activeOccupancies.length)
+        : null;
 
     return {
       warehouses: stats,
-      hasConfiguredCapacity: definedWarehouses.length > 0,
+      hasConfiguredCapacity: stats.some((w) => w.storageCapacity !== null && w.storageCapacity > 0),
       globalOccupancy,
-      totalCapacity,
-      totalUsedM3,
     };
-  }, [warehousesQ.data, stockBalancesQ.data]);
+  }, [warehousesQ.data, stockBalancesQ.data, storageUsageQ.data]);
 
   // Sprint 28: Cálculo de Rentabilidad por Cliente 3PL
   // Combina facturación real (sales_invoices) con asignación proporcional de costos operativos
@@ -509,14 +620,14 @@ function Dashboard3PLPage() {
       }
     }
 
-    // 3. Saldo en custodia actual
+    // 3. Saldo en custodia actual (Sprint 29: usa qty_on_hand)
     for (const b of balances) {
       const pId = b.party_id;
       if (!pId) continue;
       if (!clientActivity[pId]) {
         clientActivity[pId] = { pickedQty: 0, custodyUnits: 0, revenue: 0 };
       }
-      clientActivity[pId].custodyUnits += Number(b.balance) || 0;
+      clientActivity[pId].custodyUnits += Number(b.qty_on_hand) || 0;
     }
 
     // 4. Calcular ponderación de actividad:
@@ -1311,19 +1422,19 @@ function Dashboard3PLPage() {
           </Card>
         </TabsContent>
 
-        {/* PESTAÑA 3: CAPACIDAD Y OCUPACIÓN DE BODEGAS */}
+        {/* PESTAÑA 3: CAPACIDAD Y OCUPACIÓN DE BODEGAS (Sprint 29 / 30) */}
         <TabsContent value="occupancy" className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold">Ocupación Volumétrica y Capacidad Máxima (m³)</h3>
+              <h3 className="text-sm font-semibold">Medición de Almacenaje y Capacidad de Bodegas</h3>
               <p className="text-xs text-muted-foreground">
-                Estimación de ocupación de rack y piso basada en saldos en custodia versus la capacidad cúbica de cada bodega.
+                Ocupación física calculada según el método configurado en cada bodega (sin factores inventados ni conversiones globales).
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {warehouseOccupancyAnalysis.warehouses.map((wh) => (
+            {warehouseOccupancyAnalysis.warehouses.map((wh: any) => (
               <Card key={wh.id} className="border shadow-sm flex flex-col justify-between">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -1333,21 +1444,19 @@ function Dashboard3PLPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 text-xs gap-1 text-primary"
-                      onClick={() => {
-                        setEditingWarehouse(wh);
-                        setWarehouseCapacityInput(wh.capacity_m3 ? String(wh.capacity_m3) : "");
-                      }}
+                      className="h-7 text-xs gap-1 text-primary hover:bg-primary/10"
+                      onClick={() => openEditWarehouseModal(wh)}
                     >
                       <Settings2 className="h-3.5 w-3.5" />
-                      {wh.capacity_m3 ? "Editar m³" : "Configurar m³"}
+                      Configurar medición
                     </Button>
                   </div>
                   <CardTitle className="text-base mt-1">{wh.name}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {wh.capacity_m3
-                      ? `Capacidad máxima: ${Number(wh.capacity_m3).toLocaleString("es-CL")} m³`
-                      : "Capacidad no definida aún"}
+                  <CardDescription className="text-xs flex items-center gap-1.5 flex-wrap">
+                    <span>Método:</span>
+                    <Badge variant="secondary" className="text-[10px] font-medium">
+                      {wh.methodLabel}
+                    </Badge>
                   </CardDescription>
                 </CardHeader>
 
@@ -1355,23 +1464,25 @@ function Dashboard3PLPage() {
                   <div className="grid grid-cols-2 gap-2 p-2.5 bg-muted/40 rounded-lg">
                     <div>
                       <span className="text-muted-foreground block text-[10px]">Unidades en Custodia</span>
-                      <span className="font-mono font-bold text-sm">{wh.totalUnits.toLocaleString("es-CL")}</span>
+                      <span className="font-mono font-bold text-sm">{wh.totalUnits.toLocaleString("es-CL")} un.</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground block text-[10px]">Pallets Estimados</span>
-                      <span className="font-mono font-bold text-sm">~{wh.estimatedPallets} pos.</span>
+                      <span className="text-muted-foreground block text-[10px]">Base Temporal</span>
+                      <span className="font-mono text-xs font-medium capitalize">
+                        {wh.basis === "period_end" ? "Cierre" : wh.basis === "daily_average" ? "Promedio" : "Pico"}
+                      </span>
                     </div>
                   </div>
 
-                  {wh.capacity_m3 ? (
+                  {wh.occupancyRate !== null ? (
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted-foreground">Nivel de ocupación:</span>
+                        <span className="text-muted-foreground">Nivel de ocupación ({wh.unitName}):</span>
                         <span
                           className={`font-mono font-bold ${
-                            (wh.occupancyRate || 0) > 90
+                            wh.occupancyRate > 90
                               ? "text-rose-600"
-                              : (wh.occupancyRate || 0) > 75
+                              : wh.occupancyRate > 75
                               ? "text-amber-600"
                               : "text-emerald-600"
                           }`}
@@ -1380,24 +1491,34 @@ function Dashboard3PLPage() {
                         </span>
                       </div>
                       <Progress
-                        value={wh.occupancyRate || 0}
+                        value={wh.occupancyRate}
                         className={`h-2 ${
-                          (wh.occupancyRate || 0) > 90
+                          wh.occupancyRate > 90
                             ? "[&>div]:bg-rose-500"
-                            : (wh.occupancyRate || 0) > 75
+                            : wh.occupancyRate > 75
                             ? "[&>div]:bg-amber-500"
                             : "[&>div]:bg-emerald-500"
                         }`}
                       />
                       <div className="flex justify-between text-[10px] text-muted-foreground">
-                        <span>{wh.estimatedM3.toLocaleString("es-CL")} m³ ocupados</span>
-                        <span>{Number(wh.capacity_m3).toLocaleString("es-CL")} m³ disponibles</span>
+                        <span>{wh.measuredQty.toLocaleString("es-CL")} {wh.unitName} ocupados</span>
+                        <span>{Number(wh.storageCapacity).toLocaleString("es-CL")} {wh.unitName} capacidad</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-700 dark:text-amber-300 text-[11px]">
-                      Haga clic en <strong>"Configurar m³"</strong> para ingresar la capacidad volumétrica y habilitar la métrica de ocupación.
+                    <div className="p-3 bg-muted/40 border rounded-lg text-muted-foreground text-[11px] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-foreground">Ocupación:</span>
+                        <span className="font-mono font-bold text-sm">—</span>
+                      </div>
+                      <p className="text-[10px] opacity-80">{wh.statusExplanation}</p>
                     </div>
+                  )}
+
+                  {wh.missingData > 0 && (
+                    <p className="text-[10px] text-amber-600 font-medium flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 shrink-0" /> {wh.missingData} registro(s) sin ubicación o sin atributos volumétricos
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -1559,37 +1680,165 @@ function Dashboard3PLPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO: CONFIGURAR CAPACIDAD EN M3 DE BODEGA */}
+      {/* DIÁLOGO: CONFIGURAR MEDICIÓN DE BODEGA (Sprint 30) */}
       <Dialog open={!!editingWarehouse} onOpenChange={(open) => !open && setEditingWarehouse(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Warehouse className="h-5 w-5 text-primary" />
-              Capacidad Volumétrica de Bodega
+              Configurar Medición de Bodega
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Configure la capacidad máxima en metros cúbicos para <strong>{editingWarehouse?.name}</strong>.
+              Defina cómo mide su almacenaje <strong>{editingWarehouse?.name}</strong> para facturación y control de ocupación.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs py-2">
+          <div className="space-y-3.5 text-xs py-2">
+            {/* 1. Método de Medición */}
             <div className="space-y-1">
-              <Label htmlFor="wh_cap" className="text-xs">
-                Capacidad Máxima (m³)
-              </Label>
+              <Label className="text-xs font-semibold">Método de Medición *</Label>
+              <Select
+                value={whMethod}
+                onValueChange={(val) => {
+                  setWhMethod(val);
+                  if (val === "volume_m3" && !whStorageCapacity && whCapacityM3) {
+                    setWhStorageCapacity(whCapacityM3);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual (Ingreso manual al facturar)</SelectItem>
+                  <SelectItem value="pallet_positions">Posiciones de Pallet (Ubicaciones WMS)</SelectItem>
+                  <SelectItem value="units_per_pallet">Pallets Calculados (Unidades por Pallet)</SelectItem>
+                  <SelectItem value="area_m2">Área en m² (Superficie ocupada)</SelectItem>
+                  <SelectItem value="volume_m3">Volumen en m³ (Volumen unitario por ítem)</SelectItem>
+                  <SelectItem value="units">Unidades físicas totales</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Ayuda contextual por método */}
+              <div className="p-2.5 rounded-md bg-muted/50 border text-[11px] text-muted-foreground mt-1">
+                {whMethod === "manual" && (
+                  <p>
+                    <strong>Manual:</strong> La cantidad se ingresa manualmente al facturar. La ocupación en panel se reporta como "—".
+                  </p>
+                )}
+                {whMethod === "pallet_positions" && (
+                  <p>
+                    <strong>Posiciones de Pallet:</strong> Cuenta las posiciones físicas ocupadas. Requiere que las ubicaciones tengan <code>pallet_positions</code> y que el stock esté asignado a ubicación.
+                  </p>
+                )}
+                {whMethod === "units_per_pallet" && (
+                  <p>
+                    <strong>Pallets Calculados:</strong> Aplica <code>⌈saldo ÷ unidades_por_pallet⌉</code> por ítem. Requiere <code>units_per_pallet</code> en artículos o valor por defecto de bodega.
+                  </p>
+                )}
+                {whMethod === "area_m2" && (
+                  <p>
+                    <strong>Área m²:</strong> Suma los metros cuadrados de las ubicaciones ocupadas. Requiere <code>area_m2</code> en ubicaciones y stock con ubicación.
+                  </p>
+                )}
+                {whMethod === "volume_m3" && (
+                  <p>
+                    <strong>Volumen m³:</strong> Suma <code>saldo × unit_volume_m3</code> de cada producto. Requiere <code>unit_volume_m3</code> en catálogo de artículos.
+                  </p>
+                )}
+                {whMethod === "units" && (
+                  <p>
+                    <strong>Unidades:</strong> Suma directa de las unidades físicas en custodia de la bodega.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Base Temporal */}
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Base Temporal de Medición *</Label>
+              <Select value={whBasis} onValueChange={setWhBasis}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="period_end">Saldo al cierre del período (Por defecto)</SelectItem>
+                  <SelectItem value="daily_average">Promedio de los saldos diarios</SelectItem>
+                  <SelectItem value="daily_peak">Máximo diario del período</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 3. Unidades por pallet por defecto (si aplica) */}
+            {whMethod === "units_per_pallet" && (
+              <div className="space-y-1">
+                <Label htmlFor="wh_upp" className="text-xs font-semibold">
+                  Unidades por Pallet por Defecto de la Bodega
+                </Label>
+                <Input
+                  id="wh_upp"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={whDefaultUpp}
+                  onChange={(e) => setWhDefaultUpp(e.target.value)}
+                  placeholder="ej. 48"
+                  className="h-8 text-xs font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Se usa cuando el artículo no tiene especificado su propio <code>units_per_pallet</code>.
+                </p>
+              </div>
+            )}
+
+            {/* 4. Capacidad de Almacenamiento en la unidad del método */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="wh_store_cap" className="text-xs font-semibold">
+                  Capacidad de Almacenamiento ({whMethod === "volume_m3" ? "m³" : whMethod === "area_m2" ? "m²" : whMethod === "units" ? "unidades" : "pallets"})
+                </Label>
+                {whMethod === "volume_m3" && whCapacityM3 && whStorageCapacity !== whCapacityM3 && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-[10px] text-primary"
+                    onClick={() => setWhStorageCapacity(whCapacityM3)}
+                  >
+                    Usar {whCapacityM3} m³
+                  </Button>
+                )}
+              </div>
               <Input
-                id="wh_cap"
+                id="wh_store_cap"
                 type="number"
-                min="1"
+                min="0"
                 step="0.1"
-                value={warehouseCapacityInput}
-                onChange={(e) => setWarehouseCapacityInput(e.target.value)}
-                placeholder="Ej: 1200"
+                value={whStorageCapacity}
+                onChange={(e) => setWhStorageCapacity(e.target.value)}
+                placeholder="ej. 500"
                 className="h-8 text-xs font-mono"
               />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Deje en blanco si desconoce la capacidad física de esta nave.
+              <p className="text-[10px] text-muted-foreground">
+                Capacidad máxima para calcular el porcentaje de ocupación real en el dashboard.
               </p>
+            </div>
+
+            {/* 5. Capacidad m3 heredada */}
+            <div className="space-y-1 pt-1 border-t">
+              <Label htmlFor="wh_cap_legacy" className="text-xs text-muted-foreground">
+                Capacidad Volumétrica m³ (campo heredado)
+              </Label>
+              <Input
+                id="wh_cap_legacy"
+                type="number"
+                min="0"
+                step="0.1"
+                value={whCapacityM3}
+                onChange={(e) => setWhCapacityM3(e.target.value)}
+                placeholder="ej. 1200"
+                className="h-8 text-xs font-mono"
+              />
             </div>
           </div>
 
@@ -1599,10 +1848,10 @@ function Dashboard3PLPage() {
             </Button>
             <Button
               size="sm"
-              onClick={() => updateWarehouseCapacityM.mutate()}
-              disabled={updateWarehouseCapacityM.isPending}
+              onClick={() => updateWarehouseMeasurementM.mutate()}
+              disabled={updateWarehouseMeasurementM.isPending}
             >
-              {updateWarehouseCapacityM.isPending ? "Guardando..." : "Guardar"}
+              {updateWarehouseMeasurementM.isPending ? "Guardando..." : "Guardar Configuración"}
             </Button>
           </DialogFooter>
         </DialogContent>

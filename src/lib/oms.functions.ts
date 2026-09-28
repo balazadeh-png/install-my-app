@@ -5,207 +5,125 @@ import type { Database } from "@/integrations/supabase/types";
 
 /**
  * ============================================================================
- * OMS: Webhook de Ingestión de Pedidos Multicanal
+ * OMS: Webhook de Ingestión de Pedidos Multicanal (Sprint 23 / 29)
  * ============================================================================
  * 
- * Este server function permite recibir pedidos de venta desde canales externos
- * (Shopify, VTEX, Mercado Libre, ERPs de clientes 3PL, etc.) autenticado
- * exclusivamente mediante el token de cliente registrado en `party_webhook_tokens`.
- * 
- * Formato esperado en el POST:
- * {
- *   "token": "tok_3pl_...",
- *   "channel": "shopify" | "vtex" | "mercadolibre" | "manual" | "csv" | string,
- *   "external_order_id": "#10492",
- *   "destination_address": "Av. Providencia 1234, Depto 402, Santiago",
- *   "lines": [
- *     { "external_sku": "SKU-PROD-01", "qty": 2 },
- *     { "external_sku": "SKU-PROD-02", "qty": 5 }
- *   ],
- *   "notes": "Entregar entre 9:00 y 14:00 hrs"
- * }
- * 
- * Endpoint disponible:
- * - Directo HTTP API: POST /api/webhooks/oms
- * - TanStack Server Function: ingestOmsOrderFn
+ * Reglas de endurecimiento (Sprint 29):
+ * 1. Una sola vía: RPC pública ingest_oms_order autenticada con cliente anon.
+ * 2. Validación estricta con Zod.
+ * 3. Token con hash SHA-256 (código 28000 -> 401).
+ * 4. Validación de payload atómica (código 22023 -> 400).
+ * 5. Reintentos de órdenes procesadas devuelven 200 con { ignored: true }.
+ * 6. Cualquier falla no controlada devuelve 500 con mensaje genérico.
  * ============================================================================
  */
 
-function getAdminClient() {
-  const SUPABASE_URL = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
-  const SUPABASE_SERVICE_ROLE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+export const omsOrderLineSchema = z.object({
+  external_sku: z.string().trim().min(1, "Cada línea requiere sku"),
+  qty: z.number().positive("La cantidad (qty) debe ser mayor a 0"),
+});
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    const SUPABASE_ANON_KEY = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
-    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-      return createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
-    }
-    throw new Error("Configuración del servidor incompleta (service role o anon key no disponible).");
+export const omsOrderInputSchema = z.object({
+  token: z.string().trim().min(1, "El token de integración es obligatorio"),
+  channel: z.string().trim().optional().default("webhook"),
+  external_order_id: z.string().trim().min(1, "external_order_id es obligatorio"),
+  destination_address: z.string().trim().optional().default(""),
+  lines: z.array(omsOrderLineSchema).min(1, "El pedido debe incluir al menos una línea"),
+  notes: z.string().trim().optional(),
+});
+
+export type IngestOmsOrderInput = z.infer<typeof omsOrderInputSchema>;
+
+function getAnonSupabaseClient() {
+  const SUPABASE_URL = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+  const SUPABASE_ANON_KEY = process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error("Configuración del servidor incompleta (SUPABASE_URL o ANON_KEY no configurados).");
   }
 
-  return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
 
-export interface IngestOmsOrderInput {
-  token: string;
-  channel?: string;
-  external_order_id: string;
-  destination_address?: string;
-  lines: Array<{
-    external_sku: string;
-    qty: number;
-  }>;
-  notes?: string;
+export interface OmsIngestResult {
+  status: number;
+  data: {
+    success?: boolean;
+    ignored?: boolean;
+    order_id?: string;
+    party_id?: string;
+    channel?: string;
+    external_order_id?: string;
+    status?: string;
+    error?: string;
+  };
 }
 
-export const ingestOmsOrderInternal = async (input: IngestOmsOrderInput) => {
-  const admin = getAdminClient();
-
-  // Validar token y obtener party y entity
-  const { data: tokenData, error: tokenError } = await admin
-    .from("party_webhook_tokens")
-    .select("id, party_id, is_active, parties(id, entity_id)")
-    .eq("token", input.token.trim())
-    .single();
-
-  if (tokenError || !tokenData || !tokenData.is_active) {
-    throw new Error("Token de integración inválido o inactivo.");
+export async function processOmsOrderWebhook(rawBody: unknown): Promise<OmsIngestResult> {
+  // 1. Validar body con zod
+  const parseResult = omsOrderInputSchema.safeParse(rawBody);
+  if (!parseResult.success) {
+    const errorMsg = parseResult.error.issues.map((i) => i.message).join(", ");
+    return {
+      status: 400,
+      data: { error: errorMsg },
+    };
   }
 
-  const partyId = tokenData.party_id;
-  const entityId = (tokenData.parties as any)?.entity_id;
+  const { token, channel, external_order_id, destination_address, lines, notes } = parseResult.data;
 
-  if (!partyId || !entityId) {
-    throw new Error("No se pudo determinar el cliente o empresa asociada al token.");
-  }
-
-  const channel = (input.channel || "webhook").trim();
-  const externalOrderId = input.external_order_id.trim();
-  const destinationAddress = (input.destination_address || "").trim();
-  const notes = (input.notes || "").trim() || null;
-
-  // Ejecutar vía RPC ingest_oms_order si está disponible, o hacer upsert directo
   try {
-    const { data: rpcRes, error: rpcErr } = await admin.rpc("ingest_oms_order", {
-      p_token: input.token.trim(),
+    const client = getAnonSupabaseClient();
+    const { data: rpcRes, error: rpcErr } = await client.rpc("ingest_oms_order", {
+      p_token: token,
       p_channel: channel,
-      p_external_order_id: externalOrderId,
-      p_destination_address: destinationAddress,
-      p_lines: input.lines as any,
-      p_notes: notes ?? undefined,
+      p_external_order_id: external_order_id,
+      p_destination_address: destination_address,
+      p_lines: lines as any,
+      p_notes: notes || undefined,
     });
 
-    if (!rpcErr && rpcRes) {
-      return rpcRes;
-    }
-  } catch (err) {
-    console.warn("RPC ingest_oms_order fallback to direct upsert:", err);
-  }
-
-  // Fallback directo si RPC no estuviese compilado en la instancia local
-  // Upsert en sales_orders
-  const { data: existingOrder } = await admin
-    .from("sales_orders")
-    .select("id, status")
-    .eq("party_id", partyId)
-    .eq("channel", channel)
-    .eq("external_order_id", externalOrderId)
-    .maybeSingle();
-
-  let orderId = existingOrder?.id;
-
-  if (orderId) {
-    await admin
-      .from("sales_orders")
-      .update({
-        destination_address: destinationAddress,
-        notes: notes,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", orderId);
-  } else {
-    const { data: inserted, error: insErr } = await admin
-      .from("sales_orders")
-      .insert({
-        entity_id: entityId,
-        party_id: partyId,
-        channel,
-        external_order_id: externalOrderId,
-        destination_address: destinationAddress,
-        status: "pendiente",
-        notes,
-      })
-      .select("id")
-      .single();
-
-    if (insErr) throw insErr;
-    orderId = inserted.id;
-  }
-
-  // Reemplazar líneas
-  await admin.from("sales_order_lines").delete().eq("sales_order_id", orderId);
-
-  if (input.lines && input.lines.length > 0) {
-    // Buscar matching de items por code o name
-    const { data: items } = await admin
-      .from("items")
-      .select("id, code, name")
-      .eq("entity_id", entityId);
-
-    const linesToInsert = input.lines.map((l) => {
-      const sku = (l.external_sku || "").trim();
-      const matchedItem = (items || []).find(
-        (it) => it.code?.toLowerCase() === sku.toLowerCase() || it.name?.toLowerCase() === sku.toLowerCase()
-      );
+    if (rpcErr) {
+      if (rpcErr.code === "28000" || rpcErr.message?.toLowerCase().includes("token")) {
+        return {
+          status: 401,
+          data: { error: "Token de integración inválido o inactivo" },
+        };
+      }
+      if (rpcErr.code === "22023" || rpcErr.message?.includes("obligatorio") || rpcErr.message?.includes("línea")) {
+        return {
+          status: 400,
+          data: { error: rpcErr.message },
+        };
+      }
+      console.error("Internal OMS RPC Error:", rpcErr);
       return {
-        sales_order_id: orderId!,
-        item_id: matchedItem?.id || null,
-        external_sku: sku,
-        qty: Number(l.qty) || 1,
+        status: 500,
+        data: { error: "Error interno del servidor al procesar el pedido" },
       };
-    });
+    }
 
-    await admin.from("sales_order_lines").insert(linesToInsert);
+    return {
+      status: 200,
+      data: rpcRes as any,
+    };
+  } catch (err: any) {
+    console.error("Unexpected OMS webhook exception:", err);
+    return {
+      status: 500,
+      data: { error: "Error interno del servidor al procesar el pedido" },
+    };
   }
-
-  return {
-    success: true,
-    order_id: orderId,
-    party_id: partyId,
-    channel,
-    external_order_id: externalOrderId,
-    status: "pendiente",
-  };
-};
+}
 
 export const ingestOmsOrderFn = createServerFn({ method: "POST" })
-  .inputValidator((data) =>
-    z
-      .object({
-        token: z.string().min(1, "El token de integración es obligatorio"),
-        channel: z.string().optional().default("webhook"),
-        external_order_id: z.string().min(1, "El ID externo del pedido es obligatorio"),
-        destination_address: z.string().optional().default(""),
-        lines: z.array(
-          z.object({
-            external_sku: z.string(),
-            qty: z.number().positive("La cantidad debe ser mayor a 0"),
-          })
-        ).min(1, "Debe incluir al menos una línea de producto"),
-        notes: z.string().optional(),
-      })
-      .parse(data)
-  )
+  .inputValidator((data) => omsOrderInputSchema.parse(data))
   .handler(async ({ data }) => {
-    try {
-      const res = await ingestOmsOrderInternal(data);
-      return { success: true, ...res };
-    } catch (err: any) {
-      console.error("Error in ingestOmsOrderFn:", err);
-      return { success: false, error: err.message || "Error procesando el pedido OMS" };
+    const res = await processOmsOrderWebhook(data);
+    if (res.status >= 400) {
+      return { success: false, error: res.data.error };
     }
+    return { success: true, ...res.data };
   });

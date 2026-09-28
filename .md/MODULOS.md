@@ -395,5 +395,47 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
     * Selector para ordenar clientes por mayor facturación ("Mayor Ingreso") o por mayor margen ("Mayor Margen").
     * Filtro interactivo por cliente y sincronización automática con los controles de fechas del dashboard.
 
+---
+
+## 27. Vertical 3PL — Correcciones Críticas 3PL: Seguridad, Tokens SHA-256 e Ingesta OMS ([`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
+* **Regla de la Verdad e Integridad Operativa**:
+  * Eliminación sistemática de constantes inventadas (unidades / 50 para pallets y unidades / 25 para metros cuadrados) tanto en el servidor de facturación ([`billing3pl.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/billing3pl.functions.ts)) como en el análisis de bodegas del dashboard ([`dashboard-3pl.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx)).
+  * Lectura correcta del stock real desde la vista `stock_balances` (`qty_on_hand` en lugar de la columna inexistente `balance`).
+* **Seguridad Criptográfica de Tokens OMS (`party_webhook_tokens`)**:
+  * Los tokens secretos externos (`tok_3pl_...`) se resumen criptográficamente mediante algoritmo SHA-256 en el navegador (`token_hash`) antes de persistirse.
+  * La base de datos almacena exclusivamente `token_hash` y los primeros 12 caracteres de prefijo (`token_prefix`). El token plano no se almacena en base de datos y se muestra una sola vez en modal al momento de su generación.
+* **Ingesta Atómica e Idempotente OMS (`ingest_oms_order`)**:
+  * Ejecución en una única transacción de base de datos de la autenticación de tokens, resolución estricta de SKUs y creación de órdenes y líneas.
+  * Coincidencia insensible a mayúsculas/minúsculas pero exacta de SKUs del catálogo de la empresa (`lower(code) = lower(external_sku)`), eliminando cualquier asignación aleatoria a otros artículos.
+  * Idempotencia nativa sobre la restricción `(party_id, channel, external_order_id)` retornando HTTP 200 con `{ ignored: true }` ante reenvíos de pedidos existentes.
+* **Seguridad y Blindaje RLS en Portal Cliente**:
+  * Políticas RLS sobre `party_portal_users` para aislar la administración de usuarios del portal.
+  * Procedimiento `get_party_portal_users` con `SECURITY DEFINER` para auditar cuentas asociadas.
+  * Restricción estricta de lectura sobre el catálogo de artículos (`items`): los usuarios del portal solo pueden consultar productos que mantengan movimientos, pedidos o guías vinculados a su empresa.
+
+---
+
+## 28. Vertical 3PL — Medición Configurable de Almacenaje por Bodega ([`/inventory`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx) y [`/dispatch`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))
+* **Modelo Parametrizable por Bodega (`warehouses`)**:
+  * Métodos de medición configurables (`storage_measure_method`):
+    * `by_location`: Suma de las posiciones de pallet o área m² de las sub-ubicaciones WMS ocupadas.
+    * `by_item_attributes`: Conversión según atributos físicos parametrizados en cada artículo (unidades por pallet o volumen cúbico unitario).
+    * `by_warehouse_default`: Conversión mediante el factor predeterminado de la bodega (`default_units_per_pallet`).
+    * `manual`: Exige el ingreso explícito de las cantidades consumidas para bodegas sin slotting ni atributos registrados.
+  * Bases de tarificación configurables (`storage_measure_basis`): `pallet`, `m2`, `m3`, `unit`.
+  * Parámetros de bodega: `default_units_per_pallet` y `storage_capacity`.
+* **Atributos Físicos de Almacenamiento en WMS y Catálogo**:
+  * Sub-ubicaciones WMS (`warehouse_locations`): Capacidad en `pallet_positions` (default 1) y superficie en `area_m2`.
+  * Maestro de artículos (`items`): Factor de empaque `units_per_pallet` y volumen unitario `unit_volume_m3`.
+* **Tarifario Extendido (`service_rate_type`)**:
+  * Incorporación oficial de tarifas por volumen cúbico (`storage_m3`) y por unidad física (`storage_unit`), integradas con los tipos previos (`storage_pallet`, `storage_m2`, `picking_unit`, `transport_km`, `recargo_fijo`).
+* **Motor SQL de Consulta y Reconstrucción Histórica**:
+  * `stock_balance_at`: Reconstrucción de saldo a cualquier fecha de corte desde el Kardex inmutable.
+  * `storage_measure_on`: Función que computa la ocupación real a una fecha dada aplicando la regla definida en la bodega.
+  * `get_storage_usage`: Consolidador de consumos en un rango de fechas para liquidación de contratos 3PL.
+* **Previsualización de Liquidación y Facturación 3PL**:
+  * Servidor `previewServiceBillingFn` que expone el desglose exacto de los cobros calculados (almacenaje desglosado por bodega y método, picking, viajes y recargos fijos), alertando de bodegas manuales o sin tarifas configuradas.
+  * Modal interactivo en la pestaña de Facturación 3PL que permite a los operadores revisar los cálculos antes de emitir la factura borrador.
+
 
 

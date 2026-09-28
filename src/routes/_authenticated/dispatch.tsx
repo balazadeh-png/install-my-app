@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveEntity } from "@/context/ActiveEntityContext";
-import { generateServiceInvoiceFn } from "@/lib/billing3pl.functions";
+import { generateServiceInvoiceFn, previewServiceBillingFn } from "@/lib/billing3pl.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,17 +41,19 @@ const TRANSFER_LABELS: Record<TransferType, string> = {
   otro: "Otro",
 };
 
-// Sprint 25: Contratos y Tarifarios 3PL
+// Sprint 25 & 30: Contratos y Tarifarios 3PL
 type BillingFrequency = "mensual" | "quincenal";
 const BILLING_FREQUENCY_LABELS: Record<BillingFrequency, string> = {
   mensual: "Mensual",
   quincenal: "Quincenal",
 };
 
-type ServiceRateType = "storage_pallet" | "storage_m2" | "picking_unit" | "transport_km" | "recargo_fijo";
+type ServiceRateType = "storage_pallet" | "storage_m2" | "storage_m3" | "storage_unit" | "picking_unit" | "transport_km" | "recargo_fijo";
 const SERVICE_RATE_LABELS: Record<ServiceRateType, { label: string; unit: string; description: string }> = {
   storage_pallet: { label: "Almacenaje por Pallet", unit: "$/pallet/mes", description: "Tarifa por pallet estándar almacenado" },
   storage_m2: { label: "Almacenaje por m²", unit: "$/m²/mes", description: "Tarifa por metro cuadrado ocupado" },
+  storage_m3: { label: "Almacenaje por m³", unit: "$/m³/mes", description: "Tarifa por metro cúbico ocupado" },
+  storage_unit: { label: "Almacenaje por Unidad", unit: "$/unidad/mes", description: "Tarifa por unidad física almacenada" },
   picking_unit: { label: "Picking por Unidad", unit: "$/unidad", description: "Costo por cada unidad pickeada y embalada" },
   transport_km: { label: "Transporte por Km", unit: "$/km", description: "Tarifa variable por kilómetro recorrido" },
   recargo_fijo: { label: "Recargo Fijo / Otros", unit: "$ fijo", description: "Recargo fijo (combustible, fds, administración)" },
@@ -430,7 +432,7 @@ function DispatchPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("warehouse_locations" as any)
-        .select("id, warehouse_id, code, name, is_active, created_at")
+        .select("id, warehouse_id, code, name, pallet_positions, area_m2, is_active, created_at")
         .eq("entity_id", activeEntityId!)
         .order("code");
       if (error) throw error;
@@ -469,11 +471,13 @@ function DispatchPage() {
     posting_date: new Date().toISOString().slice(0, 10),
   });
 
-  // WMS: Modal para crear nueva ubicación rápidamente
+  // WMS: Modal para crear nueva ubicación rápidamente (Sprint 30)
   const [newLocModalOpen, setNewLocModalOpen] = useState(false);
   const [newLocWarehouseId, setNewLocWarehouseId] = useState("");
   const [newLocCode, setNewLocCode] = useState("");
   const [newLocName, setNewLocName] = useState("");
+  const [newLocPalletPositions, setNewLocPalletPositions] = useState("1");
+  const [newLocAreaM2, setNewLocAreaM2] = useState("");
 
   const createLocM = useMutation({
     mutationFn: async () => {
@@ -482,6 +486,9 @@ function DispatchPage() {
       if (!targetWh) throw new Error("Selecciona la bodega a la que pertenecerá la ubicación");
       if (!newLocCode.trim()) throw new Error("Ingresa el código de la ubicación (ej: A-01-01)");
 
+      const palletPos = newLocPalletPositions ? parseInt(newLocPalletPositions, 10) : 1;
+      const areaM2 = newLocAreaM2 ? parseFloat(newLocAreaM2) : null;
+
       const { data, error } = await supabase
         .from("warehouse_locations" as any)
         .insert({
@@ -489,6 +496,8 @@ function DispatchPage() {
           warehouse_id: targetWh,
           code: newLocCode.trim().toUpperCase(),
           name: newLocName.trim() || null,
+          pallet_positions: isNaN(palletPos) || palletPos < 0 ? 1 : palletPos,
+          area_m2: areaM2 && !isNaN(areaM2) && areaM2 > 0 ? areaM2 : null,
         })
         .select()
         .single();
@@ -501,6 +510,8 @@ function DispatchPage() {
       setNewLocModalOpen(false);
       setNewLocCode("");
       setNewLocName("");
+      setNewLocPalletPositions("1");
+      setNewLocAreaM2("");
       setReceptionForm((prev) => ({ ...prev, location_id: data.id }));
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1215,6 +1226,7 @@ function DispatchPage() {
           id,
           party_id,
           token,
+          token_prefix,
           name,
           is_active,
           created_at,
@@ -1486,13 +1498,16 @@ function DispatchPage() {
         let itemId = l.item_id;
         if (!itemId && l.external_sku) {
           const found = items.find(
-            (it) => it.code?.toLowerCase() === l.external_sku.toLowerCase() || it.name?.toLowerCase() === l.external_sku.toLowerCase()
+            (it) => it.code?.toLowerCase() === l.external_sku.toLowerCase()
           );
           if (found) itemId = found.id;
         }
+        if (!itemId) {
+          throw new Error(`El SKU '${l.external_sku || "desconocido"}' no coincide con ningún artículo del catálogo maestro. Crea el artículo antes de convertir el pedido a despacho.`);
+        }
         return {
           dispatch_note_id: note.id,
-          item_id: itemId || items[0]?.id,
+          item_id: itemId,
           qty: Number(l.qty) || 1,
           uom: "UN",
         };
@@ -1524,7 +1539,7 @@ function DispatchPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Mutación: Generar Token de Integración
+  // Mutación: Generar Token de Integración (Sprint 29: SHA-256 token hashing)
   const generateWebhookTokenM = useMutation({
     mutationFn: async (targetPartyId: string) => {
       if (!targetPartyId) throw new Error("Selecciona un cliente");
@@ -1532,19 +1547,28 @@ function DispatchPage() {
       const rawUuid = crypto.randomUUID().replace(/-/g, "");
       const token = `tok_3pl_${rawUuid}`;
 
+      // Computar SHA-256 en cliente
+      const msgUint8 = new TextEncoder().encode(token);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const tokenHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+      const tokenPrefix = token.slice(0, 12);
+
       const { data, error } = await supabase
         .from("party_webhook_tokens")
         .insert({
           party_id: targetPartyId,
-          token: token,
+          token_hash: tokenHash,
+          token_prefix: tokenPrefix,
+          token: null, // No persistir en texto plano en DB
           name: `Webhook ${client?.name || "Cliente 3PL"}`,
           is_active: true,
         })
-        .select("token")
+        .select("id")
         .single();
 
       if (error) throw error;
-      return { token: data.token, clientName: client?.name || "Cliente" };
+      return { token, clientName: client?.name || "Cliente" };
     },
     onSuccess: (data) => {
       toast.success("Token de integración generado con éxito");
@@ -1754,8 +1778,9 @@ function DispatchPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Sprint 26: Facturación de Servicios 3PL
+  // Sprint 26 & 30: Facturación de Servicios 3PL y Previsualización
   const generateInvoiceServerFn = useServerFn(generateServiceInvoiceFn);
+  const previewInvoiceServerFn = useServerFn(previewServiceBillingFn);
 
   const [billingPeriodStart, setBillingPeriodStart] = useState(() => {
     const d = new Date();
@@ -1766,11 +1791,35 @@ function DispatchPage() {
   });
   const [selectedInvoiceForAdjustment, setSelectedInvoiceForAdjustment] = useState<any | null>(null);
   const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState<any | null>(null);
+  const [previewData, setPreviewData] = useState<any | null>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [adjustmentReason, setAdjustmentReason] = useState("");
   const [adjustmentAmount, setAdjustmentAmount] = useState<number>(0);
   const [adjustmentType, setAdjustmentType] = useState<"credit" | "debit">("credit");
   const [isGeneratingBatch, setIsGeneratingBatch] = useState(false);
   const [singleGeneratingPartyId, setSingleGeneratingPartyId] = useState<string | null>(null);
+
+  const handlePreviewBilling = async (partyId: string) => {
+    if (!activeEntityId) return;
+    try {
+      setIsPreviewLoading(true);
+      const res = await previewInvoiceServerFn({
+        data: {
+          entity_id: activeEntityId,
+          party_id: partyId,
+          period_start: billingPeriodStart,
+          period_end: billingPeriodEnd,
+        },
+      });
+      setPreviewData(res);
+      setIsPreviewModalOpen(true);
+    } catch (e: any) {
+      toast.error(e.message || "Error al previsualizar liquidación 3PL");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
 
   const allServiceContractsQ = useQuery({
     queryKey: ["all_service_contracts", activeEntityId],
@@ -2904,48 +2953,66 @@ function DispatchPage() {
                           }
                           return (
                             <div className="space-y-2 pt-1">
-                              {partyTokens.map((t: any) => (
-                                <div key={t.id} className="flex items-center justify-between text-xs p-2.5 rounded bg-background border">
-                                  <div className="space-y-0.5">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono text-xs font-medium text-primary">
-                                        {t.token.slice(0, 14)}••••••••{t.token.slice(-4)}
-                                      </span>
-                                      <Badge variant={t.is_active ? "outline" : "secondary"} className="text-[10px]">
-                                        {t.is_active ? "Activo" : "Inactivo"}
-                                      </Badge>
+                              {partyTokens.map((t: any) => {
+                                const displayPrefix = t.token_prefix || (t.token ? t.token.slice(0, 12) : "tok_3pl_••••");
+                                return (
+                                  <div key={t.id} className="flex items-center justify-between text-xs p-2.5 rounded bg-background border">
+                                    <div className="space-y-0.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-xs font-medium text-primary">
+                                          {displayPrefix}••••••••
+                                        </span>
+                                        <Badge variant={t.is_active ? "outline" : "secondary"} className="text-[10px]">
+                                          {t.is_active ? "Activo" : "Inactivo"}
+                                        </Badge>
+                                      </div>
+                                      <p className="text-[10px] text-muted-foreground">
+                                        {t.name || "Webhook"} · Creado el {new Date(t.created_at).toLocaleDateString()}
+                                      </p>
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground">
-                                      {t.name || "Webhook"} · Creado el {new Date(t.created_at).toLocaleDateString()}
-                                    </p>
+                                    <div className="flex items-center gap-1">
+                                      {t.token ? (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs gap-1"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(t.token);
+                                            toast.success("Token copiado al portapapeles");
+                                          }}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                          Copiar
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs gap-1 text-muted-foreground"
+                                          onClick={() => {
+                                            toast.info("Por seguridad, el token completo solo se revela al crearlo. Genera uno nuevo si fue extraviado.");
+                                          }}
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                          Secreto
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={() => toggleTokenActiveM.mutate({ id: t.id, is_active: t.is_active })}
+                                        disabled={toggleTokenActiveM.isPending}
+                                      >
+                                        {t.is_active ? "Desactivar" : "Reactivar"}
+                                      </Button>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 px-2 text-xs gap-1"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(t.token);
-                                        toast.success("Token copiado al portapapeles");
-                                      }}
-                                    >
-                                      <Copy className="h-3 w-3" />
-                                      Copiar
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 px-2 text-xs"
-                                      onClick={() => toggleTokenActiveM.mutate({ id: t.id, is_active: t.is_active })}
-                                      disabled={toggleTokenActiveM.isPending}
-                                    >
-                                      {t.is_active ? "Desactivar" : "Reactivar"}
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           );
                         })()}
@@ -3456,16 +3523,28 @@ function DispatchPage() {
                                 <Eye className="h-3 w-3" /> Ver Factura
                               </Button>
                             ) : (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                className="h-7 text-xs gap-1"
-                                onClick={() => generateSingleInvoiceM.mutate(contract.party_id)}
-                                disabled={isGeneratingThis || generateSingleInvoiceM.isPending}
-                              >
-                                <Zap className={`h-3 w-3 text-amber-300 ${isGeneratingThis ? "animate-spin" : ""}`} />
-                                {isGeneratingThis ? "Facturando..." : "Facturar Período"}
-                              </Button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => handlePreviewBilling(contract.party_id)}
+                                  disabled={isPreviewLoading || isGeneratingThis}
+                                >
+                                  <Eye className="h-3 w-3 text-muted-foreground" />
+                                  Previsualizar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => generateSingleInvoiceM.mutate(contract.party_id)}
+                                  disabled={isGeneratingThis || generateSingleInvoiceM.isPending}
+                                >
+                                  <Zap className={`h-3 w-3 text-amber-300 ${isGeneratingThis ? "animate-spin" : ""}`} />
+                                  {isGeneratingThis ? "Facturando..." : "Facturar Período"}
+                                </Button>
+                              </div>
                             )}
                           </TableCell>
                         </TableRow>
@@ -4542,6 +4621,34 @@ function DispatchPage() {
                 value={newLocName}
                 onChange={(e) => setNewLocName(e.target.value)}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Posiciones Pallet</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="1"
+                  className="h-8 text-xs font-mono"
+                  value={newLocPalletPositions}
+                  onChange={(e) => setNewLocPalletPositions(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">Capacidad pallets (def: 1)</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Área Útil (m²)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="ej. 1.8"
+                  className="h-8 text-xs font-mono"
+                  value={newLocAreaM2}
+                  onChange={(e) => setNewLocAreaM2(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">Superficie en m²</p>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -6408,7 +6515,9 @@ function DispatchPage() {
                                   <span className="text-muted-foreground text-[10px] block font-mono">{l.items.code}</span>
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground italic text-[11px]">No vinculado a catálogo</span>
+                                <Badge variant="outline" className="text-amber-600 bg-amber-500/10 border-amber-500/30 text-[10px]">
+                                  SKU sin mapear
+                                </Badge>
                               )}
                             </TableCell>
                             <TableCell className="text-right font-semibold">{l.qty} un.</TableCell>
@@ -6526,6 +6635,122 @@ function DispatchPage() {
             <Button variant="outline" size="sm" onClick={() => setSelectedInvoiceForDetails(null)}>
               Cerrar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIÁLOGO: PREVISUALIZACIÓN DE LIQUIDACIÓN Y MEDICIÓN DE ALMACENAJE 3PL (SPRINTS 26 & 30) */}
+      <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              Previsualización de Liquidación de Servicios 3PL
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Cálculo de tarifas para <strong>{previewData?.party_name}</strong> en el período{" "}
+              <span className="font-mono font-medium">[{previewData?.period_start} al {previewData?.period_end}]</span>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewData && (
+            <div className="space-y-4 py-2 text-xs">
+              {/* Warnings / Alertas */}
+              {previewData.warnings && previewData.warnings.length > 0 && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-1">
+                  <div className="font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 text-xs">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    Observaciones en el cálculo:
+                  </div>
+                  <ul className="list-disc list-inside text-[11px] text-amber-800 dark:text-amber-200 space-y-0.5">
+                    {previewData.warnings.map((w: string, idx: number) => (
+                      <li key={idx}>{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Detalle de ítems a liquidar */}
+              <div>
+                <h4 className="font-semibold text-xs mb-2">Conceptos Calculados</h4>
+                <div className="border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/30 text-xs">
+                        <TableHead>Concepto / Detalle</TableHead>
+                        <TableHead className="text-right">Cantidad</TableHead>
+                        <TableHead className="text-right">Tarifa Unit.</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(previewData.items || []).map((it: any, idx: number) => (
+                        <TableRow key={idx} className="text-xs">
+                          <TableCell className="font-medium">
+                            <div>{it.description}</div>
+                            {it.notes && <div className="text-[10px] text-muted-foreground">{it.notes}</div>}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {Number(it.qty).toLocaleString("es-CL", { maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            ${Number(it.unit_price).toLocaleString("es-CL")}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-semibold">
+                            ${Number(it.subtotal).toLocaleString("es-CL")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {(!previewData.items || previewData.items.length === 0) && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-4 text-muted-foreground italic">
+                            No se detectaron consumos ni tarifas aplicables para el período seleccionado.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Totales */}
+              <div className="flex justify-end pt-2">
+                <div className="w-60 space-y-1.5 text-right text-xs">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal Neto:</span>
+                    <span className="font-mono">${Number(previewData.subtotal || 0).toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>IVA (19%):</span>
+                    <span className="font-mono">${Number(previewData.tax || 0).toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-sm text-foreground pt-1.5 border-t">
+                    <span>Total a Facturar:</span>
+                    <span className="font-mono text-primary">${Number(previewData.total || 0).toLocaleString("es-CL")}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-2 flex justify-between items-center sm:justify-between">
+            <Button variant="outline" size="sm" onClick={() => setIsPreviewModalOpen(false)}>
+              Cerrar
+            </Button>
+            {previewData && (
+              <Button
+                size="sm"
+                className="gap-1 bg-primary text-primary-foreground"
+                onClick={() => {
+                  setIsPreviewModalOpen(false);
+                  generateSingleInvoiceM.mutate(previewData.party_id);
+                }}
+                disabled={generateSingleInvoiceM.isPending || !previewData.items?.length}
+              >
+                <Zap className="h-3.5 w-3.5 text-amber-300" />
+                Generar Factura Borrador
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

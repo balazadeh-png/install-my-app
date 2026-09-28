@@ -144,6 +144,25 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
     * **Margen Estimado de Contribución**: Diferencia entre facturación neta y costo proporcional asignado, junto con su porcentaje sobre ventas.
     * **Rigor e Integridad Metodológica**: Presentación con advertencia explícita de "Costo/Margen Estimado" para gestión operativa interna, suprimiendo automáticamente cualquier cálculo de margen cuando no existan costos cargados en el período, impidiendo la generación de números ficticios.
     * **Visualización y Ordenamiento**: Tabla de rentabilidad con alternancia de ordenamiento (por mayor ingreso o por mayor margen), badges semánticos de rendimiento ("Rentable", "En Pérdida", "Facturado") y botón de acción directa para ingreso de costos.
+* **Vertical 3PL — Correcciones Críticas, Integridad Criptográfica & Hardening (Sprint 29)**:
+  * **Regla de la Verdad**: Eliminación definitiva de estimaciones arbitrarias (p. ej. unidades/50 para pallets o unidades/25 para m²) y corrección de campos en vistas (`qty_on_hand` en `stock_balances`). Los cálculos se sustentan exclusivamente en datos declarados o medidos.
+  * **Seguridad de Tokens Webhook**: Migración de `party_webhook_tokens` hacia almacenamiento irreversible mediante resumen criptográfico SHA-256 (`token_hash`) y prefijo de 12 caracteres (`token_prefix`). El secreto en texto plano se muestra una única vez en interfaz al momento de su generación.
+  * **Ingesta Atómica OMS**: Implementación de la función RPC con `SECURITY DEFINER` `ingest_oms_order`, que ejecuta en una única transacción de base de datos la validación del hash del token, el control de idempotencia `(party_id, channel, external_order_id)` y la coincidencia estricta de SKUs (`lower(code) = lower(external_sku)`) para la entidad dueña del catálogo.
+  * **Hardening RLS en Portal Cliente**: Políticas de control de acceso en `party_portal_users` y función `get_party_portal_users` con `SECURITY DEFINER`. Aislamiento del catálogo de `items` para que los usuarios del portal solo puedan consultar artículos asociados a su inventario en custodia, movimientos o despachos.
+* **Vertical 3PL — Medición Configurable de Almacenaje por Bodega (Sprint 30)**:
+  * **Esquema de Medición de Bodegas**:
+    * Enum `storage_measure_method`: `by_location` (suma de posiciones de pallet o m² de las ubicaciones ocupadas), `by_item_attributes` (suma de m³ o unidades/pallet calculadas según catálogo), `by_warehouse_default` (conversión por factor predeterminado de la bodega) y `manual` (requiere ingreso explícito de consumos).
+    * Enum `storage_measure_basis`: Unidad física de cobro (`pallet`, `m2`, `m3`, `unit`).
+    * Columnas en `warehouses`: `storage_measure_method`, `storage_measure_basis`, `default_units_per_pallet`, `storage_capacity`.
+  * **Atributos Físicos en Entidades WMS**:
+    * `warehouse_locations`: `pallet_positions integer` (default 1) y `area_m2 numeric(10,2)`.
+    * `items`: `units_per_pallet integer` y `unit_volume_m3 numeric(10,4)`.
+  * **Tipos de Tarifas Ampliados**: Incorporación de `storage_m3` y `storage_unit` en `service_rate_type`.
+  * **Funciones PL/pgSQL Nativas de Medición**:
+    * `stock_balance_at`: Reconstruye el saldo exacto de un producto/cliente/bodega a una fecha determinada desde `stock_ledger_entries`.
+    * `storage_measure_on`: Evalúa y cuantifica la ocupación real a una fecha dada conforme al método configurado en la bodega.
+    * `get_storage_usage`: Consolida el consumo de almacenamiento en un período de facturación para alimentar la liquidación de contratos 3PL.
+  * **Previsualización de Facturación**: Server function `previewServiceBillingFn` que desglosa de manera transparente el cálculo de consumos de almacenaje, picking y transporte sin comprometer registros en `sales_invoices`.
 
 
 

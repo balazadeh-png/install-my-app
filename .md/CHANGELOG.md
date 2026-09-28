@@ -2,7 +2,50 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
-## [Sprint 28: BI y KPIs Comerciales 3PL — Cierre de Roadmap 3PL] - 2026-09-27
+## [Sprint 30: Medición Configurable de Almacenaje por Bodega] - 2026-09-28
+
+### Añadido
+* **Migraciones SQL de Medición de Almacenaje** ([`20260928000029_sprint30a_enum_service_rate_type.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260928000029_sprint30a_enum_service_rate_type.sql) y [`20260928000030_sprint30b_medicion_almacenaje.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260928000030_sprint30b_medicion_almacenaje.sql)):
+  * Enums `storage_measure_method` (`by_location`, `by_item_attributes`, `by_warehouse_default`, `manual`) y `storage_measure_basis` (`pallet`, `m2`, `m3`, `unit`).
+  * Nuevos tipos de tarifas en enum `service_rate_type`: `storage_m3` y `storage_unit`.
+  * Columnas en `warehouses`: `storage_measure_method`, `storage_measure_basis`, `default_units_per_pallet`, `storage_capacity`.
+  * Columnas físicas en `warehouse_locations`: `pallet_positions` (default 1) y `area_m2`.
+  * Columnas físicas en `items`: `units_per_pallet` y `unit_volume_m3`.
+  * Función nativa `stock_balance_at(p_entity_id, p_warehouse_id, p_item_id, p_party_id, p_as_of_date)` para consultar saldos a una fecha determinada reconstruidos desde el Kardex (`stock_ledger_entries`).
+  * Función nativa `storage_measure_on(p_warehouse_id, p_party_id, p_date)` para computar la ocupación física real en pallets, m², m³ o unidades según el método configurado en la bodega.
+  * Función nativa `get_storage_usage(p_entity_id, p_party_id, p_start_date, p_end_date)` para calcular el uso diario o puntual de almacenamiento aplicable a la facturación de servicios 3PL.
+* **Liquidación y Previsualización de Facturación 3PL** ([`src/lib/billing3pl.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/billing3pl.functions.ts)):
+  * `previewServiceBillingFn`: Servidor que calcula y previsualiza de forma transparente las líneas liquidables sin emitir facturas, detectando bodegas manuales o sin tarifas.
+  * Soporte de tarifas por m³ (`storage_m3`) y unidad (`storage_unit`) junto a pallets y m².
+* **Gestión WMS e Inventario ([`inventory.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/inventory.tsx) y [`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Nueva pestaña "Ubicaciones WMS" en inventario para administrar posiciones físicas de racks/pasillos.
+  * Formulario y modal de creación de ubicaciones WMS con `pallet_positions` y `area_m2`.
+  * Modal y tabla de catálogo de productos con `units_per_pallet` y `unit_volume_m3`.
+  * Modal de previsualización detallada de liquidación 3PL antes de generar facturas en `dispatch.tsx`.
+* **Configuración de Medición en Dashboard BI 3PL ([`dashboard-3pl.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx))**:
+  * Modal "Configurar medición" para parametrizar método, base, unidades por pallet y capacidad de cada bodega.
+  * Integración con RPC `get_storage_usage` para tasas de ocupación reales sin multiplicadores inventados.
+
+---
+
+## [Sprint 29: Correcciones Críticas 3PL — Facturación, Portal y Webhooks] - 2026-09-28
+
+### Corregido & Mejorado
+* **Regla de la Verdad y Eliminación de Multiplicadores Arbitrarios**:
+  * Removidas divisiones artificiales (`units / 50` para pallets, `units / 25` para m²) en [`billing3pl.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/billing3pl.functions.ts) y [`dashboard-3pl.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx).
+  * Corregida lectura de saldo en `stock_balances` (`qty_on_hand` en lugar de la columna inexistente `balance`).
+* **Ingesta Atómica y Segura de Pedidos OMS** ([`20260928000028_sprint29_correcciones_3pl.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260928000028_sprint29_correcciones_3pl.sql) y [`oms.functions.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/lib/oms.functions.ts)):
+  * Función RPC transaccional `ingest_oms_order` para autenticar tokens y crear pedido con sus líneas de forma atómica.
+  * Hashing obligatorio de tokens con SHA-256 (`token_hash` y prefijo `token_prefix`). El token plano ya no se persiste en texto plano en la base de datos.
+  * Coincidencia exacta de SKU (`lower(code) = lower(external_sku)`) para la entidad dueña del catálogo. Eliminado el fallback arbitrario a productos no relacionados.
+  * Manejo estricto de idempotencia (`party_id`, `channel`, `external_order_id`) retornando HTTP 200 con `{ ignored: true }` si ya existía el pedido.
+* **Endurecimiento RLS de Portal Cliente**:
+  * Políticas RLS sobre `party_portal_users` para impedir fuga de datos entre empresas.
+  * Función con `SECURITY DEFINER` `get_party_portal_users` para verificar usuarios autorizados de cada cliente.
+  * Restricción de acceso en catálogo `items` para usuarios del portal: solo pueden leer ítems con los que tienen custodia, movimientos o guías.
+  * Eliminado el texto estático engañoso "Sesión Segura (RLS Cliente)" en [`_portal/route.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_portal/route.tsx), reflejando dinámicamente el nombre del cliente auditado.
+
+---
 
 ### Añadido
 * **Módulo de Rentabilidad por Cliente 3PL ([`dashboard-3pl.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-3pl.tsx))**:
