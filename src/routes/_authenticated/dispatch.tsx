@@ -1047,6 +1047,9 @@ function DispatchPage() {
         setSelectedRouteForView((prev: any) => (prev ? { ...prev, status: vars.status } : null));
       }
     },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const [markingStopDelivery, setMarkingStopDelivery] = useState<{
     stop: any;
     routeId: string;
