@@ -8,6 +8,27 @@
       "when": 1790556055251,
       "tag": "0000_apply_3pl_sprints_24_27",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790638905262,
+      "tag": "0001_demo_data_seed_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790638935063,
+      "tag": "0002_demo_seed_enum_casts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790638952964,
+      "tag": "0003_demo_seed_alias_fix",
+      "breakpoints": true
     }
   ]
 }

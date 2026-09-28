@@ -425,12 +425,12 @@ export const generateServiceInvoiceFn = createServerFn({ method: "POST" })
         party_id,
         currency_code: entity.base_currency_code || "CLP",
         exchange_rate: 1.0,
-        issue_date: todayStr,
-        due_date: dueDateStr,
+        issue_date: todayStr!,
+        due_date: dueDateStr ?? null,
         subtotal_amount: preview.subtotal,
         tax_amount: preview.tax,
         total_amount: preview.total,
-        memo: periodMemoKey,
+        memo: `Servicios 3PL [${period_start} al ${period_end}]`,
         status: "draft",
       })
       .select("id, memo, total_amount, status, invoice_number")

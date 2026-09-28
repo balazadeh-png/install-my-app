@@ -82,7 +82,7 @@ export async function processOmsOrderWebhook(rawBody: unknown): Promise<OmsInges
       p_external_order_id: external_order_id,
       p_destination_address: destination_address,
       p_lines: lines as any,
-      p_notes: notes || undefined,
+      ...(notes ? { p_notes: notes } : {}),
     });
 
     if (rpcErr) {

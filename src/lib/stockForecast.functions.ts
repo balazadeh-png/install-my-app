@@ -3,8 +3,8 @@ import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 
 function getSupabaseClient() {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const supabaseAnonKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+  const supabaseUrl = process.env['SUPABASE_URL'] || process.env['VITE_SUPABASE_URL'] || "";
+  const supabaseAnonKey = process.env['SUPABASE_PUBLISHABLE_KEY'] || process.env['VITE_SUPABASE_PUBLISHABLE_KEY'] || "";
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false },
   });
