@@ -2,6 +2,38 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 24: Portal Cliente 3PL y RLS Segregado] - 2026-09-27
+
+### Añadido
+* **Migración SQL de Portal Cliente y Segregación RLS** ([`supabase/migrations/20260927000023_sprint24_portal_cliente.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260927000023_sprint24_portal_cliente.sql)):
+  * Tabla `party_portal_users`: vinculación de usuarios de Supabase Auth con clientes 3PL (`user_id` FK a `auth.users`, `party_id` FK a `parties`, restricción única `UNIQUE (user_id, party_id)`). Habilitada con RLS.
+  * Función `user_has_party_access(check_party_id uuid)` (`SECURITY DEFINER STABLE`): función espejo de `user_has_company_access` pero orientada a clientes terceros para consultar exclusivamente su data asignada.
+  * Políticas adicionales RLS aditivas para clientes en `dispatch_notes`, `dispatch_note_lines`, `stock_ledger_entries`, `parties`, `items`, `warehouses`, `warehouse_locations`, `sales_orders` y `sales_order_lines`.
+  * Enforzamiento de `ALTER VIEW public.stock_balances SET (security_invoker = true)` para que las consultas del portal respeten las políticas RLS sobre las tablas base subyacentes.
+  * Funciones RPC `assign_party_portal_user(p_party_id, p_email)` y `get_party_portal_users(p_party_id)` para asignación segura de usuarios sin comprometer datos confidenciales de autenticación.
+* **Layout y Rutas Dedicadas del Portal Cliente ([`_portal/route.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_portal/route.tsx))**:
+  * Grupo de rutas independiente en `src/routes/_portal/` totalmente separado de `_authenticated/`.
+  * Verificación de sesión de autenticación sin requerir membresía en `company_users`.
+  * Manejo de estado vacío claro e informativo si el usuario no tiene clientes 3PL asignados.
+  * Soporte multicliente con selector dropdown si el usuario tiene acceso a más de una empresa/cliente.
+* **Portal Cliente 3PL Frontend ([`_portal/portal.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_portal/portal.tsx))**:
+  * Tarjetas métricas en tiempo real: SKUs activos en custodia, unidades totales en stock, guías de despacho y pedidos OMS.
+  * Pestaña "Mi Inventario en Custodia": consulta directa a `stock_balances` filtrada por RLS con desglose por bodega, ubicación física, lote y fecha de vencimiento.
+  * Pestaña "Guías de Despacho": historial de despachos con buscador, badges de estado y visualización de líneas.
+  * Pestaña "Mis Pedidos OMS": historial de pedidos recibidos por canales digitales con estado operativo y guía asociada.
+  * Modal y comprobante imprimible de Guía de Despacho con leyenda visible: `"DOCUMENTO INTERNO DE TRASLADO 3PL — BORRADOR OPERATIVO (NO VÁLIDO COMO DTE FISCAL SII)"` y disparador nativo de impresión/PDF.
+* **Gestión de Accesos al Portal en Clientes 3PL ([`dispatch.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dispatch.tsx))**:
+  * Sección "Acceso al Portal Cliente (3PL)" dentro del formulario de edición de clientes 3PL.
+  * Formulario para vincular correos de usuarios registrados en el sistema mediante RPC seguro.
+  * Listado de usuarios autorizados con indicador de estado y botón para desvincular o revocar acceso.
+* **Navegación Global ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx))**:
+  * Acceso rápido a "Portal 3PL" en la barra de navegación superior y elemento en el menú de módulos.
+* **Tipos TypeScript ([`types.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/integrations/supabase/types.ts))**:
+  * Tipado de `party_portal_users` en `Tables`.
+  * Tipado de `assign_party_portal_user`, `get_party_portal_users` y `user_has_party_access` en `Functions`.
+
+---
+
 ## [Sprint 23: OMS — Pedidos Multicanal y Webhook de Integración] - 2026-09-27
 
 ### Añadido

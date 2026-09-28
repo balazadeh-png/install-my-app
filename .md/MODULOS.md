@@ -283,3 +283,27 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Botón "Generar token de integración" en la pestaña de Clientes 3PL: crea un token único `tok_3pl_...` y despliega un modal con instrucciones, endpoint de escucha y ejemplo listo para copiar en cURL / Postman.
   * Control de estado de tokens (activar / desactivar) y copia rápida al portapapeles.
 
+---
+
+## 22. Vertical 3PL — Portal Cliente y Segregación RLS ([`/portal`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_portal/portal.tsx))
+* **Segregación Estricta entre Personal Interno y Clientes Externos (`party_portal_users`)**:
+  * Acceso dedicado para clientes 3PL mediante cuentas de Supabase Auth asociadas a un `party_id` (`party_portal_users`), 100% aisladas del modelo `company_users` de personal interno de la empresa.
+  * Función de seguridad `user_has_party_access(check_party_id uuid)` (`SECURITY DEFINER STABLE`) para evaluar de forma estricta los permisos de consulta del cliente logueado.
+  * Políticas adicionales de Row Level Security (RLS) aditivas en `dispatch_notes`, `dispatch_note_lines`, `stock_ledger_entries`, `parties`, `items`, `warehouses`, `warehouse_locations`, `sales_orders` y `sales_order_lines`.
+  * Forzado de `security_invoker = true` en la vista `stock_balances` para que cualquier consulta de saldos desde el portal aplique las políticas RLS sobre las tablas base subyacentes, imposibilitando la visualización de inventario ajeno.
+* **Layout y Experiencia Dedicada de Usuario (`_portal/route.tsx`)**:
+  * Grupo de rutas aislado `src/routes/_portal/` que no hereda dashboards ni vistas internas de administración contable o financiera.
+  * Verificación de sesión de autenticación sin requerir empresa activa en `company_users`.
+  * Estado vacío explicativo e intuitivo en caso de que el usuario logueado no posea clientes 3PL asignados.
+  * Selector multi-cliente para usuarios que administran más de una cuenta o razón social.
+* **Portal de Autoservicio para Clientes 3PL (`_portal/portal.tsx`)**:
+  * Tarjetas KPI de control: SKUs activos en custodia, unidades físicas en stock, total de guías de despacho y pedidos OMS recibidos.
+  * **Pestaña "Mi Inventario en Custodia"**: Saldos en tiempo real extraídos de `stock_balances` con filtros por bodega y desglose de ubicación física (slotting WMS), número de lote y fecha de vencimiento.
+  * **Pestaña "Guías de Despacho"**: Historial de traslados y entregas con buscador por número de guía o transportista, badges de estado y visor de líneas físicas.
+  * **Pestaña "Mis Pedidos OMS"**: Visualización del avance operativo de pedidos multicanal recibidos por webhooks o carga masiva, con detalle de productos y enlace a la guía generada.
+  * **Comprobante Imprimible de Guía de Despacho**: Modal con diseño limpio y apto para impresión (`window.print()`) que incluye advertencia legal obligatoria: `"DOCUMENTO INTERNO DE TRASLADO 3PL — BORRADOR OPERATIVO (NO VÁLIDO COMO DTE FISCAL SII)"`, permitiendo a los clientes respaldar sus movimientos físicos sin confusión con la emisión fiscal electrónica.
+* **Administración de Accesos al Portal desde EasyERP Staff (`dispatch.tsx`)**:
+  * Sección "Acceso al Portal Cliente (3PL)" en la ficha de cada cliente 3PL.
+  * Vinculación de correos de usuarios registrados en el sistema mediante RPC seguro `assign_party_portal_user`.
+  * Listado de usuarios autorizados con fecha de vinculación y acción para revocar o desvincular el acceso en tiempo real.
+

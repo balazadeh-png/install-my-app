@@ -4359,6 +4359,35 @@ export type Database = {
           },
         ]
       }
+      party_portal_users: {
+        Row: {
+          created_at: string
+          id: string
+          party_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          party_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          party_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_portal_users_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       party_webhook_tokens: {
         Row: {
           created_at: string
@@ -4499,6 +4528,13 @@ export type Database = {
       }
     }
     Functions: {
+      assign_party_portal_user: {
+        Args: {
+          p_email: string
+          p_party_id: string
+        }
+        Returns: Json
+      }
       calculate_f22: {
         Args: { _entity_id: string; _period_end: string; _period_start: string }
         Returns: Json
@@ -4551,6 +4587,18 @@ export type Database = {
           _tax_year: number
         }
         Returns: Json
+      }
+      get_party_portal_users: {
+        Args: {
+          p_party_id: string
+        }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          party_id: string
+          user_id: string
+        }[]
       }
       get_exchange_rate: {
         Args: { _date: string; _destination: string; _origin: string }
@@ -4629,6 +4677,10 @@ export type Database = {
       }
       user_has_company_access: {
         Args: { _entity_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_has_party_access: {
+        Args: { check_party_id: string }
         Returns: boolean
       }
     }

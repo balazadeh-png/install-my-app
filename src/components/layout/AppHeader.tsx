@@ -33,6 +33,7 @@ import {
   Landmark,
   FileBadge2,
   Truck,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -43,6 +44,7 @@ export const moduleNavItems = [
   { name: "purchases", label: "Compras", path: "/purchases", icon: ShoppingCart },
   { name: "inventory", label: "Inventario", path: "/inventory", icon: Package },
   { name: "dispatch", label: "Guías de Despacho (3PL)", path: "/dispatch", icon: Truck },
+  { name: "portal", label: "Portal Clientes 3PL", path: "/portal", icon: ShieldCheck },
   { name: "production", label: "Producción", path: "/production", icon: Factory },
   { name: "assets", label: "Activos Fijos", path: "/assets", icon: Building2 },
   { name: "cash", label: "Bancos / Tesorería", path: "/cash", icon: DollarSign },
@@ -98,6 +100,18 @@ export function AppHeader() {
               <Link to="/dashboard">
                 <LayoutDashboard className="mr-1.5 h-3.5 w-3.5" />
                 Dashboard
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              variant={currentPath.startsWith("/portal") ? "secondary" : "ghost"}
+              size="sm"
+              className="text-xs font-medium"
+            >
+              <Link to="/portal">
+                <ShieldCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                Portal 3PL
               </Link>
             </Button>
 

@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Truck, Users, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed, Upload, Key, Copy, RefreshCw, ShoppingCart, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Truck, Users, UserPlus, Globe, ShieldAlert, FileCheck, AlertCircle, ArrowDownToLine, MapPin, Box, CheckCircle2, ClipboardCheck, Layers, PackageCheck, Package, Search, Eye, Check, Clock, Navigation, Route as RouteIcon, Car, ArrowUp, ArrowDown, Play, CheckCheck, XCircle, Gauge, Edit, Calendar, ExternalLink, LocateFixed, Upload, Key, Copy, RefreshCw, ShoppingCart, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dispatch")({
   head: () => ({
@@ -1246,6 +1246,9 @@ function DispatchPage() {
     clientName: string;
   } | null>(null);
 
+  // Portal Cliente 3PL (Sprint 24)
+  const [portalUserEmail, setPortalUserEmail] = useState("");
+
   const handleCsvTextChange = (raw: string) => {
     setCsvRawText(raw);
     const textLines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
@@ -1560,6 +1563,54 @@ function DispatchPage() {
       toast.success("Pedido cancelado");
       qc.invalidateQueries({ queryKey: ["sales_orders"] });
       if (selectedOrderForView) setSelectedOrderForView(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Portal Cliente 3PL: Consultar usuarios vinculados al cliente seleccionado
+  const partyPortalUsersQ = useQuery({
+    queryKey: ["party_portal_users", editPartyId],
+    enabled: !!editPartyId && !!edit3pl,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_party_portal_users", {
+        p_party_id: editPartyId,
+      });
+      if (error) throw error;
+      return (data as Array<{ id: string; user_id: string; email: string; created_at: string }>) || [];
+    },
+  });
+
+  // Mutación: Asignar usuario al portal cliente
+  const assignPartyPortalUserM = useMutation({
+    mutationFn: async (email: string) => {
+      if (!editPartyId) throw new Error("No hay cliente seleccionado");
+      if (!email || !email.includes("@")) throw new Error("Ingresa un correo electrónico válido");
+      const { error } = await supabase.rpc("assign_party_portal_user", {
+        p_party_id: editPartyId,
+        p_email: email.trim().toLowerCase(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Usuario vinculado al portal cliente");
+      setPortalUserEmail("");
+      qc.invalidateQueries({ queryKey: ["party_portal_users", editPartyId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Mutación: Desvincular usuario del portal cliente
+  const unlinkPartyPortalUserM = useMutation({
+    mutationFn: async (linkId: string) => {
+      const { error } = await supabase
+        .from("party_portal_users")
+        .delete()
+        .eq("id", linkId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Acceso al portal revocado");
+      qc.invalidateQueries({ queryKey: ["party_portal_users", editPartyId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -2444,87 +2495,168 @@ function DispatchPage() {
                     </div>
                   )}
 
-                  {edit3pl && (
-                    <div className="space-y-3 rounded-md border p-3 bg-muted/20">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <Label className="text-xs font-semibold flex items-center gap-1.5">
-                            <Key className="h-3.5 w-3.5 text-primary" />
-                            Integración Webhook OMS (E-Commerce)
-                          </Label>
-                          <p className="text-[11px] text-muted-foreground">
-                            Tokens para recibir pedidos automáticos desde Shopify, VTEX o Mercado Libre.
-                          </p>
+                    {edit3pl && (
+                    <div className="space-y-4">
+                      {/* Webhooks OMS */}
+                      <div className="space-y-3 rounded-md border p-3 bg-muted/20">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <Label className="text-xs font-semibold flex items-center gap-1.5">
+                              <Key className="h-3.5 w-3.5 text-primary" />
+                              Integración Webhook OMS (E-Commerce)
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground">
+                              Tokens para recibir pedidos automáticos desde Shopify, VTEX o Mercado Libre.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 text-xs shrink-0"
+                            onClick={() => generateWebhookTokenM.mutate(editPartyId)}
+                            disabled={generateWebhookTokenM.isPending}
+                          >
+                            <Key className="h-3.5 w-3.5" />
+                            Generar token de integración
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1 text-xs shrink-0"
-                          onClick={() => generateWebhookTokenM.mutate(editPartyId)}
-                          disabled={generateWebhookTokenM.isPending}
-                        >
-                          <Key className="h-3.5 w-3.5" />
-                          Generar token de integración
-                        </Button>
+
+                        {(() => {
+                          const partyTokens = (webhookTokensQ.data || []).filter((t: any) => t.party_id === editPartyId);
+                          if (!partyTokens.length) {
+                            return (
+                              <p className="text-[11px] text-muted-foreground italic py-1">
+                                Este cliente aún no posee tokens de integración generados.
+                              </p>
+                            );
+                          }
+                          return (
+                            <div className="space-y-2 pt-1">
+                              {partyTokens.map((t: any) => (
+                                <div key={t.id} className="flex items-center justify-between text-xs p-2.5 rounded bg-background border">
+                                  <div className="space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono text-xs font-medium text-primary">
+                                        {t.token.slice(0, 14)}••••••••{t.token.slice(-4)}
+                                      </span>
+                                      <Badge variant={t.is_active ? "outline" : "secondary"} className="text-[10px]">
+                                        {t.is_active ? "Activo" : "Inactivo"}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {t.name || "Webhook"} · Creado el {new Date(t.created_at).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs gap-1"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(t.token);
+                                        toast.success("Token copiado al portapapeles");
+                                      }}
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                      Copiar
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => toggleTokenActiveM.mutate({ id: t.id, is_active: t.is_active })}
+                                      disabled={toggleTokenActiveM.isPending}
+                                    >
+                                      {t.is_active ? "Desactivar" : "Reactivar"}
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
 
-                      {(() => {
-                        const partyTokens = (webhookTokensQ.data || []).filter((t: any) => t.party_id === editPartyId);
-                        if (!partyTokens.length) {
-                          return (
-                            <p className="text-[11px] text-muted-foreground italic py-1">
-                              Este cliente aún no posee tokens de integración generados.
+                      {/* Usuarios con Acceso al Portal Cliente (Sprint 24) */}
+                      <div className="space-y-3 rounded-md border p-3 bg-muted/20">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <Label className="text-xs font-semibold flex items-center gap-1.5">
+                              <Users className="h-3.5 w-3.5 text-primary" />
+                              Acceso al Portal Cliente (3PL)
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground">
+                              Vincula cuentas de usuario registradas en el sistema para que consulten su inventario en custodia y guías desde <code className="text-primary font-mono font-medium">/portal</code>.
                             </p>
-                          );
-                        }
-                        return (
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="email"
+                            placeholder="correo@cliente.cl (debe estar registrado)"
+                            value={portalUserEmail}
+                            onChange={(e) => setPortalUserEmail(e.target.value)}
+                            className="h-8 text-xs flex-1"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                if (portalUserEmail) assignPartyPortalUserM.mutate(portalUserEmail);
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 text-xs gap-1 shrink-0"
+                            disabled={!portalUserEmail || assignPartyPortalUserM.isPending}
+                            onClick={() => assignPartyPortalUserM.mutate(portalUserEmail)}
+                          >
+                            <UserPlus className="h-3.5 w-3.5" />
+                            {assignPartyPortalUserM.isPending ? "Vinculando..." : "Vincular Usuario"}
+                          </Button>
+                        </div>
+
+                        {partyPortalUsersQ.isLoading ? (
+                          <p className="text-[11px] text-muted-foreground">Cargando accesos al portal...</p>
+                        ) : (partyPortalUsersQ.data || []).length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground italic py-1">
+                            Este cliente aún no tiene usuarios vinculados. Vincula su correo para habilitar su acceso a <code className="text-foreground font-mono">/portal</code>.
+                          </p>
+                        ) : (
                           <div className="space-y-2 pt-1">
-                            {partyTokens.map((t: any) => (
-                              <div key={t.id} className="flex items-center justify-between text-xs p-2.5 rounded bg-background border">
+                            {(partyPortalUsersQ.data || []).map((u) => (
+                              <div key={u.id} className="flex items-center justify-between text-xs p-2.5 rounded bg-background border">
                                 <div className="space-y-0.5">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-mono text-xs font-medium text-primary">
-                                      {t.token.slice(0, 14)}••••••••{t.token.slice(-4)}
-                                    </span>
-                                    <Badge variant={t.is_active ? "outline" : "secondary"} className="text-[10px]">
-                                      {t.is_active ? "Activo" : "Inactivo"}
+                                    <span className="font-medium text-xs text-foreground">{u.email}</span>
+                                    <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20">
+                                      Acceso Activo
                                     </Badge>
                                   </div>
                                   <p className="text-[10px] text-muted-foreground">
-                                    {t.name || "Webhook"} · Creado el {new Date(t.created_at).toLocaleDateString()}
+                                    ID Auth: <span className="font-mono">{u.user_id.slice(0, 8)}...</span> · Vinculado el {new Date(u.created_at).toLocaleDateString()}
                                   </p>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-xs gap-1"
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(t.token);
-                                      toast.success("Token copiado al portapapeles");
-                                    }}
-                                  >
-                                    <Copy className="h-3 w-3" />
-                                    Copiar
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={() => toggleTokenActiveM.mutate({ id: t.id, is_active: t.is_active })}
-                                    disabled={toggleTokenActiveM.isPending}
-                                  >
-                                    {t.is_active ? "Desactivar" : "Reactivar"}
-                                  </Button>
-                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                                  disabled={unlinkPartyPortalUserM.isPending}
+                                  onClick={() => unlinkPartyPortalUserM.mutate(u.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Desvincular
+                                </Button>
                               </div>
                             ))}
                           </div>
-                        );
-                      })()}
+                        )}
+                      </div>
                     </div>
                   )}
 

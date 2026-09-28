@@ -59,10 +59,10 @@ ALTER VIEW public.stock_balances SET (security_invoker = true);
 
 ## Criterios de aceptación
 
-- [ ] Un usuario sin fila en `party_portal_users` que entra a `/portal` no ve ningún dato — ni error confuso, un estado vacío claro.
-- [ ] Un usuario de portal ve únicamente el inventario y las guías de su propio `party_id`, confirmado probando con dos clientes distintos en dos sesiones.
-- [ ] El staff interno (vía `company_users`) sigue viendo todo normalmente — las políticas nuevas se suman, no reemplazan.
-- [ ] `stock_balances` respeta la RLS de la tabla base al consultarse desde el portal.
+- [x] Un usuario sin fila en `party_portal_users` que entra a `/portal` no ve ningún dato — ni error confuso, un estado vacío claro.
+- [x] Un usuario de portal ve únicamente el inventario y las guías de su propio `party_id`, confirmado probando con dos clientes distintos en dos sesiones.
+- [x] El staff interno (vía `company_users`) sigue viendo todo normalmente — las políticas nuevas se suman, no reemplazan.
+- [x] `stock_balances` respeta la RLS de la tabla base al consultarse desde el portal.
 
 ---
 
