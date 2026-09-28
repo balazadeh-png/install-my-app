@@ -776,6 +776,7 @@ export type Database = {
           departure_at: string
           destination_address: string
           dispatch_number: string | null
+          distance_km: number | null
           entity_id: string
           id: string
           notes: string | null
@@ -799,6 +800,7 @@ export type Database = {
           departure_at: string
           destination_address: string
           dispatch_number?: string | null
+          distance_km?: number | null
           entity_id: string
           id?: string
           notes?: string | null
@@ -822,6 +824,7 @@ export type Database = {
           departure_at?: string
           destination_address?: string
           dispatch_number?: string | null
+          distance_km?: number | null
           entity_id?: string
           id?: string
           notes?: string | null
@@ -2056,6 +2059,47 @@ export type Database = {
           },
         ]
       }
+      operational_cost_inputs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          id: string
+          notes: string | null
+          period_end: string
+          period_start: string
+          total_cost: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          id?: string
+          notes?: string | null
+          period_end: string
+          period_start: string
+          total_cost: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          id?: string
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          total_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_cost_inputs_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parties: {
         Row: {
           classification: string
@@ -2139,6 +2183,35 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      party_portal_users: {
+        Row: {
+          created_at: string
+          id: string
+          party_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          party_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          party_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_portal_users_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       party_warehouses: {
         Row: {
@@ -3092,6 +3165,7 @@ export type Database = {
       }
       sales_invoices: {
         Row: {
+          adjustment_of_invoice_id: string | null
           business_unit_id: string | null
           cost_center_id: string | null
           created_at: string
@@ -3114,6 +3188,7 @@ export type Database = {
           warehouse_id: string | null
         }
         Insert: {
+          adjustment_of_invoice_id?: string | null
           business_unit_id?: string | null
           cost_center_id?: string | null
           created_at?: string
@@ -3136,6 +3211,7 @@ export type Database = {
           warehouse_id?: string | null
         }
         Update: {
+          adjustment_of_invoice_id?: string | null
           business_unit_id?: string | null
           cost_center_id?: string | null
           created_at?: string
@@ -3158,6 +3234,20 @@ export type Database = {
           warehouse_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_invoices_adjustment_of_invoice_id_fkey"
+            columns: ["adjustment_of_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoice_balances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_adjustment_of_invoice_id_fkey"
+            columns: ["adjustment_of_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_invoices_business_unit_id_fkey"
             columns: ["business_unit_id"]
@@ -3315,6 +3405,89 @@ export type Database = {
             columns: ["party_id"]
             isOneToOne: false
             referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_contracts: {
+        Row: {
+          active: boolean
+          billing_frequency: Database["public"]["Enums"]["billing_frequency"]
+          created_at: string
+          entity_id: string
+          id: string
+          notes: string | null
+          party_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          billing_frequency?: Database["public"]["Enums"]["billing_frequency"]
+          created_at?: string
+          entity_id: string
+          id?: string
+          notes?: string | null
+          party_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          billing_frequency?: Database["public"]["Enums"]["billing_frequency"]
+          created_at?: string
+          entity_id?: string
+          id?: string
+          notes?: string | null
+          party_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_contracts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_contracts_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_rate_lines: {
+        Row: {
+          contract_id: string
+          created_at: string
+          description: string | null
+          id: string
+          rate_type: Database["public"]["Enums"]["service_rate_type"]
+          unit_price: number
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          rate_type: Database["public"]["Enums"]["service_rate_type"]
+          unit_price: number
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          rate_type?: Database["public"]["Enums"]["service_rate_type"]
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_rate_lines_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "service_contracts"
             referencedColumns: ["id"]
           },
         ]
@@ -3952,6 +4125,7 @@ export type Database = {
       warehouses: {
         Row: {
           active: boolean | null
+          capacity_m3: number | null
           code: string
           created_at: string
           entity_id: string | null
@@ -3962,6 +4136,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          capacity_m3?: number | null
           code: string
           created_at?: string
           entity_id?: string | null
@@ -3972,6 +4147,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          capacity_m3?: number | null
           code?: string
           created_at?: string
           entity_id?: string | null
@@ -4131,6 +4307,10 @@ export type Database = {
       }
     }
     Functions: {
+      assign_party_portal_user: {
+        Args: { p_email: string; p_party_id: string }
+        Returns: Json
+      }
       calculate_f22: {
         Args: { _entity_id: string; _period_end: string; _period_start: string }
         Returns: Json
@@ -4191,6 +4371,16 @@ export type Database = {
       get_next_entry_number: {
         Args: { _entity_id: string; _prefix?: string }
         Returns: string
+      }
+      get_party_portal_users: {
+        Args: { p_party_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          party_id: string
+          user_id: string
+        }[]
       }
       get_sii_book_data: {
         Args: {
@@ -4263,6 +4453,10 @@ export type Database = {
         Args: { _entity_id: string; _user_id: string }
         Returns: boolean
       }
+      user_has_party_access: {
+        Args: { check_party_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
@@ -4273,6 +4467,7 @@ export type Database = {
         | "inventory"
         | "viewer"
       asset_status: "active" | "fully_depreciated" | "disposed"
+      billing_frequency: "mensual" | "quincenal"
       depreciation_method: "linea_recta" | "acelerada"
       dispatch_status: "draft" | "issued" | "cancelled"
       dispatch_transfer_type:
@@ -4306,6 +4501,12 @@ export type Database = {
         | "completed"
         | "cancelled"
       route_status: "planificada" | "en_curso" | "finalizada" | "cancelada"
+      service_rate_type:
+        | "storage_pallet"
+        | "storage_m2"
+        | "picking_unit"
+        | "transport_km"
+        | "recargo_fijo"
       sii_book_type:
         | "libro_diario"
         | "libro_mayor"
@@ -4468,6 +4669,7 @@ export const Constants = {
         "viewer",
       ],
       asset_status: ["active", "fully_depreciated", "disposed"],
+      billing_frequency: ["mensual", "quincenal"],
       depreciation_method: ["linea_recta", "acelerada"],
       dispatch_status: ["draft", "issued", "cancelled"],
       dispatch_transfer_type: [
@@ -4505,6 +4707,13 @@ export const Constants = {
         "cancelled",
       ],
       route_status: ["planificada", "en_curso", "finalizada", "cancelada"],
+      service_rate_type: [
+        "storage_pallet",
+        "storage_m2",
+        "picking_unit",
+        "transport_km",
+        "recargo_fijo",
+      ],
       sii_book_type: [
         "libro_diario",
         "libro_mayor",
