@@ -695,6 +695,12 @@ export type Database = {
           dispatch_note_id: string
           id: string
           item_id: string
+          location_id: string | null
+          lot_number: string | null
+          packed: boolean
+          packed_at: string | null
+          picked: boolean
+          picked_at: string | null
           qty: number
           unit_value: number | null
           uom: string | null
@@ -705,6 +711,12 @@ export type Database = {
           dispatch_note_id: string
           id?: string
           item_id: string
+          location_id?: string | null
+          lot_number?: string | null
+          packed?: boolean
+          packed_at?: string | null
+          picked?: boolean
+          picked_at?: string | null
           qty: number
           unit_value?: number | null
           uom?: string | null
@@ -715,6 +727,12 @@ export type Database = {
           dispatch_note_id?: string
           id?: string
           item_id?: string
+          location_id?: string | null
+          lot_number?: string | null
+          packed?: boolean
+          packed_at?: string | null
+          picked?: boolean
+          picked_at?: string | null
           qty?: number
           unit_value?: number | null
           uom?: string | null
@@ -736,6 +754,13 @@ export type Database = {
             referencedRelation: "items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "dispatch_note_lines_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_locations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       dispatch_notes: {
@@ -751,7 +776,6 @@ export type Database = {
           departure_at: string
           destination_address: string
           dispatch_number: string | null
-          distance_km: number | null
           entity_id: string
           id: string
           notes: string | null
@@ -775,7 +799,6 @@ export type Database = {
           departure_at: string
           destination_address: string
           dispatch_number?: string | null
-          distance_km?: number | null
           entity_id: string
           id?: string
           notes?: string | null
@@ -799,7 +822,6 @@ export type Database = {
           departure_at?: string
           destination_address?: string
           dispatch_number?: string | null
-          distance_km?: number | null
           entity_id?: string
           id?: string
           notes?: string | null
@@ -2034,47 +2056,6 @@ export type Database = {
           },
         ]
       }
-      operational_cost_inputs: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          entity_id: string
-          id: string
-          notes: string | null
-          period_end: string
-          period_start: string
-          total_cost: number
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          entity_id: string
-          id?: string
-          notes?: string | null
-          period_end: string
-          period_start: string
-          total_cost: number
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          entity_id?: string
-          id?: string
-          notes?: string | null
-          period_end?: string
-          period_start?: string
-          total_cost?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "operational_cost_inputs_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       parties: {
         Row: {
           classification: string
@@ -2131,52 +2112,6 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "party_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      party_warehouses: {
-        Row: {
-          created_at: string
-          entity_id: string | null
-          id: string
-          party_id: string
-          warehouse_id: string
-        }
-        Insert: {
-          created_at?: string
-          entity_id?: string | null
-          id?: string
-          party_id: string
-          warehouse_id: string
-        }
-        Update: {
-          created_at?: string
-          entity_id?: string | null
-          id?: string
-          party_id?: string
-          warehouse_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "party_warehouses_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "party_warehouses_party_id_fkey"
-            columns: ["party_id"]
-            isOneToOne: false
-            referencedRelation: "parties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "party_warehouses_warehouse_id_fkey"
-            columns: ["warehouse_id"]
-            isOneToOne: false
-            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -2247,6 +2182,41 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_webhook_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string | null
+          party_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          party_id: string
+          token: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          party_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_webhook_tokens_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
             referencedColumns: ["id"]
           },
         ]
@@ -2941,6 +2911,117 @@ export type Database = {
         }
         Relationships: []
       }
+      route_stops: {
+        Row: {
+          arrived_at: string | null
+          created_at: string
+          delivery_notes: string | null
+          delivery_status: Database["public"]["Enums"]["stop_delivery_status"]
+          dispatch_note_id: string
+          id: string
+          lat: number | null
+          lng: number | null
+          notes: string | null
+          received_by: string | null
+          route_id: string
+          stop_order: number
+        }
+        Insert: {
+          arrived_at?: string | null
+          created_at?: string
+          delivery_notes?: string | null
+          delivery_status?: Database["public"]["Enums"]["stop_delivery_status"]
+          dispatch_note_id: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          notes?: string | null
+          received_by?: string | null
+          route_id: string
+          stop_order: number
+        }
+        Update: {
+          arrived_at?: string | null
+          created_at?: string
+          delivery_notes?: string | null
+          delivery_status?: Database["public"]["Enums"]["stop_delivery_status"]
+          dispatch_note_id?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          notes?: string | null
+          received_by?: string | null
+          route_id?: string
+          stop_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_stops_dispatch_note_id_fkey"
+            columns: ["dispatch_note_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_stops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routes: {
+        Row: {
+          created_at: string
+          driver_name: string | null
+          entity_id: string
+          id: string
+          name: string | null
+          notes: string | null
+          route_date: string
+          status: Database["public"]["Enums"]["route_status"]
+          vehicle_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          driver_name?: string | null
+          entity_id: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          route_date: string
+          status?: Database["public"]["Enums"]["route_status"]
+          vehicle_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          driver_name?: string | null
+          entity_id?: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          route_date?: string
+          status?: Database["public"]["Enums"]["route_status"]
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routes_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routes_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_invoice_lines: {
         Row: {
           created_at: string
@@ -3011,7 +3092,6 @@ export type Database = {
       }
       sales_invoices: {
         Row: {
-          adjustment_of_invoice_id: string | null
           business_unit_id: string | null
           cost_center_id: string | null
           created_at: string
@@ -3034,7 +3114,6 @@ export type Database = {
           warehouse_id: string | null
         }
         Insert: {
-          adjustment_of_invoice_id?: string | null
           business_unit_id?: string | null
           cost_center_id?: string | null
           created_at?: string
@@ -3057,7 +3136,6 @@ export type Database = {
           warehouse_id?: string | null
         }
         Update: {
-          adjustment_of_invoice_id?: string | null
           business_unit_id?: string | null
           cost_center_id?: string | null
           created_at?: string
@@ -3080,13 +3158,6 @@ export type Database = {
           warehouse_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "sales_invoices_adjustment_of_invoice_id_fkey"
-            columns: ["adjustment_of_invoice_id"]
-            isOneToOne: false
-            referencedRelation: "sales_invoices"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "sales_invoices_business_unit_id_fkey"
             columns: ["business_unit_id"]
@@ -3141,6 +3212,109 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_order_lines: {
+        Row: {
+          external_sku: string | null
+          id: string
+          item_id: string | null
+          qty: number
+          sales_order_id: string
+        }
+        Insert: {
+          external_sku?: string | null
+          id?: string
+          item_id?: string | null
+          qty: number
+          sales_order_id: string
+        }
+        Update: {
+          external_sku?: string | null
+          id?: string
+          item_id?: string | null
+          qty?: number
+          sales_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_lines_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_orders: {
+        Row: {
+          channel: string
+          created_at: string
+          destination_address: string | null
+          dispatch_note_id: string | null
+          entity_id: string
+          external_order_id: string | null
+          id: string
+          notes: string | null
+          party_id: string
+          status: Database["public"]["Enums"]["order_status"]
+          updated_at: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          destination_address?: string | null
+          dispatch_note_id?: string | null
+          entity_id: string
+          external_order_id?: string | null
+          id?: string
+          notes?: string | null
+          party_id: string
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          destination_address?: string | null
+          dispatch_note_id?: string | null
+          entity_id?: string
+          external_order_id?: string | null
+          id?: string
+          notes?: string | null
+          party_id?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_dispatch_note_id_fkey"
+            columns: ["dispatch_note_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
             referencedColumns: ["id"]
           },
         ]
@@ -3689,43 +3863,40 @@ export type Database = {
         }
         Relationships: []
       }
-      warehouses: {
+      vehicles: {
         Row: {
-          active: boolean | null
+          active: boolean
+          capacity_kg: number | null
           capacity_m3: number | null
-          code: string
           created_at: string
-          entity_id: string | null
+          entity_id: string
           id: string
-          is_active: boolean
-          name: string
-          updated_at: string
+          plate: string
+          vehicle_type: string | null
         }
         Insert: {
-          active?: boolean | null
+          active?: boolean
+          capacity_kg?: number | null
           capacity_m3?: number | null
-          code: string
           created_at?: string
-          entity_id?: string | null
+          entity_id: string
           id?: string
-          is_active?: boolean
-          name: string
-          updated_at?: string
+          plate: string
+          vehicle_type?: string | null
         }
         Update: {
-          active?: boolean | null
+          active?: boolean
+          capacity_kg?: number | null
           capacity_m3?: number | null
-          code?: string
           created_at?: string
-          entity_id?: string | null
+          entity_id?: string
           id?: string
-          is_active?: boolean
-          name?: string
-          updated_at?: string
+          plate?: string
+          vehicle_type?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "warehouses_entity_id_fkey"
+            foreignKeyName: "vehicles_entity_id_fkey"
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "entities"
@@ -3774,6 +3945,47 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warehouses: {
+        Row: {
+          active: boolean | null
+          code: string
+          created_at: string
+          entity_id: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean | null
+          code: string
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean | null
+          code?: string
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouses_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
             referencedColumns: ["id"]
           },
         ]
@@ -3860,360 +4072,6 @@ export type Database = {
           },
         ]
       }
-      warehouse_locations: {
-        Row: {
-          code: string
-          created_at: string
-          entity_id: string
-          id: string
-          is_active: boolean
-          name: string | null
-          warehouse_id: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          entity_id: string
-          id?: string
-          is_active?: boolean
-          name?: string | null
-          warehouse_id: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          entity_id?: string
-          id?: string
-          is_active?: boolean
-          name?: string | null
-          warehouse_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "warehouse_locations_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warehouse_locations_warehouse_id_fkey"
-            columns: ["warehouse_id"]
-            isOneToOne: false
-            referencedRelation: "warehouses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      party_warehouses: {
-        Row: {
-          created_at: string
-          entity_id: string
-          id: string
-          party_id: string
-          warehouse_id: string
-        }
-        Insert: {
-          created_at?: string
-          entity_id: string
-          id?: string
-          party_id: string
-          warehouse_id: string
-        }
-        Update: {
-          created_at?: string
-          entity_id?: string
-          id?: string
-          party_id?: string
-          warehouse_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "party_warehouses_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "party_warehouses_party_id_fkey"
-            columns: ["party_id"]
-            isOneToOne: false
-            referencedRelation: "parties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "party_warehouses_warehouse_id_fkey"
-            columns: ["warehouse_id"]
-            isOneToOne: false
-            referencedRelation: "warehouses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      dispatch_notes: {
-        Row: {
-          arrival_at: string | null
-          carrier_name: string
-          carrier_tax_id: string
-          created_at: string
-          created_by: string | null
-          departure_at: string
-          destination_address: string
-          dispatch_number: string | null
-          entity_id: string
-          id: string
-          notes: string | null
-          origin_address: string
-          party_id: string
-          status: Database["public"]["Enums"]["dispatch_status"]
-          transfer_type: Database["public"]["Enums"]["dispatch_transfer_type"]
-          updated_at: string
-          vehicle_plate: string
-          warehouse_id: string
-        }
-        Insert: {
-          arrival_at?: string | null
-          carrier_name: string
-          carrier_tax_id: string
-          created_at?: string
-          created_by?: string | null
-          departure_at: string
-          destination_address: string
-          dispatch_number?: string | null
-          entity_id: string
-          id?: string
-          notes?: string | null
-          origin_address: string
-          party_id: string
-          status?: Database["public"]["Enums"]["dispatch_status"]
-          transfer_type: Database["public"]["Enums"]["dispatch_transfer_type"]
-          updated_at?: string
-          vehicle_plate: string
-          warehouse_id: string
-        }
-        Update: {
-          arrival_at?: string | null
-          carrier_name?: string
-          carrier_tax_id?: string
-          created_at?: string
-          created_by?: string | null
-          departure_at?: string
-          destination_address?: string
-          dispatch_number?: string | null
-          entity_id?: string
-          id?: string
-          notes?: string | null
-          origin_address?: string
-          party_id?: string
-          status?: Database["public"]["Enums"]["dispatch_status"]
-          transfer_type?: Database["public"]["Enums"]["dispatch_transfer_type"]
-          updated_at?: string
-          vehicle_plate?: string
-          warehouse_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dispatch_notes_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dispatch_notes_party_id_fkey"
-            columns: ["party_id"]
-            isOneToOne: false
-            referencedRelation: "parties"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dispatch_notes_warehouse_id_fkey"
-            columns: ["warehouse_id"]
-            isOneToOne: false
-            referencedRelation: "warehouses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      dispatch_note_lines: {
-        Row: {
-          dispatch_note_id: string
-          id: string
-          item_id: string
-          location_id: string | null
-          lot_number: string | null
-          packed: boolean
-          packed_at: string | null
-          picked: boolean
-          picked_at: string | null
-          qty: number
-          unit_value: number | null
-          uom: string | null
-          volume_m3: number | null
-          weight_kg: number | null
-        }
-        Insert: {
-          dispatch_note_id: string
-          id?: string
-          item_id: string
-          location_id?: string | null
-          lot_number?: string | null
-          packed?: boolean
-          packed_at?: string | null
-          picked?: boolean
-          picked_at?: string | null
-          qty: number
-          unit_value?: number | null
-          uom?: string | null
-          volume_m3?: number | null
-          weight_kg?: number | null
-        }
-        Update: {
-          dispatch_note_id?: string
-          id?: string
-          item_id?: string
-          location_id?: string | null
-          lot_number?: string | null
-          packed?: boolean
-          packed_at?: string | null
-          picked?: boolean
-          picked_at?: string | null
-          qty?: number
-          unit_value?: number | null
-          uom?: string | null
-          volume_m3?: number | null
-          weight_kg?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dispatch_note_lines_dispatch_note_id_fkey"
-            columns: ["dispatch_note_id"]
-            isOneToOne: false
-            referencedRelation: "dispatch_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dispatch_note_lines_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dispatch_note_lines_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "warehouse_locations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      foreign_trade_operations: {
-        Row: {
-          booking_number: string | null
-          country_code: string | null
-          created_at: string
-          customs_status: Database["public"]["Enums"]["ft_customs_status"]
-          dispatch_note_id: string | null
-          dus_number: string | null
-          entity_id: string
-          id: string
-          notes: string | null
-          operation_type: Database["public"]["Enums"]["ft_operation_type"]
-          party_id: string
-          updated_at: string
-        }
-        Insert: {
-          booking_number?: string | null
-          country_code?: string | null
-          created_at?: string
-          customs_status?: Database["public"]["Enums"]["ft_customs_status"]
-          dispatch_note_id?: string | null
-          dus_number?: string | null
-          entity_id: string
-          id?: string
-          notes?: string | null
-          operation_type: Database["public"]["Enums"]["ft_operation_type"]
-          party_id: string
-          updated_at?: string
-        }
-        Update: {
-          booking_number?: string | null
-          country_code?: string | null
-          created_at?: string
-          customs_status?: Database["public"]["Enums"]["ft_customs_status"]
-          dispatch_note_id?: string | null
-          dus_number?: string | null
-          entity_id?: string
-          id?: string
-          notes?: string | null
-          operation_type?: Database["public"]["Enums"]["ft_operation_type"]
-          party_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "foreign_trade_operations_dispatch_note_id_fkey"
-            columns: ["dispatch_note_id"]
-            isOneToOne: false
-            referencedRelation: "dispatch_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "foreign_trade_operations_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "foreign_trade_operations_party_id_fkey"
-            columns: ["party_id"]
-            isOneToOne: false
-            referencedRelation: "parties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      foreign_trade_certificates: {
-        Row: {
-          certificate_number: string | null
-          certificate_type: string
-          created_at: string
-          id: string
-          issued_by: string | null
-          operation_id: string
-          valid_until: string | null
-        }
-        Insert: {
-          certificate_number?: string | null
-          certificate_type: string
-          created_at?: string
-          id?: string
-          issued_by?: string | null
-          operation_id: string
-          valid_until?: string | null
-        }
-        Update: {
-          certificate_number?: string | null
-          certificate_type?: string
-          created_at?: string
-          id?: string
-          issued_by?: string | null
-          operation_id?: string
-          valid_until?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "foreign_trade_certificates_operation_id_fkey"
-            columns: ["operation_id"]
-            isOneToOne: false
-            referencedRelation: "foreign_trade_operations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       stock_balances: {
         Row: {
           avg_rate: number | null
@@ -4249,6 +4107,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_ledger_entries_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_locations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_ledger_entries_party_id_fkey"
             columns: ["party_id"]
             isOneToOne: false
@@ -4264,417 +4129,8 @@ export type Database = {
           },
         ]
       }
-      vehicles: {
-        Row: {
-          active: boolean
-          capacity_kg: number | null
-          capacity_m3: number | null
-          created_at: string
-          entity_id: string
-          id: string
-          plate: string
-          vehicle_type: string | null
-        }
-        Insert: {
-          active?: boolean
-          capacity_kg?: number | null
-          capacity_m3?: number | null
-          created_at?: string
-          entity_id: string
-          id?: string
-          plate: string
-          vehicle_type?: string | null
-        }
-        Update: {
-          active?: boolean
-          capacity_kg?: number | null
-          capacity_m3?: number | null
-          created_at?: string
-          entity_id?: string
-          id?: string
-          plate?: string
-          vehicle_type?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vehicles_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      routes: {
-        Row: {
-          created_at: string
-          driver_name: string | null
-          entity_id: string
-          id: string
-          name: string | null
-          notes: string | null
-          route_date: string
-          status: Database["public"]["Enums"]["route_status"]
-          vehicle_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          driver_name?: string | null
-          entity_id: string
-          id?: string
-          name?: string | null
-          notes?: string | null
-          route_date: string
-          status?: Database["public"]["Enums"]["route_status"]
-          vehicle_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          driver_name?: string | null
-          entity_id?: string
-          id?: string
-          name?: string | null
-          notes?: string | null
-          route_date?: string
-          status?: Database["public"]["Enums"]["route_status"]
-          vehicle_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "routes_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "routes_vehicle_id_fkey"
-            columns: ["vehicle_id"]
-            isOneToOne: false
-            referencedRelation: "vehicles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      route_stops: {
-        Row: {
-          arrived_at: string | null
-          created_at: string
-          delivery_notes: string | null
-          delivery_status: Database["public"]["Enums"]["stop_delivery_status"]
-          dispatch_note_id: string
-          id: string
-          lat: number | null
-          lng: number | null
-          notes: string | null
-          received_by: string | null
-          route_id: string
-          stop_order: number
-        }
-        Insert: {
-          arrived_at?: string | null
-          created_at?: string
-          delivery_notes?: string | null
-          delivery_status?: Database["public"]["Enums"]["stop_delivery_status"]
-          dispatch_note_id: string
-          id?: string
-          lat?: number | null
-          lng?: number | null
-          notes?: string | null
-          received_by?: string | null
-          route_id: string
-          stop_order: number
-        }
-        Update: {
-          arrived_at?: string | null
-          created_at?: string
-          delivery_notes?: string | null
-          delivery_status?: Database["public"]["Enums"]["stop_delivery_status"]
-          dispatch_note_id?: string
-          id?: string
-          lat?: number | null
-          lng?: number | null
-          notes?: string | null
-          received_by?: string | null
-          route_id?: string
-          stop_order?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "route_stops_dispatch_note_id_fkey"
-            columns: ["dispatch_note_id"]
-            isOneToOne: false
-            referencedRelation: "dispatch_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "route_stops_route_id_fkey"
-            columns: ["route_id"]
-            isOneToOne: false
-            referencedRelation: "routes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      party_portal_users: {
-        Row: {
-          created_at: string
-          id: string
-          party_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          party_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          party_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "party_portal_users_party_id_fkey"
-            columns: ["party_id"]
-            isOneToOne: false
-            referencedRelation: "parties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      party_webhook_tokens: {
-        Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          name: string | null
-          party_id: string
-          token: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          name?: string | null
-          party_id: string
-          token: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          name?: string | null
-          party_id?: string
-          token?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "party_webhook_tokens_party_id_fkey"
-            columns: ["party_id"]
-            isOneToOne: false
-            referencedRelation: "parties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales_order_lines: {
-        Row: {
-          external_sku: string | null
-          id: string
-          item_id: string | null
-          qty: number
-          sales_order_id: string
-        }
-        Insert: {
-          external_sku?: string | null
-          id?: string
-          item_id?: string | null
-          qty: number
-          sales_order_id: string
-        }
-        Update: {
-          external_sku?: string | null
-          id?: string
-          item_id?: string | null
-          qty?: number
-          sales_order_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_order_lines_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_order_lines_sales_order_id_fkey"
-            columns: ["sales_order_id"]
-            isOneToOne: false
-            referencedRelation: "sales_orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sales_orders: {
-        Row: {
-          channel: string
-          created_at: string
-          destination_address: string | null
-          dispatch_note_id: string | null
-          entity_id: string
-          external_order_id: string | null
-          id: string
-          notes: string | null
-          party_id: string
-          status: Database["public"]["Enums"]["order_status"]
-          updated_at: string
-        }
-        Insert: {
-          channel?: string
-          created_at?: string
-          destination_address?: string | null
-          dispatch_note_id?: string | null
-          entity_id: string
-          external_order_id?: string | null
-          id?: string
-          notes?: string | null
-          party_id: string
-          status?: Database["public"]["Enums"]["order_status"]
-          updated_at?: string
-        }
-        Update: {
-          channel?: string
-          created_at?: string
-          destination_address?: string | null
-          dispatch_note_id?: string | null
-          entity_id?: string
-          external_order_id?: string | null
-          id?: string
-          notes?: string | null
-          party_id?: string
-          status?: Database["public"]["Enums"]["order_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sales_orders_dispatch_note_id_fkey"
-            columns: ["dispatch_note_id"]
-            isOneToOne: false
-            referencedRelation: "dispatch_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_orders_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sales_orders_party_id_fkey"
-            columns: ["party_id"]
-            isOneToOne: false
-            referencedRelation: "parties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      service_contracts: {
-        Row: {
-          active: boolean
-          billing_frequency: Database["public"]["Enums"]["billing_frequency"]
-          created_at: string
-          entity_id: string
-          id: string
-          notes: string | null
-          party_id: string
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean
-          billing_frequency?: Database["public"]["Enums"]["billing_frequency"]
-          created_at?: string
-          entity_id: string
-          id?: string
-          notes?: string | null
-          party_id: string
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean
-          billing_frequency?: Database["public"]["Enums"]["billing_frequency"]
-          created_at?: string
-          entity_id?: string
-          id?: string
-          notes?: string | null
-          party_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "service_contracts_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_contracts_party_id_fkey"
-            columns: ["party_id"]
-            isOneToOne: false
-            referencedRelation: "parties"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      service_rate_lines: {
-        Row: {
-          contract_id: string
-          created_at: string
-          description: string | null
-          id: string
-          rate_type: Database["public"]["Enums"]["service_rate_type"]
-          unit_price: number
-        }
-        Insert: {
-          contract_id: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          rate_type: Database["public"]["Enums"]["service_rate_type"]
-          unit_price: number
-        }
-        Update: {
-          contract_id?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          rate_type?: Database["public"]["Enums"]["service_rate_type"]
-          unit_price?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "service_rate_lines_contract_id_fkey"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "service_contracts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Functions: {
-      assign_party_portal_user: {
-        Args: {
-          p_email: string
-          p_party_id: string
-        }
-        Returns: Json
-      }
       calculate_f22: {
         Args: { _entity_id: string; _period_end: string; _period_start: string }
         Returns: Json
@@ -4728,18 +4184,6 @@ export type Database = {
         }
         Returns: Json
       }
-      get_party_portal_users: {
-        Args: {
-          p_party_id: string
-        }
-        Returns: {
-          created_at: string
-          email: string
-          id: string
-          party_id: string
-          user_id: string
-        }[]
-      }
       get_exchange_rate: {
         Args: { _date: string; _destination: string; _origin: string }
         Returns: number
@@ -4766,8 +4210,8 @@ export type Database = {
       }
       ingest_oms_order: {
         Args: {
-          p_channel?: string
-          p_destination_address?: string
+          p_channel: string
+          p_destination_address: string
           p_external_order_id: string
           p_lines: Json
           p_notes?: string
@@ -4819,10 +4263,6 @@ export type Database = {
         Args: { _entity_id: string; _user_id: string }
         Returns: boolean
       }
-      user_has_party_access: {
-        Args: { check_party_id: string }
-        Returns: boolean
-      }
     }
     Enums: {
       app_role:
@@ -4833,7 +4273,6 @@ export type Database = {
         | "inventory"
         | "viewer"
       asset_status: "active" | "fully_depreciated" | "disposed"
-      billing_frequency: "mensual" | "quincenal"
       depreciation_method: "linea_recta" | "acelerada"
       dispatch_status: "draft" | "issued" | "cancelled"
       dispatch_transfer_type:
@@ -4867,17 +4306,6 @@ export type Database = {
         | "completed"
         | "cancelled"
       route_status: "planificada" | "en_curso" | "finalizada" | "cancelada"
-      service_rate_type:
-        | "storage_pallet"
-        | "storage_m2"
-        | "picking_unit"
-        | "transport_km"
-        | "recargo_fijo"
-      stop_delivery_status:
-        | "pendiente"
-        | "en_ruta"
-        | "entregado"
-        | "no_entregado"
       sii_book_type:
         | "libro_diario"
         | "libro_mayor"
@@ -4892,6 +4320,11 @@ export type Database = {
         | "transfer_out"
         | "transfer_in"
         | "adjustment"
+      stop_delivery_status:
+        | "pendiente"
+        | "en_ruta"
+        | "entregado"
+        | "no_entregado"
       tax_calculation_status: "draft" | "reviewed" | "filed"
       tax_form_type: "f29" | "f22"
       tax_regime_type:
@@ -5045,12 +4478,7 @@ export const Constants = {
         "otro",
       ],
       dj_generation_status: ["draft", "reviewed", "filed"],
-      ft_customs_status: [
-        "pendiente",
-        "tramitando",
-        "autorizado",
-        "rechazado",
-      ],
+      ft_customs_status: ["pendiente", "tramitando", "autorizado", "rechazado"],
       ft_operation_type: ["exportacion", "importacion"],
       invoice_status: [
         "draft",
@@ -5077,12 +4505,6 @@ export const Constants = {
         "cancelled",
       ],
       route_status: ["planificada", "en_curso", "finalizada", "cancelada"],
-      stop_delivery_status: [
-        "pendiente",
-        "en_ruta",
-        "entregado",
-        "no_entregado",
-      ],
       sii_book_type: [
         "libro_diario",
         "libro_mayor",
@@ -5098,6 +4520,12 @@ export const Constants = {
         "transfer_out",
         "transfer_in",
         "adjustment",
+      ],
+      stop_delivery_status: [
+        "pendiente",
+        "en_ruta",
+        "entregado",
+        "no_entregado",
       ],
       tax_calculation_status: ["draft", "reviewed", "filed"],
       tax_form_type: ["f29", "f22"],
