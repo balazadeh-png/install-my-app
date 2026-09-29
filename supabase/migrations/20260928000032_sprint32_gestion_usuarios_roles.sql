@@ -185,7 +185,7 @@ BEGIN
         email_change_token_new,
         recovery_token
     ) VALUES (
-        '00000000-0000-0000-0000-000000000000',
+        '00000000-0000-0000-0000-000000000000'::uuid,
         v_user_id,
         'authenticated',
         'authenticated',
@@ -202,27 +202,31 @@ BEGIN
         ''
     );
 
-    -- Insertar en auth.identities
-    INSERT INTO auth.identities (
-        id,
-        user_id,
-        identity_data,
-        provider,
-        provider_id,
-        last_sign_in_at,
-        created_at,
-        updated_at
-    ) VALUES (
-        gen_random_uuid()::text,
-        v_user_id,
-        jsonb_build_object('sub', v_user_id::text, 'email', v_clean_email),
-        'email',
-        v_user_id::text,
-        NULL,
-        now(),
-        now()
-    )
-    ON CONFLICT DO NOTHING;
+    -- Insertar en auth.identities (id es de tipo uuid en Supabase)
+    BEGIN
+        INSERT INTO auth.identities (
+            id,
+            user_id,
+            identity_data,
+            provider,
+            provider_id,
+            last_sign_in_at,
+            created_at,
+            updated_at
+        ) VALUES (
+            gen_random_uuid(),
+            v_user_id,
+            jsonb_build_object('sub', v_user_id::text, 'email', v_clean_email),
+            'email',
+            v_user_id::text,
+            NULL,
+            now(),
+            now()
+        )
+        ON CONFLICT DO NOTHING;
+    EXCEPTION WHEN OTHERS THEN
+        NULL;
+    END;
 
     -- Insertar en public.profiles
     INSERT INTO public.profiles (
