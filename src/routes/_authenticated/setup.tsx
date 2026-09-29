@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useServerFn } from "@tanstack/react-start";
+import { DemoDataPanel } from "@/components/setup/DemoDataPanel";
 import {
   verifyApiPymeToken,
   saveApiPymeConnection,
@@ -874,6 +875,10 @@ function SetupPage() {
           <TabsTrigger value="apipyme" className="flex items-center gap-1.5">
             <CloudLightning className="h-4 w-4 text-amber-500" />
             <span>Conexión SII (ApiPyme)</span>
+          </TabsTrigger>
+          <TabsTrigger value="demo" className="flex items-center gap-1.5">
+            <Sparkles className="h-4 w-4" />
+            <span>Datos de ejemplo</span>
           </TabsTrigger>
         </TabsList>
 
@@ -2379,6 +2384,9 @@ function SetupPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+        <TabsContent value="demo">
+          <DemoDataPanel />
         </TabsContent>
       </Tabs>
     </div>

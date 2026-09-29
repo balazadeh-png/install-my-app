@@ -224,7 +224,7 @@ function Dashboard3PLPage() {
         .from("stock_balances" as any)
         .select("warehouse_id, item_id, qty_on_hand, party_id");
       if (error) throw error;
-      return (data ?? []) as Array<{ warehouse_id: string; item_id: string; qty_on_hand: number; party_id: string | null }>;
+      return (data ?? []) as unknown as Array<{ warehouse_id: string; item_id: string; qty_on_hand: number; party_id: string | null }>;
     },
   });
 
@@ -325,7 +325,7 @@ function Dashboard3PLPage() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_inventory_stockout_forecast", {
         p_company_id: activeEntityId!,
-        p_party_id: selectedPartyFilter !== "ALL" ? selectedPartyFilter : undefined,
+        ...(selectedPartyFilter !== "ALL" ? { p_party_id: selectedPartyFilter } : {}),
       });
       if (error) {
         console.warn("Error consultando get_inventory_stockout_forecast:", error);
@@ -341,7 +341,7 @@ function Dashboard3PLPage() {
       if (!activeEntityId) throw new Error("Entidad activa requerida");
       const { data, error } = await supabase.rpc("check_and_create_stockout_alerts", {
         p_company_id: activeEntityId,
-        p_party_id: selectedPartyFilter !== "ALL" ? selectedPartyFilter : undefined,
+        ...(selectedPartyFilter !== "ALL" ? { p_party_id: selectedPartyFilter } : {}),
       });
       if (error) throw error;
       return data;
@@ -414,8 +414,8 @@ function Dashboard3PLPage() {
       const { error } = await supabase
         .from("warehouses")
         .update({
-          storage_measure_method: whMethod,
-          storage_measure_basis: whBasis,
+          storage_measure_method: whMethod as any,
+          storage_measure_basis: whBasis as any,
           default_units_per_pallet: parsedUpp,
           storage_capacity: parsedCap,
           capacity_m3: parsedCapM3,
@@ -645,6 +645,8 @@ function Dashboard3PLPage() {
     });
 
     const activeOccupancies = stats.filter((w) => w.occupancyRate !== null);
+    const totalUsedM3 = Math.round(stats.reduce((acc, w) => acc + (w.method === "volume_m3" ? w.measuredQty : 0), 0));
+    const totalCapacity = stats.reduce((acc, w) => acc + (w.capacityM3 || 0), 0);
     const globalOccupancy =
       activeOccupancies.length > 0
         ? Math.round(activeOccupancies.reduce((acc, w) => acc + (w.occupancyRate || 0), 0) / activeOccupancies.length)
@@ -653,6 +655,8 @@ function Dashboard3PLPage() {
     return {
       warehouses: stats,
       hasConfiguredCapacity: stats.some((w) => w.storageCapacity !== null && w.storageCapacity > 0),
+      totalUsedM3,
+      totalCapacity,
       globalOccupancy,
     };
   }, [warehousesQ.data, stockBalancesQ.data, storageUsageQ.data]);
@@ -681,7 +685,7 @@ function Dashboard3PLPage() {
       if (!clientActivity[inv.party_id]) {
         clientActivity[inv.party_id] = { pickedQty: 0, custodyUnits: 0, revenue: 0 };
       }
-      clientActivity[inv.party_id].revenue += Number(inv.subtotal_amount) || 0;
+      clientActivity[inv.party_id]!.revenue += Number(inv.subtotal_amount) || 0;
     }
 
     // 2. Unidades pickeadas en el período
