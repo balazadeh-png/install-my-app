@@ -21,6 +21,7 @@ import {
   FileSpreadsheet,
   Landmark,
   FileBadge2,
+  Shield,
 } from "lucide-react";
 
 const moduleConfig: Record<string, { icon: React.ReactNode; path: string; description: string }> = {
@@ -98,6 +99,11 @@ const moduleConfig: Record<string, { icon: React.ReactNode; path: string; descri
     icon: <Settings className="h-5 w-5" />,
     path: "/setup",
     description: "Entidades, años fiscales, períodos y correlativos.",
+  },
+  roles: {
+    icon: <Shield className="h-5 w-5" />,
+    path: "/setup?tab=roles",
+    description: "Crear usuarios, resetear contraseñas, roles y acceso por empresa.",
   },
 };
 

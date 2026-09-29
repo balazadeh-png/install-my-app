@@ -35,6 +35,7 @@ import {
   Truck,
   ShieldCheck,
   TrendingUp,
+  Shield,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -54,6 +55,7 @@ export const moduleNavItems = [
   { name: "taxes", label: "Impuestos (F29/F22)", path: "/taxes", icon: Landmark },
   { name: "declaraciones-juradas", label: "DDJJ (SII)", path: "/declaraciones-juradas", icon: FileBadge2 },
   { name: "reports", label: "Reportes", path: "/reports", icon: BarChart3 },
+  { name: "roles", label: "Usuarios y Roles", path: "/setup?tab=roles", icon: Shield },
   { name: "setup", label: "Configuración", path: "/setup", icon: Settings },
 ];
 

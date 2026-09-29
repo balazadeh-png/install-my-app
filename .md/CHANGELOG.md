@@ -2,6 +2,31 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 32: Gestión Integral de Usuarios, Roles y Seguridad Multiempresa] - 2026-09-28
+
+### Añadido
+* **Migración SQL de Seguridad y Gestión de Usuarios** ([`20260928000032_sprint32_gestion_usuarios_roles.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260928000032_sprint32_gestion_usuarios_roles.sql)):
+  * Función RPC `admin_get_users_list()`: retorna la lista integral de usuarios con sus correos, perfiles, rol de sistema y detalle de empresas autorizadas en JSON.
+  * Función RPC `admin_create_user(p_email, p_password, p_full_name, p_role, p_company_ids, p_default_company_id)`: creación atómica en `auth.users`, `auth.identities`, `public.profiles`, `public.user_roles` y `public.company_users`.
+  * Función RPC `admin_reset_user_password(p_user_id, p_new_password)`: reseteo directo de contraseña cifrada con `extensions.crypt(..., gen_salt('bf'))`.
+  * Función RPC `admin_toggle_user_active(p_user_id, p_active)`: activación y desactivación de usuarios con restricción de login y protección de auto-bloqueo.
+  * Función RPC `admin_delete_user(p_user_id)`: borrado definitivo y en cascada de credenciales y registros relacionados.
+  * Función RPC `admin_update_user_role(p_user_id, p_new_role)`: actualización ágil de rol del sistema.
+  * Función RPC `admin_set_user_companies(p_user_id, p_company_assignments, p_default_company_id)`: asignación granular de permisos empresa por empresa con rol específico y selección de empresa predeterminada.
+* **Componente y Módulo Frontend de Usuarios y Roles** ([`UsersAndRolesManager.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/users/UsersAndRolesManager.tsx)):
+  * Vista con pestañas para "Gestión de Usuarios" y "Roles del Sistema".
+  * Tarjetas de estadísticas en tiempo real (Total Usuarios, Activos, Inactivos, Administradores).
+  * Barra de búsqueda reactiva por correo, nombre o usuario, combinada con filtros por Rol y Estado.
+  * Modal interactivo para Crear Usuario con autogeneración de claves seguras y selección de empresas.
+  * Modales dedicados para Resetear Contraseña, Cambiar Rol, Gestionar Empresas Granulares y Eliminar Usuario.
+  * Matriz descriptiva de los 6 roles del sistema (`admin`, `accountant`, `sales`, `purchasing`, `inventory`, `viewer`) con capacidades y módulos permitidos.
+* **Navegación e Integración de Acceso Rápido**:
+  * Integración en [`setup.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/setup.tsx) completando la pestaña `Roles & Usuarios` con soporte de parámetros de búsqueda (`?tab=roles`).
+  * Enlace directo en el menú desplegable "Módulos" de la barra superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)).
+  * Tarjeta de acceso al módulo en el panel principal ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)).
+
+---
+
 ## [Sprint 31: AI-Driven Predictive Analytics & Automated Stock-Out Alerts] - 2026-09-28
 
 ### Añadido

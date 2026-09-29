@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveEntity } from "@/context/ActiveEntityContext";
 import { useAuth } from "@/hooks/useAuth";
+import { UsersAndRolesManager } from "@/components/users/UsersAndRolesManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,8 +83,17 @@ export const Route = createFileRoute("/_authenticated/setup")({
 
 function SetupPage() {
   const queryClient = useQueryClient();
+  const search = useSearch({ strict: false }) as any;
   const { user } = useAuth();
   const { activeEntity, activeEntityId, setActiveEntityId, refetchCompanies } = useActiveEntity();
+
+  const [selectedTab, setSelectedTab] = useState(search?.tab || "defaults");
+
+  useEffect(() => {
+    if (search?.tab) {
+      setSelectedTab(search.tab);
+    }
+  }, [search?.tab]);
 
   const [newEntityOpen, setNewEntityOpen] = useState(false);
   const [newYearOpen, setNewYearOpen] = useState(false);
@@ -827,7 +837,7 @@ function SetupPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="defaults" className="space-y-4">
+      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
         <TabsList className="flex flex-wrap h-auto p-1">
           <TabsTrigger value="entities" className="flex items-center gap-1.5">
             <Building className="h-4 w-4" />
@@ -855,7 +865,7 @@ function SetupPage() {
           </TabsTrigger>
           <TabsTrigger value="roles" className="flex items-center gap-1.5">
             <Shield className="h-4 w-4" />
-            <span>Roles ({roles.length})</span>
+            <span>Roles & Usuarios</span>
           </TabsTrigger>
           <TabsTrigger value="parties" className="flex items-center gap-1.5">
             <Users className="h-4 w-4" />
@@ -1880,6 +1890,24 @@ function SetupPage() {
                   </Table>
                 </div>
               )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab Roles y Usuarios (Sprint 32) */}
+        <TabsContent value="roles">
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <div className="p-6 pb-4 border-b">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                <h3 className="text-base font-semibold">Administración de Usuarios, Roles y Accesos Granulares</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Crea usuarios, resetea contraseñas, activa/desactiva cuentas y asigna permisos por empresa de forma granular.
+              </p>
+            </div>
+            <div className="p-6">
+              <UsersAndRolesManager activeEntityId={activeEntityId} />
             </div>
           </div>
         </TabsContent>
