@@ -2,6 +2,37 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 33: Configuración Granular de Módulos por Empresa] - 2026-09-29
+
+### Añadido
+* **Migración SQL y Esquema de Módulos por Empresa** ([`20260929000033_sprint33_company_modules.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20260929000033_sprint33_company_modules.sql)):
+  * Tabla `public.company_modules(id, entity_id, module_name, enabled, created_at, updated_at)` con restricción única compuesta sobre `(entity_id, module_name)`.
+  * Catálogo de 17 módulos del sistema registrados en `public.modules` categorizados en Finanzas, Operaciones, Logística 3PL, Impuestos y Configuración.
+  * Función RPC `get_company_modules(p_entity_id uuid)`: retorna todos los módulos del sistema con su estado de activación para la empresa, garantizando que el módulo `setup` siempre esté habilitado.
+  * Función RPC `set_company_modules_bulk(p_entity_id uuid, p_modules jsonb)`: actualiza atómicamente la habilitación de módulos en lote para una empresa.
+  * Políticas de seguridad RLS: lectura autorizada para usuarios autenticados y modificación restringida a administradores.
+  * Backfill automático para habilitar módulos por defecto a todas las entidades legales existentes en el sistema.
+* **Hook React Reactivo** ([`useCompanyModules.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/hooks/useCompanyModules.ts)):
+  * Consulta centralizada con `react-query` y clave de caché `['company-modules', entityId]`.
+  * Normalización automática de identificadores de módulos (guiones bajos y medios) y fallback seguro.
+  * Métodos de utilidad: `isModuleEnabled(name)`, lista de módulos habilitados y estado de carga.
+* **Componente y Modal de Configuración** ([`CompanyModulesModal.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/setup/CompanyModulesModal.tsx)):
+  * Modal interactivo accesible desde la tabla de Empresas Registradas en `/setup`.
+  * Visualización de detalles de la empresa (Razón Social, RUT, Código) y contador dinámico de módulos activos.
+  * Switches individuales por módulo agrupados por categoría funcional con descripción e íconos temáticos.
+  * Botones de Plantillas / Presets rápidos:
+    * *Habilitar Todos*: activa los 17 módulos.
+    * *Asesoría Contable & Tributaria*: enfocado en contabilidad, libros SII, impuestos, DDJJ, reportes y configuración.
+    * *Operador Logístico 3PL*: enfocado en inventario, guías 3PL, portal clientes, facturación y BI 3PL.
+    * *Comercial & POS*: enfocado en ventas, compras, POS e inventario.
+  * Bloqueo permanente de seguridad en el módulo de Configuración para impedir bloqueos accidentales de administración.
+* **Filtrado Reactivo en la Navegación y Dashboard**:
+  * Menú "Módulos" de la barra superior ([`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx)): filtra automáticamente las opciones visibles según la empresa activa seleccionada.
+  * Botón de acceso rápido "Portal 3PL" en la barra de navegación: se oculta si la empresa activa no tiene el módulo logístico habilitado.
+  * Cuadrícula de accesos en el panel de control ([`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx)): despliega únicamente las tarjetas de los módulos activados para la empresa, con badge informativo de módulos habilitados.
+
+---
+
 ## [Sprint 32: Gestión Integral de Usuarios, Roles y Seguridad Multiempresa] - 2026-09-28
 
 ### Añadido

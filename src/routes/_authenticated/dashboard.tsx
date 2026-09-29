@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getModules, getUserRoles } from "@/lib/auth.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { useActiveEntity } from "@/context/ActiveEntityContext";
+import { useCompanyModules } from "@/hooks/useCompanyModules";
 import {
   LayoutDashboard,
   BookOpen,
@@ -124,7 +125,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function Dashboard() {
   const fetchModules = useServerFn(getModules);
   const fetchRoles = useServerFn(getUserRoles);
-  const { activeEntity } = useActiveEntity();
+  const { activeEntity, activeEntityId } = useActiveEntity();
+  const { isModuleEnabled } = useCompanyModules(activeEntityId);
 
   const modulesQuery = useQuery({
     queryKey: ["modules"],
@@ -139,17 +141,21 @@ function Dashboard() {
   const modules = modulesQuery.data ?? [];
   const roles = rolesQuery.data ?? [];
 
+  // Filtrar módulos habilitados para la empresa activa
+  const visibleModules = modules.filter((mod) => isModuleEnabled(mod.name));
+
   const groupIcons: Record<string, React.ReactNode> = {
     Finanzas: <Landmark className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
     Operaciones: <Factory className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
-    Impuestos: <FileBadge2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />,
-    Configuración: <Settings className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
-    Configuracion: <Settings className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
+    "Logística 3PL": <Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />,
+    Impuestos: <FileBadge2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
+    Configuración: <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />,
+    Configuracion: <Settings className="h-5 w-5 text-slate-600 dark:text-slate-400" />,
     Otros: <LayoutDashboard className="h-5 w-5 text-muted-foreground" />,
   };
 
   // Agrupar módulos respetando el orden proveniente del servidor
-  const groupedModules = modules.reduce<Record<string, typeof modules>>((acc, mod) => {
+  const groupedModules = visibleModules.reduce<Record<string, typeof modules>>((acc, mod) => {
     const grp = (mod as any).group_name || "Otros";
     if (!acc[grp]) acc[grp] = [];
     acc[grp].push(mod);
@@ -200,9 +206,9 @@ function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{modules.length}</div>
+            <div className="text-2xl font-bold">{visibleModules.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Disponibles para tu rol
+              Habilitados en {activeEntity?.name ? activeEntity.name.split(" ")[0] : "la empresa"}
             </p>
           </CardContent>
         </Card>

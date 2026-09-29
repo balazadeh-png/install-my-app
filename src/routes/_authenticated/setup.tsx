@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActiveEntity } from "@/context/ActiveEntityContext";
 import { useAuth } from "@/hooks/useAuth";
 import { UsersAndRolesManager } from "@/components/users/UsersAndRolesManager";
+import { CompanyModulesModal } from "@/components/setup/CompanyModulesModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,6 +104,8 @@ function SetupPage() {
   const [newCcOpen, setNewCcOpen] = useState(false);
   const [newBuOpen, setNewBuOpen] = useState(false);
   const [revalOpen, setRevalOpen] = useState(false);
+  const [modulesModalOpen, setModulesModalOpen] = useState(false);
+  const [selectedCompanyForModules, setSelectedCompanyForModules] = useState<any>(null);
 
   // Form Entity
   const [entityCode, setEntityCode] = useState("");
@@ -1515,21 +1518,37 @@ function SetupPage() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              {isCurrentActive ? (
-                                <Badge variant="default" className="gap-1 text-xs">
-                                  <CheckCircle className="h-3 w-3" />
-                                  Seleccionada
-                                </Badge>
-                              ) : (
+                              <div className="flex items-center justify-end gap-2">
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
-                                  className="text-xs h-7"
-                                  onClick={() => setActiveEntityId(e.id)}
+                                  className="text-xs h-7 gap-1.5"
+                                  title="Configurar qué módulos están habilitados para esta empresa"
+                                  onClick={() => {
+                                    setSelectedCompanyForModules(e);
+                                    setModulesModalOpen(true);
+                                  }}
                                 >
-                                  Activar
+                                  <Layers className="h-3.5 w-3.5 text-primary" />
+                                  <span>Módulos</span>
                                 </Button>
-                              )}
+
+                                {isCurrentActive ? (
+                                  <Badge variant="default" className="gap-1 text-xs h-7">
+                                    <CheckCircle className="h-3 w-3" />
+                                    Seleccionada
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs h-7"
+                                    onClick={() => setActiveEntityId(e.id)}
+                                  >
+                                    Activar
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -1540,6 +1559,13 @@ function SetupPage() {
               )}
             </div>
           </div>
+
+          {/* Modal Configuración de Módulos por Empresa (Sprint 33) */}
+          <CompanyModulesModal
+            open={modulesModalOpen}
+            onOpenChange={setModulesModalOpen}
+            company={selectedCompanyForModules}
+          />
         </TabsContent>
 
         {/* Tab Cost Centers */}

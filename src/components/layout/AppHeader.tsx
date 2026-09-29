@@ -13,6 +13,7 @@ import { getCurrentProfile } from "@/lib/auth.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveEntity } from "@/context/ActiveEntityContext";
+import { useCompanyModules } from "@/hooks/useCompanyModules";
 import {
   BookOpen,
   DollarSign,
@@ -64,7 +65,8 @@ export function AppHeader() {
   const fetchProfile = useServerFn(getCurrentProfile);
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
-  const { activeEntity, userCompanies, setActiveEntityId } = useActiveEntity();
+  const { activeEntity, activeEntityId, userCompanies, setActiveEntityId } = useActiveEntity();
+  const { isModuleEnabled } = useCompanyModules(activeEntityId);
 
   const profileQuery = useQuery({
     queryKey: ["profile"],
@@ -77,6 +79,9 @@ export function AppHeader() {
     await supabase.auth.signOut();
     navigate({ to: "/" });
   }
+
+  // Filtrar ítems de navegación según módulos activos en la empresa actual
+  const visibleNavItems = moduleNavItems.filter((item) => isModuleEnabled(item.name));
 
   return (
     <header className="sticky top-0 z-40 border-b bg-card/90 backdrop-blur-md">
@@ -107,17 +112,19 @@ export function AppHeader() {
               </Link>
             </Button>
 
-            <Button
-              asChild
-              variant={currentPath.startsWith("/portal") ? "secondary" : "ghost"}
-              size="sm"
-              className="text-xs font-medium"
-            >
-              <Link to="/portal">
-                <ShieldCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                Portal 3PL
-              </Link>
-            </Button>
+            {isModuleEnabled("portal") && (
+              <Button
+                asChild
+                variant={currentPath.startsWith("/portal") ? "secondary" : "ghost"}
+                size="sm"
+                className="text-xs font-medium"
+              >
+                <Link to="/portal">
+                  <ShieldCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                  Portal 3PL
+                </Link>
+              </Button>
+            )}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -126,9 +133,11 @@ export function AppHeader() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel className="text-xs text-muted-foreground">Módulos del Sistema</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Módulos de {activeEntity?.name ? activeEntity.name.split(" ")[0] : "la Empresa"}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {moduleNavItems.map((item) => {
+                {visibleNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = currentPath === item.path;
                   return (
