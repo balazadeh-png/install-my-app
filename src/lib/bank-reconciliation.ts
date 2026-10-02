@@ -6,7 +6,7 @@
 export interface ParsedBankMovement {
   movement_date: string; // YYYY-MM-DD
   description: string;
-  reference_number?: string;
+  reference_number?: string | undefined;
   debit_amount: number;  // Cargos / Salidas
   credit_amount: number; // Abonos / Entradas
   balance?: number;
@@ -46,18 +46,18 @@ export function normalizeDate(dateStr: string): string {
   // Caso DD/MM/YYYY o DD-MM-YYYY
   const dmyMatch = clean.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (dmyMatch) {
-    const day = dmyMatch[1].padStart(2, "0");
-    const month = dmyMatch[2].padStart(2, "0");
-    const year = dmyMatch[3];
+    const day = dmyMatch[1]!.padStart(2, "0");
+    const month = dmyMatch[2]!.padStart(2, "0");
+    const year = dmyMatch[3]!;
     return `${year}-${month}-${day}`;
   }
 
   // Caso YYYY-MM-DD
   const ymdMatch = clean.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if (ymdMatch) {
-    const year = ymdMatch[1];
-    const month = ymdMatch[2].padStart(2, "0");
-    const day = ymdMatch[3].padStart(2, "0");
+    const year = ymdMatch[1]!;
+    const month = ymdMatch[2]!.padStart(2, "0");
+    const day = ymdMatch[3]!.padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
@@ -78,7 +78,7 @@ export function parseBankStatementCsv(text: string): ParsedBankMovement[] {
   if (lines.length === 0) return [];
 
   // Detectar delimitador (tab, punto y coma, o coma)
-  const firstLine = lines[0];
+  const firstLine = lines[0] ?? "";
   let delimiter = ";";
   if (firstLine.includes("\t")) delimiter = "\t";
   else if (firstLine.includes(";")) delimiter = ";";
@@ -96,9 +96,9 @@ export function parseBankStatementCsv(text: string): ParsedBankMovement[] {
   let colBalance = -1;
 
   for (let i = 0; i < Math.min(10, lines.length); i++) {
-    const cols = lines[i].split(delimiter).map(c => c.trim().toLowerCase().replace(/"/g, ""));
+    const cols = (lines[i] ?? "").split(delimiter).map(c => c.trim().toLowerCase().replace(/"/g, ""));
     for (let c = 0; c < cols.length; c++) {
-      const col = cols[c];
+      const col = cols[c] ?? "";
       if (col.includes("fecha") || col.includes("fec")) colDate = c;
       else if (col.includes("descrip") || col.includes("detalle") || col.includes("glosa") || col.includes("concepto")) colDesc = c;
       else if (col.includes("doc") || col.includes("cheque") || col.includes("ref") || col.includes("nro") || col.includes("operacion")) colRef = c;
@@ -127,7 +127,7 @@ export function parseBankStatementCsv(text: string): ParsedBankMovement[] {
   }
 
   for (let i = headerIndex + 1; i < lines.length; i++) {
-    const rawCols = lines[i].split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ""));
+    const rawCols = (lines[i] ?? "").split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ""));
     if (rawCols.length < 2) continue;
 
     const rawDate = rawCols[colDate] || "";
@@ -177,8 +177,8 @@ export function parseBankStatementPdfText(text: string): ParsedBankMovement[] {
     const match = line.match(lineRegex);
     if (!match) continue;
 
-    const dateStr = match[1];
-    const rest = match[2].trim();
+    const dateStr = match[1]!;
+    const rest = (match[2] ?? "").trim();
 
     // Intentar extraer números al final de la línea: montos y saldos
     // En las cartolas típicamente los últimos números son: [N° Doc] [Cargo o Abono] [Saldo]
@@ -188,7 +188,7 @@ export function parseBankStatementPdfText(text: string): ParsedBankMovement[] {
     // Buscar los montos monetarios desde el final
     const numericTokens: { index: number; value: number }[] = [];
     for (let j = tokens.length - 1; j >= 0; j--) {
-      const cleanToken = tokens[j].replace(/[$]/g, "");
+      const cleanToken = (tokens[j] ?? "").replace(/[$]/g, "");
       if (/^-?[\d\.,]+$/.test(cleanToken)) {
         const parsed = parseChileanAmount(cleanToken);
         numericTokens.unshift({ index: j, value: parsed });
@@ -200,7 +200,7 @@ export function parseBankStatementPdfText(text: string): ParsedBankMovement[] {
 
     if (numericTokens.length === 0) continue;
 
-    const descTokens = tokens.slice(0, numericTokens[0].index);
+    const descTokens = tokens.slice(0, numericTokens[0]!.index);
     const description = descTokens.join(" ");
 
     let debit = 0;
@@ -208,12 +208,12 @@ export function parseBankStatementPdfText(text: string): ParsedBankMovement[] {
     let balance = 0;
 
     if (numericTokens.length === 1) {
-      const val = numericTokens[0].value;
+      const val = numericTokens[0]!.value;
       if (val < 0) debit = Math.abs(val);
       else credit = val;
     } else if (numericTokens.length === 2) {
-      const val = numericTokens[0].value;
-      balance = numericTokens[1].value;
+      const val = numericTokens[0]!.value;
+      balance = numericTokens[1]!.value;
       // Deducir si es cargo o abono por el texto o saldo
       if (description.toUpperCase().includes("CARGO") || description.toUpperCase().includes("COMISION") || description.toUpperCase().includes("TRANSF. A") || description.toUpperCase().includes("PAGO")) {
         debit = Math.abs(val);
@@ -222,9 +222,9 @@ export function parseBankStatementPdfText(text: string): ParsedBankMovement[] {
       }
     } else if (numericTokens.length >= 3) {
       // Formato: [Cargo] [Abono] [Saldo] o [Ref] [Monto] [Saldo]
-      debit = Math.abs(numericTokens[0].value);
-      credit = Math.abs(numericTokens[1].value);
-      balance = numericTokens[numericTokens.length - 1].value;
+      debit = Math.abs(numericTokens[0]!.value);
+      credit = Math.abs(numericTokens[1]!.value);
+      balance = numericTokens[numericTokens.length - 1]!.value;
     }
 
     if (debit > 0 || credit > 0) {
