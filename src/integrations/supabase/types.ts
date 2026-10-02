@@ -198,6 +198,265 @@ export type Database = {
           },
         ]
       }
+      bank_accounts: {
+        Row: {
+          account_id: string
+          account_number: string
+          account_type: string
+          active: boolean
+          api_account_id: string | null
+          api_last_sync: string | null
+          api_provider: string
+          bank_name: string
+          created_at: string
+          currency_code: string
+          current_balance: number
+          entity_id: string
+          id: string
+          initial_balance: number
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          account_number: string
+          account_type?: string
+          active?: boolean
+          api_account_id?: string | null
+          api_last_sync?: string | null
+          api_provider?: string
+          bank_name: string
+          created_at?: string
+          currency_code?: string
+          current_balance?: number
+          entity_id: string
+          id?: string
+          initial_balance?: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          account_number?: string
+          account_type?: string
+          active?: boolean
+          api_account_id?: string | null
+          api_last_sync?: string | null
+          api_provider?: string
+          bank_name?: string
+          created_at?: string
+          currency_code?: string
+          current_balance?: number
+          entity_id?: string
+          id?: string
+          initial_balance?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_currency_code_fkey"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "bank_accounts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statement_lines: {
+        Row: {
+          balance: number
+          bank_account_id: string
+          created_at: string
+          credit_amount: number
+          debit_amount: number
+          description: string
+          entity_id: string
+          id: string
+          line_number: number
+          match_confidence: number
+          match_reason: string | null
+          matched_invoice_id: string | null
+          matched_journal_entry_id: string | null
+          matched_operation_type: string | null
+          movement_date: string
+          payment_id: string | null
+          reconciled_at: string | null
+          reconciled_by: string | null
+          reconciliation_status: string
+          reference_number: string | null
+          statement_id: string
+        }
+        Insert: {
+          balance?: number
+          bank_account_id: string
+          created_at?: string
+          credit_amount?: number
+          debit_amount?: number
+          description: string
+          entity_id: string
+          id?: string
+          line_number: number
+          match_confidence?: number
+          match_reason?: string | null
+          matched_invoice_id?: string | null
+          matched_journal_entry_id?: string | null
+          matched_operation_type?: string | null
+          movement_date: string
+          payment_id?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_status?: string
+          reference_number?: string | null
+          statement_id: string
+        }
+        Update: {
+          balance?: number
+          bank_account_id?: string
+          created_at?: string
+          credit_amount?: number
+          debit_amount?: number
+          description?: string
+          entity_id?: string
+          id?: string
+          line_number?: number
+          match_confidence?: number
+          match_reason?: string | null
+          matched_invoice_id?: string | null
+          matched_journal_entry_id?: string | null
+          matched_operation_type?: string | null
+          movement_date?: string
+          payment_id?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_status?: string
+          reference_number?: string | null
+          statement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_lines_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_matched_journal_entry_id_fkey"
+            columns: ["matched_journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_lines_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statements: {
+        Row: {
+          bank_account_id: string
+          created_at: string
+          created_by: string | null
+          entity_id: string
+          file_name: string | null
+          final_balance: number
+          id: string
+          initial_balance: number
+          period_end: string
+          period_start: string
+          reconciled_movements: number
+          source: string
+          statement_date: string
+          status: string
+          total_credits: number
+          total_debits: number
+          total_movements: number
+        }
+        Insert: {
+          bank_account_id: string
+          created_at?: string
+          created_by?: string | null
+          entity_id: string
+          file_name?: string | null
+          final_balance?: number
+          id?: string
+          initial_balance?: number
+          period_end: string
+          period_start: string
+          reconciled_movements?: number
+          source?: string
+          statement_date?: string
+          status?: string
+          total_credits?: number
+          total_debits?: number
+          total_movements?: number
+        }
+        Update: {
+          bank_account_id?: string
+          created_at?: string
+          created_by?: string | null
+          entity_id?: string
+          file_name?: string | null
+          final_balance?: number
+          id?: string
+          initial_balance?: number
+          period_end?: string
+          period_start?: string
+          reconciled_movements?: number
+          source?: string
+          statement_date?: string
+          status?: string
+          total_credits?: number
+          total_debits?: number
+          total_movements?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statements_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statements_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bill_of_materials: {
         Row: {
           created_at: string
@@ -571,6 +830,41 @@ export type Database = {
             columns: ["unrealized_exchange_loss_account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_modules: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          entity_id: string
+          id: string
+          module_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          entity_id: string
+          id?: string
+          module_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          entity_id?: string
+          id?: string
+          module_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_modules_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
             referencedColumns: ["id"]
           },
         ]
@@ -4565,8 +4859,60 @@ export type Database = {
       }
     }
     Functions: {
+      admin_create_user: {
+        Args: {
+          p_company_ids?: string[]
+          p_default_company_id?: string
+          p_email: string
+          p_full_name: string
+          p_password: string
+          p_role?: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: Json
+      }
+      admin_delete_user: { Args: { p_user_id: string }; Returns: Json }
+      admin_get_users_list: {
+        Args: never
+        Returns: {
+          active: boolean
+          companies: Json
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_name: string
+        }[]
+      }
+      admin_reset_user_password: {
+        Args: { p_new_password: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_set_user_companies: {
+        Args: {
+          p_company_assignments: Json
+          p_default_company_id?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      admin_toggle_user_active: {
+        Args: { p_active: boolean; p_user_id: string }
+        Returns: Json
+      }
+      admin_update_user_role: {
+        Args: {
+          p_new_role: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+        }
+        Returns: Json
+      }
       assign_party_portal_user: {
         Args: { p_email: string; p_party_id: string }
+        Returns: Json
+      }
+      bulk_reconcile_matched_payments: {
+        Args: { _statement_id: string }
         Returns: Json
       }
       calculate_f22: {
@@ -4659,6 +5005,25 @@ export type Database = {
         }
         Returns: Json
       }
+      get_bank_reconciliation_summary: {
+        Args: {
+          _bank_account_id: string
+          _entity_id: string
+          _statement_id?: string
+        }
+        Returns: Json
+      }
+      get_company_modules: {
+        Args: { p_entity_id: string }
+        Returns: {
+          enabled: boolean
+          group_name: string
+          group_sort_order: number
+          label: string
+          module_name: string
+          sort_order: number
+        }[]
+      }
       get_exchange_rate: {
         Args: { _date: string; _destination: string; _origin: string }
         Returns: number
@@ -4676,6 +5041,10 @@ export type Database = {
           party_id: string
           status: string
         }[]
+      }
+      get_journal_entry_source_document: {
+        Args: { _entity_id: string; _journal_entry_id: string }
+        Returns: Json
       }
       get_next_entry_number: {
         Args: { _entity_id: string; _prefix?: string }
@@ -4724,6 +5093,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_bank_statement_batch: {
+        Args: {
+          _bank_account_id: string
+          _entity_id: string
+          _file_name: string
+          _final_balance: number
+          _initial_balance: number
+          _lines: Json
+          _period_end: string
+          _period_start: string
+          _source: string
+        }
+        Returns: Json
+      }
       ingest_oms_order: {
         Args: {
           p_channel: string
@@ -4743,6 +5126,16 @@ export type Database = {
       post_journal_entry: { Args: { _journal_entry_id: string }; Returns: Json }
       post_purchase_invoice: { Args: { _invoice_id: string }; Returns: Json }
       post_sales_invoice: { Args: { _invoice_id: string }; Returns: Json }
+      reconcile_and_post_bank_payment: {
+        Args: {
+          _expense_account_id?: string
+          _invoice_id?: string
+          _line_id: string
+          _memo?: string
+          _operation_type: string
+        }
+        Returns: Json
+      }
       reconcile_rcv_batch: {
         Args: {
           _entity_id: string
@@ -4770,6 +5163,10 @@ export type Database = {
         Args: { p_entity: string; p_month: string }
         Returns: Json
       }
+      set_company_modules_bulk: {
+        Args: { p_entity_id: string; p_modules: Json }
+        Returns: Json
+      }
       stock_balance_at: {
         Args: { p_date: string; p_entity_id: string; p_party_id: string }
         Returns: {
@@ -4793,6 +5190,7 @@ export type Database = {
           quantity: number
         }[]
       }
+      unreconcile_bank_line: { Args: { _line_id: string }; Returns: Json }
       update_dj_status: {
         Args: {
           _generation_id: string
