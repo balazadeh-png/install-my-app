@@ -5158,6 +5158,29 @@ export type Database = {
         Args: { _entity_id: string; _period_date: string }
         Returns: Json
       }
+      search_pending_invoices: {
+        Args: {
+          invoice_type?: string
+          limit?: number
+          target_amount?: number
+          tenant_id?: string
+          term?: string
+        }
+        Returns: {
+          balance_due: number
+          currency_code: string
+          due_date: string
+          id: string
+          invoice_number: string
+          is_exact_amount_match: boolean
+          issue_date: string
+          paid_amount: number
+          party_name: string
+          party_tax_id: string
+          relevance_score: number
+          total_amount: number
+        }[]
+      }
       seed_demo_bank: { Args: never; Returns: Json }
       seed_demo_base: { Args: { p_start: string }; Returns: string }
       seed_demo_month: {
@@ -5168,6 +5191,8 @@ export type Database = {
         Args: { p_entity_id: string; p_modules: Json }
         Returns: Json
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       stock_balance_at: {
         Args: { p_date: string; p_entity_id: string; p_party_id: string }
         Returns: {
@@ -5191,6 +5216,7 @@ export type Database = {
           quantity: number
         }[]
       }
+      unaccent: { Args: { "": string }; Returns: string }
       unreconcile_bank_line: { Args: { _line_id: string }; Returns: Json }
       update_dj_status: {
         Args: {
