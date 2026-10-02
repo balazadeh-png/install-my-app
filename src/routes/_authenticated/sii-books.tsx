@@ -34,7 +34,10 @@ import {
   Clock,
   Sparkles,
   Receipt,
+  ArrowUpRight,
 } from "lucide-react";
+import { SourceDocumentDialog } from "@/components/accounting/SourceDocumentDialog";
+import { AccountLedgerDrawer } from "@/components/accounting/AccountLedgerDrawer";
 
 export const Route = createFileRoute("/_authenticated/sii-books")({
   component: SiiBooksPage,
@@ -55,6 +58,17 @@ function SiiBooksPage() {
   const [selectedBook, setSelectedBook] = useState<BookType>("balance_tributario_8_columnas");
   const [startDate, setStartDate] = useState(`${new Date().getFullYear()}-01-01`);
   const [endDate, setEndDate] = useState(`${new Date().getFullYear()}-12-31`);
+
+  // Drill-down a Documento Fuente y Mayor
+  const [selectedJournalEntryId, setSelectedJournalEntryId] = useState<string | null>(null);
+  const [sourceDocModalOpen, setSourceDocModalOpen] = useState(false);
+  const [selectedAccountForLedger, setSelectedAccountForLedger] = useState<{
+    id: string;
+    code: string;
+    name: string;
+    account_type: string;
+  } | null>(null);
+  const [ledgerDrawerOpen, setLedgerDrawerOpen] = useState(false);
 
   // State Conciliación RCV
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -506,8 +520,24 @@ function SiiBooksPage() {
                     </TableHeader>
                     <TableBody>
                       {bookRows.map((r, i) => (
-                        <TableRow key={i} className="text-xs font-mono">
-                          <TableCell className="font-bold text-primary">{r.account_code}</TableCell>
+                        <TableRow
+                          key={i}
+                          className="text-xs font-mono cursor-pointer hover:bg-primary/5 transition-colors group"
+                          onClick={() => {
+                            setSelectedAccountForLedger({
+                              id: r.account_id || r.account_code,
+                              code: r.account_code,
+                              name: r.account_name,
+                              account_type: r.account_type,
+                            });
+                            setLedgerDrawerOpen(true);
+                          }}
+                          title={`Ver Libro Mayor de ${r.account_code} - ${r.account_name}`}
+                        >
+                          <TableCell className="font-bold text-primary group-hover:underline flex items-center gap-1">
+                            <span>{r.account_code}</span>
+                            <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </TableCell>
                           <TableCell className="font-sans font-medium">{r.account_name}</TableCell>
                           <TableCell className="text-right border-l">$ {Number(r.total_debit || 0).toLocaleString("es-CL")}</TableCell>
                           <TableCell className="text-right border-r">$ {Number(r.total_credit || 0).toLocaleString("es-CL")}</TableCell>
@@ -534,19 +564,115 @@ function SiiBooksPage() {
                         <TableHead>Glosa / Detalle</TableHead>
                         <TableHead className="text-right">Débito ($)</TableHead>
                         <TableHead className="text-right">Crédito ($)</TableHead>
+                        <TableHead className="text-center w-24">Doc. Origen</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {bookRows.map((r, i) => (
-                        <TableRow key={i} className="text-xs">
+                        <TableRow
+                          key={i}
+                          className="text-xs cursor-pointer hover:bg-primary/5 transition-colors group"
+                          onClick={() => {
+                            if (r.journal_entry_id) {
+                              setSelectedJournalEntryId(r.journal_entry_id);
+                              setSourceDocModalOpen(true);
+                            }
+                          }}
+                        >
                           <TableCell className="font-mono">{r.posting_date}</TableCell>
-                          <TableCell className="font-mono font-bold text-primary">{r.entry_number}</TableCell>
+                          <TableCell className="font-mono font-bold text-primary group-hover:underline">
+                            {r.entry_number}
+                          </TableCell>
                           <TableCell>
                             <span className="font-mono font-bold">{r.account_code}</span> - {r.account_name}
                           </TableCell>
                           <TableCell className="text-muted-foreground">{r.line_memo || r.header_memo}</TableCell>
                           <TableCell className="text-right font-mono">{Number(r.debit || 0) > 0 ? `$ ${Number(r.debit).toLocaleString("es-CL")}` : "-"}</TableCell>
                           <TableCell className="text-right font-mono">{Number(r.credit || 0) > 0 ? `$ ${Number(r.credit).toLocaleString("es-CL")}` : "-"}</TableCell>
+                          <TableCell className="text-center p-1" onClick={(e) => e.stopPropagation()}>
+                            {r.journal_entry_id && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-[11px] px-2 gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                                onClick={() => {
+                                  setSelectedJournalEntryId(r.journal_entry_id);
+                                  setSourceDocModalOpen(true);
+                                }}
+                              >
+                                <FileText className="h-3 w-3" />
+                                <span>Ver</span>
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : selectedBook === "libro_mayor" ? (
+                /* Libro Mayor Legal */
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead className="w-24">Fecha</TableHead>
+                        <TableHead className="w-28">N° Comprobante</TableHead>
+                        <TableHead className="w-64">Cuenta Contable</TableHead>
+                        <TableHead className="w-28">Tipo</TableHead>
+                        <TableHead>Glosa / Concepto</TableHead>
+                        <TableHead className="text-right w-28">Débito ($)</TableHead>
+                        <TableHead className="text-right w-28">Crédito ($)</TableHead>
+                        <TableHead className="text-center w-24">Doc. Origen</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bookRows.map((r, i) => (
+                        <TableRow
+                          key={i}
+                          className="text-xs cursor-pointer hover:bg-primary/5 transition-colors group"
+                          onClick={() => {
+                            if (r.journal_entry_id) {
+                              setSelectedJournalEntryId(r.journal_entry_id);
+                              setSourceDocModalOpen(true);
+                            }
+                          }}
+                        >
+                          <TableCell className="font-mono text-muted-foreground">{r.posting_date}</TableCell>
+                          <TableCell className="font-mono font-bold text-primary group-hover:underline">
+                            {r.entry_number}
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono font-bold">{r.account_code}</span> - {r.account_name}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">
+                              {r.voucher_type || "Mayor"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{r.description || "-"}</TableCell>
+                          <TableCell className="text-right font-mono font-medium">
+                            {Number(r.debit || 0) > 0 ? `$ ${Number(r.debit).toLocaleString("es-CL")}` : "-"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-medium">
+                            {Number(r.credit || 0) > 0 ? `$ ${Number(r.credit).toLocaleString("es-CL")}` : "-"}
+                          </TableCell>
+                          <TableCell className="text-center p-1" onClick={(e) => e.stopPropagation()}>
+                            {r.journal_entry_id && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-[11px] px-2 gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                                onClick={() => {
+                                  setSelectedJournalEntryId(r.journal_entry_id);
+                                  setSourceDocModalOpen(true);
+                                }}
+                              >
+                                <FileText className="h-3 w-3" />
+                                <span>Ver</span>
+                              </Button>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1023,6 +1149,20 @@ function SiiBooksPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Visor Modal de Documento Fuente */}
+      <SourceDocumentDialog
+        open={sourceDocModalOpen}
+        onOpenChange={setSourceDocModalOpen}
+        journalEntryId={selectedJournalEntryId}
+      />
+
+      {/* Drawer Lateral del Libro Mayor */}
+      <AccountLedgerDrawer
+        open={ledgerDrawerOpen}
+        onOpenChange={setLedgerDrawerOpen}
+        account={selectedAccountForLedger}
+      />
     </div>
   );
 }

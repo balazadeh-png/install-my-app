@@ -26,7 +26,10 @@ import {
   RotateCcw,
   PieChart,
   Network,
+  ArrowUpRight,
 } from "lucide-react";
+import { SourceDocumentDialog } from "@/components/accounting/SourceDocumentDialog";
+import { AccountLedgerDrawer } from "@/components/accounting/AccountLedgerDrawer";
 
 export const Route = createFileRoute("/_authenticated/accounting")({
   component: AccountingPage,
@@ -55,6 +58,17 @@ function AccountingPage() {
   const [newVoucherOpen, setNewVoucherOpen] = useState(false);
   const [quickRateOpen, setQuickRateOpen] = useState(false);
   const [quickRateValue, setQuickRateValue] = useState("");
+
+  // Drill-down a Documento Fuente y Mayor
+  const [selectedJournalEntryId, setSelectedJournalEntryId] = useState<string | null>(null);
+  const [sourceDocModalOpen, setSourceDocModalOpen] = useState(false);
+  const [selectedAccountForLedger, setSelectedAccountForLedger] = useState<{
+    id: string;
+    code: string;
+    name: string;
+    account_type: string;
+  } | null>(null);
+  const [ledgerDrawerOpen, setLedgerDrawerOpen] = useState(false);
 
   // Form State para Nueva Cuenta
   const [accountCode, setAccountCode] = useState("");
@@ -1113,6 +1127,20 @@ function AccountingPage() {
                             <span className="text-xs text-muted-foreground font-mono">
                               Fecha: <strong className="text-foreground">{voucher.posting_date}</strong>
                             </span>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1 text-primary border-primary/30 hover:bg-primary/5"
+                              onClick={() => {
+                                setSelectedJournalEntryId(voucher.id);
+                                setSourceDocModalOpen(true);
+                              }}
+                            >
+                              <FileText className="h-3 w-3" />
+                              <span>Ver Doc. Origen</span>
+                            </Button>
+
                             {isPosted && (
                               <Button
                                 variant="outline"
@@ -1270,12 +1298,26 @@ function AccountingPage() {
                         <TableHead className="text-center">Dimensiones Exigidas</TableHead>
                         <TableHead className="text-center">Clasificación</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
+                        <TableHead className="text-center w-24">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {accounts.map((acc) => (
-                        <TableRow key={acc.id}>
-                          <TableCell className="font-mono font-medium text-xs">{acc.code}</TableCell>
+                        <TableRow
+                          key={acc.id}
+                          className="cursor-pointer hover:bg-primary/5 transition-colors group"
+                          onClick={() => {
+                            setSelectedAccountForLedger(acc);
+                            setLedgerDrawerOpen(true);
+                          }}
+                          title={`Ver Libro Mayor de ${acc.code} - ${acc.name}`}
+                        >
+                          <TableCell className="font-mono font-bold text-xs text-primary group-hover:underline">
+                            <span className="inline-flex items-center gap-1">
+                              {acc.code}
+                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </span>
+                          </TableCell>
                           <TableCell className={acc.is_group ? "font-semibold text-foreground" : "text-muted-foreground"}>
                             {acc.name}
                           </TableCell>
@@ -1322,6 +1364,20 @@ function AccountingPage() {
                           <TableCell className="text-center">
                             <span className={`inline-block h-2 w-2 rounded-full ${acc.active ? "bg-emerald-500" : "bg-red-500"}`} />
                           </TableCell>
+                          <TableCell className="text-center p-1" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-[11px] px-2 gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={() => {
+                                setSelectedAccountForLedger(acc);
+                                setLedgerDrawerOpen(true);
+                              }}
+                            >
+                              <BookOpen className="h-3 w-3" />
+                              <span>Mayor</span>
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1332,6 +1388,20 @@ function AccountingPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Visor Modal de Documento Fuente */}
+      <SourceDocumentDialog
+        open={sourceDocModalOpen}
+        onOpenChange={setSourceDocModalOpen}
+        journalEntryId={selectedJournalEntryId}
+      />
+
+      {/* Drawer Lateral del Libro Mayor */}
+      <AccountLedgerDrawer
+        open={ledgerDrawerOpen}
+        onOpenChange={setLedgerDrawerOpen}
+        account={selectedAccountForLedger}
+      />
     </div>
   );
 }

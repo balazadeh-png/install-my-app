@@ -20,7 +20,10 @@ import {
   TrendingDown,
   Filter,
   Network,
+  BookOpen,
+  ArrowUpRight,
 } from "lucide-react";
+import { AccountLedgerDrawer } from "@/components/accounting/AccountLedgerDrawer";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   component: ReportsPage,
@@ -36,6 +39,25 @@ function ReportsPage() {
   const { activeEntity, activeEntityId } = useActiveEntity();
   const [selectedCostCenter, setSelectedCostCenter] = useState<string>("ALL");
   const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>("ALL");
+
+  // Estado para el Drill-down del Libro Mayor de la Cuenta
+  const [selectedAccountForLedger, setSelectedAccountForLedger] = useState<{
+    id: string;
+    code: string;
+    name: string;
+    account_type: string;
+  } | null>(null);
+  const [ledgerDrawerOpen, setLedgerDrawerOpen] = useState(false);
+
+  const handleAccountClick = (account: {
+    id: string;
+    code: string;
+    name: string;
+    account_type: string;
+  }) => {
+    setSelectedAccountForLedger(account);
+    setLedgerDrawerOpen(true);
+  };
 
   const baseCurrency = activeEntity?.base_currency_code || "CLP";
 
@@ -358,20 +380,27 @@ function ReportsPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="income-statement" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="income-statement" className="flex items-center gap-1.5">
-            <TrendingUp className="h-4 w-4" />
-            <span>Estado de Resultados (P&L)</span>
-          </TabsTrigger>
-          <TabsTrigger value="balance-sheet" className="flex items-center gap-1.5">
-            <Scale className="h-4 w-4" />
-            <span>Balance General</span>
-          </TabsTrigger>
-          <TabsTrigger value="trial-balance" className="flex items-center gap-1.5">
-            <PieChart className="h-4 w-4" />
-            <span>Balanza de Comprobación</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="income-statement" className="flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4" />
+              <span>Estado de Resultados (P&L)</span>
+            </TabsTrigger>
+            <TabsTrigger value="balance-sheet" className="flex items-center gap-1.5">
+              <Scale className="h-4 w-4" />
+              <span>Balance General</span>
+            </TabsTrigger>
+            <TabsTrigger value="trial-balance" className="flex items-center gap-1.5">
+              <PieChart className="h-4 w-4" />
+              <span>Balanza de Comprobación</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-primary/5 border border-primary/20 px-3 py-1.5 rounded-lg">
+            <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>Haz clic en cualquier cuenta para hacer <strong>drill-down</strong> a su Libro Mayor y documentos.</span>
+          </div>
+        </div>
 
         {/* Tab Estado de Resultados */}
         <TabsContent value="income-statement">
@@ -379,7 +408,7 @@ function ReportsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Estado de Resultados (P&L)</CardTitle>
               <CardDescription>
-                Resumen de ingresos operacionales, costos y gastos clasificados.
+                Resumen de ingresos operacionales, costos y gastos clasificados. Haz clic en una cuenta para ver sus movimientos.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -395,8 +424,18 @@ function ReportsPage() {
                         {accounts
                           .filter((a) => a.account_type === "Income")
                           .map((a) => (
-                            <TableRow key={a.id}>
-                              <TableCell className="font-mono text-xs w-[180px]">{a.code}</TableCell>
+                            <TableRow
+                              key={a.id}
+                              className="cursor-pointer hover:bg-primary/5 transition-colors group"
+                              onClick={() => handleAccountClick(a)}
+                              title={`Ver Libro Mayor de ${a.code} - ${a.name}`}
+                            >
+                              <TableCell className="font-mono text-xs w-[180px] font-semibold text-primary group-hover:underline">
+                                <span className="inline-flex items-center gap-1">
+                                  {a.code}
+                                  <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </span>
+                              </TableCell>
                               <TableCell className="text-xs font-medium">{a.name}</TableCell>
                               <TableCell className="text-right font-mono text-xs">
                                 $ {(balances[a.id]?.net || 0).toLocaleString("es-CL")}
@@ -425,8 +464,18 @@ function ReportsPage() {
                         {accounts
                           .filter((a) => ["Expense", "Cost of Goods Sold"].includes(a.account_type))
                           .map((a) => (
-                            <TableRow key={a.id}>
-                              <TableCell className="font-mono text-xs w-[180px]">{a.code}</TableCell>
+                            <TableRow
+                              key={a.id}
+                              className="cursor-pointer hover:bg-primary/5 transition-colors group"
+                              onClick={() => handleAccountClick(a)}
+                              title={`Ver Libro Mayor de ${a.code} - ${a.name}`}
+                            >
+                              <TableCell className="font-mono text-xs w-[180px] font-semibold text-primary group-hover:underline">
+                                <span className="inline-flex items-center gap-1">
+                                  {a.code}
+                                  <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </span>
+                              </TableCell>
                               <TableCell className="text-xs font-medium">{a.name}</TableCell>
                               <TableCell className="text-right font-mono text-xs">
                                 $ {(balances[a.id]?.net || 0).toLocaleString("es-CL")}
@@ -462,7 +511,7 @@ function ReportsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Balance General Clasificado</CardTitle>
               <CardDescription>
-                Estructura financiera: Activo = Pasivo + Patrimonio + Resultado.
+                Estructura financiera: Activo = Pasivo + Patrimonio + Resultado. Haz clic en cualquier cuenta para abrir su Libro Mayor.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -478,10 +527,20 @@ function ReportsPage() {
                         {accounts
                           .filter((a) => a.account_type === "Asset")
                           .map((a) => (
-                            <TableRow key={a.id}>
-                              <TableCell className="font-mono text-xs w-[140px]">{a.code}</TableCell>
+                            <TableRow
+                              key={a.id}
+                              className="cursor-pointer hover:bg-primary/5 transition-colors group"
+                              onClick={() => handleAccountClick(a)}
+                              title={`Ver Libro Mayor de ${a.code} - ${a.name}`}
+                            >
+                              <TableCell className="font-mono text-xs w-[140px] font-semibold text-primary group-hover:underline">
+                                <span className="inline-flex items-center gap-1">
+                                  {a.code}
+                                  <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </span>
+                              </TableCell>
                               <TableCell className="text-xs">{a.name}</TableCell>
-                              <TableCell className="text-right font-mono text-xs">
+                              <TableCell className="text-right font-mono text-xs font-medium">
                                 $ {(balances[a.id]?.net || 0).toLocaleString("es-CL")}
                               </TableCell>
                             </TableRow>
@@ -508,10 +567,20 @@ function ReportsPage() {
                         {accounts
                           .filter((a) => ["Liability", "Equity"].includes(a.account_type))
                           .map((a) => (
-                            <TableRow key={a.id}>
-                              <TableCell className="font-mono text-xs w-[140px]">{a.code}</TableCell>
+                            <TableRow
+                              key={a.id}
+                              className="cursor-pointer hover:bg-primary/5 transition-colors group"
+                              onClick={() => handleAccountClick(a)}
+                              title={`Ver Libro Mayor de ${a.code} - ${a.name}`}
+                            >
+                              <TableCell className="font-mono text-xs w-[140px] font-semibold text-primary group-hover:underline">
+                                <span className="inline-flex items-center gap-1">
+                                  {a.code}
+                                  <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </span>
+                              </TableCell>
                               <TableCell className="text-xs">{a.name}</TableCell>
-                              <TableCell className="text-right font-mono text-xs">
+                              <TableCell className="text-right font-mono text-xs font-medium">
                                 $ {(balances[a.id]?.net || 0).toLocaleString("es-CL")}
                               </TableCell>
                             </TableRow>
@@ -544,7 +613,7 @@ function ReportsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Balanza de Comprobación y Saldos</CardTitle>
               <CardDescription>
-                Sumas acumuladas de débitos, créditos y saldos netos por cuenta contable.
+                Sumas acumuladas de débitos, créditos y saldos netos por cuenta contable. Haz clic en una cuenta para ver su desglose.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -564,8 +633,18 @@ function ReportsPage() {
                     {accounts.map((a) => {
                       const b = balances[a.id] || { debit: 0, credit: 0, net: 0 };
                       return (
-                        <TableRow key={a.id}>
-                          <TableCell className="font-mono text-xs font-medium">{a.code}</TableCell>
+                        <TableRow
+                          key={a.id}
+                          className="cursor-pointer hover:bg-primary/5 transition-colors group"
+                          onClick={() => handleAccountClick(a)}
+                          title={`Ver Libro Mayor de ${a.code} - ${a.name}`}
+                        >
+                          <TableCell className="font-mono text-xs font-semibold text-primary group-hover:underline">
+                            <span className="inline-flex items-center gap-1">
+                              {a.code}
+                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </span>
+                          </TableCell>
                           <TableCell className="text-xs">{a.name}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-xs">
@@ -591,6 +670,15 @@ function ReportsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Drawer Lateral del Libro Mayor con Drill-down a Documento Origen */}
+      <AccountLedgerDrawer
+        open={ledgerDrawerOpen}
+        onOpenChange={setLedgerDrawerOpen}
+        account={selectedAccountForLedger}
+        defaultCostCenterId={selectedCostCenter}
+        defaultBusinessUnitId={selectedBusinessUnit}
+      />
     </div>
   );
 }
