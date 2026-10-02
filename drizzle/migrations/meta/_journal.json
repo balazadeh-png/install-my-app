@@ -43,6 +43,13 @@
       "when": 1790983044936,
       "tag": "0005_seed_demo_bank_fix_order",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790984225393,
+      "tag": "0006_migration",
+      "breakpoints": true
     }
   ]
 }
