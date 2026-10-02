@@ -103,7 +103,7 @@ export function InvoiceSearchCombobox({
           term: debouncedSearch.trim(),
           tenant_id: entityId,
           limit: 50,
-          target_amount: targetAmount ? Number(targetAmount) : null,
+          target_amount: targetAmount ? Number(targetAmount) : undefined,
           invoice_type: invoiceType,
         });
 
