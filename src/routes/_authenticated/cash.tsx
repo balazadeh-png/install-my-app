@@ -167,19 +167,31 @@ function CashPage() {
       if (!currentStatement?.id) return [];
       const { data, error } = await supabase
         .from("bank_statement_lines" as any)
-        .select(`
-          *,
-          sales_invoice:sales_invoices(id, invoice_number, total_amount, party:parties(name, tax_id)),
-          purchase_invoice:purchase_invoices(id, invoice_number, total_amount, party:parties(name, tax_id)),
-          journal_entry:journal_entries(id, entry_number, posting_date)
-        `)
+        .select(`*, journal_entry:journal_entries(id, entry_number, posting_date)`)
         .eq("statement_id", currentStatement.id)
         .order("line_number", { ascending: true });
       if (error) {
         console.warn("bank_statement_lines error:", error);
         return [];
       }
-      return (data as any[]) ?? [];
+      const lines = ((data as any[]) ?? []) as any[];
+      // matched_invoice_id no tiene FK (puede ser venta o compra): se resuelve aparte
+      const ids = Array.from(new Set(lines.map((l) => l.matched_invoice_id).filter(Boolean)));
+      if (ids.length) {
+        const [si, pi] = await Promise.all([
+          supabase.from("sales_invoices" as any)
+            .select("id, invoice_number, total_amount, party:parties(name, tax_id)").in("id", ids),
+          supabase.from("purchase_invoices" as any)
+            .select("id, invoice_number, total_amount, party:parties(name, tax_id)").in("id", ids),
+        ]);
+        const sMap = new Map(((si.data as any[]) ?? []).map((r) => [r.id, r]));
+        const pMap = new Map(((pi.data as any[]) ?? []).map((r) => [r.id, r]));
+        for (const l of lines) {
+          l.sales_invoice = sMap.get(l.matched_invoice_id) ?? null;
+          l.purchase_invoice = pMap.get(l.matched_invoice_id) ?? null;
+        }
+      }
+      return lines;
     },
     enabled: !!currentStatement?.id,
   });
