@@ -51,7 +51,7 @@ export const moduleNavItems = [
   { name: "portal", label: "Portal Clientes 3PL", path: "/portal", icon: ShieldCheck },
   { name: "production", label: "Producción", path: "/production", icon: Factory },
   { name: "assets", label: "Activos Fijos", path: "/assets", icon: Building2 },
-  { name: "cash", label: "Bancos / Tesorería", path: "/cash", icon: DollarSign },
+  { name: "cash", label: "Bancos & Conciliación", path: "/cash", icon: Landmark },
   { name: "sii-books", label: "Libros Legales SII", path: "/sii-books", icon: FileSpreadsheet },
   { name: "taxes", label: "Impuestos (F29/F22)", path: "/taxes", icon: Landmark },
   { name: "declaraciones-juradas", label: "DDJJ (SII)", path: "/declaraciones-juradas", icon: FileBadge2 },

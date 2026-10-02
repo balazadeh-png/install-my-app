@@ -70,7 +70,7 @@ const MODULE_ICONS: Record<string, React.ReactNode> = {
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
   accounting: "Plan de cuentas, libro diario, libro mayor y asientos contables.",
-  cash: "Cuentas bancarias, libros de caja y control de tipos de cambio.",
+  cash: "Conciliación bancaria (Excel/PDF/API), cartolas, libros de caja y tipos de cambio.",
   assets: "Depreciación contable y tributaria de bienes de uso y activo fijo.",
   reports: "Balance clasificado, estado de resultados y balances de 8 columnas.",
   sales: "Facturación electrónica, notas de crédito, cotizaciones y clientes.",

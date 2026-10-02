@@ -126,11 +126,27 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 
 ---
 
-## 11. Bancos & Tesorería ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
-* **Tasas de Cambio Oficiales / Dólar Observado (`exchange_rates`)**:
-  * Registro diario del tipo de cambio oficial USD $\rightarrow$ CLP.
-* **Libros de Caja & Bancos (`books`)**:
-  * Cajas chicas y cuentas bancarias.
+## 11. Bancos & Conciliación Bancaria ([`/cash`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/cash.tsx))
+* **Cuentas Bancarias & Configuración API (`bank_accounts`)**:
+  * Registro de cuentas corrientes y vistas (Banco de Chile, Santander, BCI, Estado, etc.) vinculadas a cuentas de activo del Plan Contable.
+  * Soporte para conexión directa vía API Bancaria (Open Banking / Fintoc / simulador sandbox diario).
+* **Ingesta Multicanal de Cartolas (`bank_statements`, `bank_statement_lines`)**:
+  * Importador de cartolas desde archivos **Excel (.xlsx / .csv)** con detección automática de columnas de bancos chilenos.
+  * Extractor estructurado de movimientos desde cartolas en formato **PDF** y pegado directo de texto bancario.
+  * Sincronización automática de movimientos diarios vía API sin descarga manual de archivos.
+* **Motor Heurístico de Conciliación Automática (Auto-Matching)**:
+  * Contraste de **Abonos (Ingresos)** contra facturas de venta pendientes (`sales_invoices`) por RUT de cliente en glosa, N° de folio de factura y monto exacto.
+  * Contraste de **Cargos (Egresos)** contra facturas de compra pendientes (`purchase_invoices`) por RUT de proveedor, N° de factura y monto.
+  * Detección automática de comisiones y gastos bancarios (mantención, timbres, cargos PAC).
+  * Niveles de confianza: Match 100% (Verde), Match 85% (Amarillo), y Sugerencia por Monto Único 70%.
+* **Contabilización con 1 Solo Clic (`reconcile_and_post_bank_payment`)**:
+  * Con un solo clic se genera el registro en `invoice_payments`, se asienta el comprobante por partida doble balanceado en `journal_entries` (Débito Banco / Crédito Clientes; o Débito Proveedores / Crédito Banco), se descuenta el saldo de la factura y se marca la cartola como conciliada.
+  * Acción masiva en 1 clic para contabilizar todas las coincidencias al 100%.
+  * Reversión segura (`unreconcile_bank_line`) para anular el pago y restaurar el estado en caso de error.
+* **Cuadratura Financiera en Tiempo Real (`get_bank_reconciliation_summary`)**:
+  * Comparativo en vivo: Saldo Cartola Banco vs. Saldo Libro Mayor vs. Diferencia de Cuadratura.
+* **Tasas de Cambio Oficiales / Dólar Observado (`exchange_rates`) & Libros Auxiliares (`books`)**:
+  * Registro diario del tipo de cambio oficial USD $\rightarrow$ CLP y administración de libros y cajas chicas.
 
 ---
 
