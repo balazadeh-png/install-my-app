@@ -216,7 +216,7 @@ export function UsersAndRolesManager({ activeEntityId }: { activeEntityId?: stri
         p_role: newRole,
         p_company_ids: companyIds,
         p_default_company_id: defaultCompanyId ?? undefined,
-      });
+      } as any);
 
       if (error) throw error;
       return data;
@@ -318,7 +318,7 @@ export function UsersAndRolesManager({ activeEntityId }: { activeEntityId?: stri
         p_user_id: selectedUser.id,
         p_company_assignments: assignments,
         p_default_company_id: defaultId ?? undefined,
-      });
+      } as any);
       if (error) throw error;
       return data;
     },

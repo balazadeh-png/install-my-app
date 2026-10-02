@@ -397,7 +397,7 @@ function CashPage() {
         _invoice_id: invoiceId || undefined,
         _expense_account_id: undefined,
         _memo: memo || undefined,
-      });
+      } as any);
       if (error) throw error;
       return data;
     },
