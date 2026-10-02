@@ -479,7 +479,7 @@ function CashPage() {
         _final_balance: apiMovements[apiMovements.length - 1]?.balance || 15420000,
         _source: "api_fintoc",
         _file_name: `Sync_API_${currentBankAcc.bank_name}_${today}`,
-        _lines: apiMovements,
+        _lines: apiMovements as any,
       });
 
       if (error) throw error;
