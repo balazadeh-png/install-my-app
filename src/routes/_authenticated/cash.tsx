@@ -1506,7 +1506,7 @@ function CashPage() {
                   )}
                 </div>
                 <InvoiceSearchCombobox
-                  entityId={activeEntityId}
+                  entityId={activeEntityId ?? ""}
                   invoiceType="sale"
                   targetAmount={Number(activeLineForManualMatch?.credit_amount || activeLineForManualMatch?.debit_amount || 0)}
                   value={manualSelectedInvoiceId}
@@ -1527,7 +1527,7 @@ function CashPage() {
                   )}
                 </div>
                 <InvoiceSearchCombobox
-                  entityId={activeEntityId}
+                  entityId={activeEntityId ?? ""}
                   invoiceType="purchase"
                   targetAmount={Number(activeLineForManualMatch?.credit_amount || activeLineForManualMatch?.debit_amount || 0)}
                   value={manualSelectedInvoiceId}
