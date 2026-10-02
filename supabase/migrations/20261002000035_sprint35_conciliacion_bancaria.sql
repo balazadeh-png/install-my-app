@@ -835,7 +835,7 @@ BEGIN
         EXCEPTION WHEN OTHERS THEN
             -- Si no se puede reversar directamente, se actualiza la referencia
             NULL;
-        END IF;
+        END;
     END IF;
 
     -- Restaurar estado de la factura si fue pagada
