@@ -5158,6 +5158,7 @@ export type Database = {
         Args: { _entity_id: string; _period_date: string }
         Returns: Json
       }
+      seed_demo_bank: { Args: never; Returns: Json }
       seed_demo_base: { Args: { p_start: string }; Returns: string }
       seed_demo_month: {
         Args: { p_entity: string; p_month: string }
