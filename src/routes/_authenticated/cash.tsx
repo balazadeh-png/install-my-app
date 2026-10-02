@@ -328,7 +328,7 @@ function CashPage() {
       setNewBankAccOpen(false);
       setBaAccNumber("");
       setBaInitialBalance("0");
-      if (data?.id) setSelectedBankAccId(data.id);
+      if ((data as any)?.id) setSelectedBankAccId((data as any).id);
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al crear cuenta bancaria");
@@ -357,7 +357,7 @@ function CashPage() {
         _final_balance: finalB,
         _source: cartolaSource,
         _file_name: cartolaFileName || `Cartola_${currentBankAcc.bank_name}_${Date.now()}.${cartolaSource === "excel" ? "xlsx" : "pdf"}`,
-        _lines: linesToImport,
+        _lines: linesToImport as any,
       });
 
       if (error) throw error;
@@ -388,15 +388,15 @@ function CashPage() {
     }: {
       lineId: string;
       opType: string;
-      invoiceId?: string;
-      memo?: string;
+      invoiceId?: string | undefined;
+      memo?: string | undefined;
     }) => {
       const { data, error } = await supabase.rpc("reconcile_and_post_bank_payment", {
         _line_id: lineId,
         _operation_type: opType,
-        _invoice_id: invoiceId || null,
-        _expense_account_id: null,
-        _memo: memo || null,
+        _invoice_id: invoiceId || undefined,
+        _expense_account_id: undefined,
+        _memo: memo || undefined,
       });
       if (error) throw error;
       return data;
@@ -570,18 +570,18 @@ function CashPage() {
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["bank_accounts", activeEntityId] });
       toast.success("Cuenta Banco de Chile creada como cuenta principal");
-      if (data?.id) setSelectedBankAccId(data.id);
+      if ((data as any)?.id) setSelectedBankAccId((data as any).id);
     } catch (e: any) {
       toast.error(e.message || "Error al crear cuenta por defecto");
     }
   }
 
   // Cálculos rápidos de cuadratura
-  const stmtBal = Number(summary?.statement_balance || currentStatement?.final_balance || 0);
-  const legBal = Number(summary?.ledger_balance || 0);
+  const stmtBal = Number((summary as any)?.statement_balance || currentStatement?.final_balance || 0);
+  const legBal = Number((summary as any)?.ledger_balance || 0);
   const diffBal = stmtBal - legBal;
 
-  const totalMovs = Number(summary?.total_movements || statementLines.length || 0);
+  const totalMovs = Number((summary as any)?.total_movements || statementLines.length || 0);
   const recMovs = statementLines.filter(l => l.reconciliation_status === "reconciled").length;
   const matchMovs = statementLines.filter(l => l.reconciliation_status === "matched").length;
   const pendingMovs = totalMovs - recMovs;
