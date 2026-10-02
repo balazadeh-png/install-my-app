@@ -215,8 +215,8 @@ export function UsersAndRolesManager({ activeEntityId }: { activeEntityId?: stri
         p_full_name: newFullName.trim(),
         p_role: newRole,
         p_company_ids: companyIds,
-        p_default_company_id: defaultCompanyId,
-      });
+        p_default_company_id: defaultCompanyId ?? undefined,
+      } as any);
 
       if (error) throw error;
       return data;
@@ -317,8 +317,8 @@ export function UsersAndRolesManager({ activeEntityId }: { activeEntityId?: stri
       const { data, error } = await supabase.rpc("admin_set_user_companies", {
         p_user_id: selectedUser.id,
         p_company_assignments: assignments,
-        p_default_company_id: defaultId,
-      });
+        p_default_company_id: defaultId ?? undefined,
+      } as any);
       if (error) throw error;
       return data;
     },
@@ -391,7 +391,7 @@ export function UsersAndRolesManager({ activeEntityId }: { activeEntityId?: stri
     if (activeEntityId) {
       setNewSelectedCompanies({ [activeEntityId]: { role: "accountant", is_default: true } });
     } else if (entities.length > 0) {
-      setNewSelectedCompanies({ [entities[0].id]: { role: "accountant", is_default: true } });
+      setNewSelectedCompanies({ [entities[0]!.id]: { role: "accountant", is_default: true } });
     } else {
       setNewSelectedCompanies({});
     }

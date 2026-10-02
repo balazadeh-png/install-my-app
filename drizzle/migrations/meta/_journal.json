@@ -29,6 +29,20 @@
       "when": 1790638952964,
       "tag": "0003_demo_seed_alias_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790983003352,
+      "tag": "0004_seed_demo_bank",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790983044936,
+      "tag": "0005_seed_demo_bank_fix_order",
+      "breakpoints": true
     }
   ]
 }

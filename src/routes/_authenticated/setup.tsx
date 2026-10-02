@@ -1938,7 +1938,7 @@ function SetupPage() {
               </p>
             </div>
             <div className="p-6">
-              <UsersAndRolesManager activeEntityId={activeEntityId} />
+              <UsersAndRolesManager activeEntityId={activeEntityId ?? ""} />
             </div>
           </div>
         </TabsContent>

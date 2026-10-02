@@ -59,6 +59,9 @@ export function DemoDataPanel() {
         const { error: e2 } = await rpc("seed_demo_month", { p_entity: entityId, p_month: iso(m) });
         if (e2) throw e2;
       }
+      setBusy("Generando cartola bancaria de ejemplo...");
+      const { error: e3 } = await rpc("seed_demo_bank");
+      if (e3) throw e3;
       toast.success("Datos de ejemplo cargados. Selecciona 'Logística Austral Demo SpA' en el selector de empresa.");
       await finish();
     } catch (e: any) {
@@ -105,6 +108,22 @@ export function DemoDataPanel() {
       <div className="flex flex-wrap gap-2">
         <Button onClick={load} disabled={!!busy || !!demo}>
           <Database className="h-4 w-4 mr-1.5" /> Cargar datos de ejemplo
+        </Button>
+        <Button
+          variant="outline"
+          disabled={!!busy || !demo}
+          onClick={async () => {
+            setBusy("Generando cartola bancaria de ejemplo...");
+            const { error } = await rpc("seed_demo_bank");
+            setBusy(null);
+            if (error) toast.error(error.message);
+            else {
+              toast.success("Cartola de ejemplo cargada en Banco Estado. Ábrela en Caja y Bancos para conciliar.");
+              await queryClient.invalidateQueries();
+            }
+          }}
+        >
+          <Database className="h-4 w-4 mr-1.5" /> Cargar cartola bancaria de ejemplo
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
