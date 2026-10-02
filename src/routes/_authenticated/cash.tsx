@@ -26,6 +26,7 @@ import {
   generateBankApiMockMovements,
   ParsedBankMovement
 } from "@/lib/bank-reconciliation";
+import { InvoiceSearchCombobox } from "@/components/accounting/InvoiceSearchCombobox";
 
 export const Route = createFileRoute("/_authenticated/cash")({
   component: CashPage,
@@ -1496,37 +1497,43 @@ function CashPage() {
 
             {manualInvoiceType === "sale_invoice" && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Selecciona la Factura de Venta pendiente:</Label>
-                <Select value={manualSelectedInvoiceId} onValueChange={setManualSelectedInvoiceId}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccione Factura" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {pendingSales.map((s: any) => (
-                      <SelectItem key={s.id} value={s.id} className="text-xs">
-                        {s.invoice_number} — {s.party_name} — Saldo: ${Math.round(s.balance_due).toLocaleString("es-CL")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Selecciona la Factura de Venta pendiente:</Label>
+                  {activeLineForManualMatch && (
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      Monto a conciliar: ${Math.round(activeLineForManualMatch.credit_amount || activeLineForManualMatch.debit_amount || 0).toLocaleString("es-CL")}
+                    </span>
+                  )}
+                </div>
+                <InvoiceSearchCombobox
+                  entityId={activeEntityId}
+                  invoiceType="sale"
+                  targetAmount={Number(activeLineForManualMatch?.credit_amount || activeLineForManualMatch?.debit_amount || 0)}
+                  value={manualSelectedInvoiceId}
+                  onSelect={(inv) => setManualSelectedInvoiceId(inv ? inv.id : "")}
+                  placeholder="Buscar factura por N° folio (ej. 1025), cliente, RUT o monto..."
+                />
               </div>
             )}
 
             {manualInvoiceType === "purchase_invoice" && (
               <div className="space-y-1.5">
-                <Label className="text-xs">Selecciona la Factura de Proveedor pendiente:</Label>
-                <Select value={manualSelectedInvoiceId} onValueChange={setManualSelectedInvoiceId}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Seleccione Factura" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {pendingPurchases.map((p: any) => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs">
-                        {p.invoice_number} — {p.party_name} — Saldo: ${Math.round(p.balance_due).toLocaleString("es-CL")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Selecciona la Factura de Proveedor pendiente:</Label>
+                  {activeLineForManualMatch && (
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      Monto a conciliar: ${Math.round(activeLineForManualMatch.credit_amount || activeLineForManualMatch.debit_amount || 0).toLocaleString("es-CL")}
+                    </span>
+                  )}
+                </div>
+                <InvoiceSearchCombobox
+                  entityId={activeEntityId}
+                  invoiceType="purchase"
+                  targetAmount={Number(activeLineForManualMatch?.credit_amount || activeLineForManualMatch?.debit_amount || 0)}
+                  value={manualSelectedInvoiceId}
+                  onSelect={(inv) => setManualSelectedInvoiceId(inv ? inv.id : "")}
+                  placeholder="Buscar factura por N° folio (ej. 1025), proveedor, RUT o monto..."
+                />
               </div>
             )}
 
