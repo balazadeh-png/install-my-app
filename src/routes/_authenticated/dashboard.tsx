@@ -44,7 +44,12 @@ const moduleConfig: Record<string, { icon: React.ReactNode; path: string; descri
   purchases: {
     icon: <ShoppingCart className="h-5 w-5" />,
     path: "/purchases",
-    description: "Directorio de proveedores y control de compras.",
+    description: "Facturación de compra, IVA crédito fiscal y órdenes de compra.",
+  },
+  suppliers: {
+    icon: <Building2 className="h-5 w-5" />,
+    path: "/suppliers",
+    description: "Directorio de proveedores, contratos PDF versionados y catálogo comercial.",
   },
   sales: {
     icon: <Users className="h-5 w-5" />,

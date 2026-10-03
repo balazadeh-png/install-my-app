@@ -45,6 +45,7 @@ export const moduleNavItems = [
   { name: "sales", label: "Ventas", path: "/sales", icon: Users },
   { name: "pos", label: "Punto de Venta (POS)", path: "/pos", icon: Store },
   { name: "purchases", label: "Compras", path: "/purchases", icon: ShoppingCart },
+  { name: "suppliers", label: "Gestión de Proveedores", path: "/suppliers", icon: Building2 },
   { name: "inventory", label: "Inventario", path: "/inventory", icon: Package },
   { name: "dispatch", label: "Guías de Despacho (3PL)", path: "/dispatch", icon: Truck },
   { name: "dashboard-3pl", label: "Dashboard BI 3PL", path: "/dashboard-3pl", icon: TrendingUp },

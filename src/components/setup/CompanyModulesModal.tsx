@@ -53,6 +53,7 @@ const MODULE_ICONS: Record<string, React.ReactNode> = {
   sales: <Users className="h-4 w-4 text-blue-600" />,
   pos: <Store className="h-4 w-4 text-blue-600" />,
   purchases: <ShoppingCart className="h-4 w-4 text-blue-600" />,
+  suppliers: <Building2 className="h-4 w-4 text-blue-600" />,
   inventory: <Package className="h-4 w-4 text-blue-600" />,
   production: <Factory className="h-4 w-4 text-blue-600" />,
   dispatch: <Truck className="h-4 w-4 text-purple-600" />,
@@ -76,6 +77,7 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   sales: "Facturación electrónica, notas de crédito, cotizaciones y clientes.",
   pos: "Punto de venta mostrador con boletas y cierre de caja diario.",
   purchases: "Registro de facturas de proveedores y cuentas por pagar.",
+  suppliers: "Directorio de proveedores, contratos PDF versionados y catálogo comercial de productos/servicios.",
   inventory: "Kardex FIFO de mercaderías, saldos físicos y control de bodegas.",
   production: "Fórmulas de fabricación (BOM), costeo y órdenes de producción.",
   dispatch: "Guías de despacho electrónicas y control de salidas operacionales.",
@@ -238,11 +240,12 @@ export function CompanyModulesModal({ open, onOpenChange, company }: CompanyModu
           break;
 
         case "COMMERCIAL":
-          // Foco Comercial: Ventas, POS, Compras, Inventario, Reportes, Setup
+          // Foco Comercial: Ventas, POS, Compras, Proveedores, Inventario, Reportes, Setup
           newMap[name] = [
             "sales",
             "pos",
             "purchases",
+            "suppliers",
             "inventory",
             "cash",
             "reports",
