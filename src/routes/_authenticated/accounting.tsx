@@ -75,6 +75,7 @@ function AccountingPage() {
   const [accountName, setAccountName] = useState("");
   const [accountType, setAccountType] = useState("Asset");
   const [accountCurrency, setAccountCurrency] = useState<string>("DEFAULT");
+  const [accountIsCurrent, setAccountIsCurrent] = useState<string>("null");
   const [requiresCc, setRequiresCc] = useState(false);
   const [requiresBu, setRequiresBu] = useState(false);
   const [isGroup, setIsGroup] = useState(false);
@@ -258,6 +259,15 @@ function AccountingPage() {
     mutationFn: async () => {
       if (!activeEntityId) throw new Error("Selecciona una empresa primero");
       const finalCurrency = accountCurrency === "DEFAULT" ? null : accountCurrency;
+      const isCurrentVal =
+        accountType === "Asset" || accountType === "Liability"
+          ? accountIsCurrent === "true"
+            ? true
+            : accountIsCurrent === "false"
+            ? false
+            : null
+          : null;
+
       const { error } = await supabase.from("accounts").insert({
         entity_id: activeEntityId,
         code: accountCode.trim(),
@@ -267,22 +277,44 @@ function AccountingPage() {
         requires_cost_center: requiresCc,
         requires_business_unit: requiresBu,
         is_group: isGroup,
+        is_current: isCurrentVal,
         active: true,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["financial_dashboard"] });
       toast.success("Cuenta contable creada correctamente");
       setNewAccountOpen(false);
       setAccountCode("");
       setAccountName("");
       setAccountCurrency("DEFAULT");
+      setAccountIsCurrent("null");
       setRequiresCc(false);
       setRequiresBu(false);
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al crear la cuenta");
+    },
+  });
+
+  // Mutation: Actualizar Clasificación de Liquidez (Corriente / No Corriente)
+  const updateAccountLiquidityMutation = useMutation({
+    mutationFn: async ({ id, is_current }: { id: string; is_current: boolean | null }) => {
+      const { error } = await supabase
+        .from("accounts")
+        .update({ is_current } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts", activeEntityId] });
+      queryClient.invalidateQueries({ queryKey: ["financial_dashboard"] });
+      toast.success("Clasificación de liquidez actualizada");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Error al actualizar clasificación");
     },
   });
 
@@ -605,6 +637,21 @@ function AccountingPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {(accountType === "Asset" || accountType === "Liability") && (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="liquidity" className="text-right">Clasificación</Label>
+                    <Select value={accountIsCurrent} onValueChange={setAccountIsCurrent}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Clasificación de liquidez" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Corriente (Plazo &le; 12 meses)</SelectItem>
+                        <SelectItem value="false">No Corriente (Largo Plazo)</SelectItem>
+                        <SelectItem value="null">Sin clasificar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="currency" className="text-right">Moneda</Label>
                   <Select value={accountCurrency} onValueChange={setAccountCurrency}>
@@ -1296,7 +1343,8 @@ function AccountingPage() {
                         <TableHead>Tipo</TableHead>
                         <TableHead className="text-center">Moneda</TableHead>
                         <TableHead className="text-center">Dimensiones Exigidas</TableHead>
-                        <TableHead className="text-center">Clasificación</TableHead>
+                        <TableHead className="text-center">Clasificación Liquidez</TableHead>
+                        <TableHead className="text-center">Tipo Jerárquico</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
                         <TableHead className="text-center w-24">Acción</TableHead>
                       </TableRow>
@@ -1353,6 +1401,34 @@ function AccountingPage() {
                                 <span className="text-xs text-muted-foreground">-</span>
                               )}
                             </div>
+                          </TableCell>
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            {acc.account_type === "Asset" || acc.account_type === "Liability" ? (
+                              <Select
+                                value={acc.is_current === true ? "true" : acc.is_current === false ? "false" : "null"}
+                                onValueChange={(val) => {
+                                  const newVal = val === "true" ? true : val === "false" ? false : null;
+                                  updateAccountLiquidityMutation.mutate({ id: acc.id, is_current: newVal });
+                                }}
+                              >
+                                <SelectTrigger className="h-7 text-[11px] w-[115px] mx-auto">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="true" className="text-xs">
+                                    <span className="text-emerald-600 font-medium">Corriente</span>
+                                  </SelectItem>
+                                  <SelectItem value="false" className="text-xs">
+                                    <span className="text-blue-600 font-medium">No Corriente</span>
+                                  </SelectItem>
+                                  <SelectItem value="null" className="text-xs">
+                                    <span className="text-amber-600 font-medium">Sin clasificar</span>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-center">
                             {acc.is_group ? (

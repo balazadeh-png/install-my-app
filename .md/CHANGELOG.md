@@ -2,6 +2,40 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 39: Dashboard Financiero (Finanzas) con Ratios IFRS, Flujo de Caja y Drill-Down Multinivel] - 2026-10-03
+
+### Añadido
+* **Migración SQL y Modelo Financiero Analítico** ([`20261003000039_sprint39_dashboard_financiero.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20261003000039_sprint39_dashboard_financiero.sql)):
+  * Columna `is_current boolean DEFAULT NULL` en la tabla `public.accounts` e índice `idx_accounts_is_current` para clasificación formal de liquidez IFRS (Activo/Pasivo Corriente vs No Corriente).
+  * Función RPC `get_account_balance_as_of(p_entity_id uuid, p_account_id uuid, p_as_of_date date)`: calcula el saldo contable acumulado respetando la naturaleza deudora/acreedora de la cuenta.
+  * Función RPC `get_monthly_income_statement(p_entity_id uuid, p_start_date date, p_end_date date)`: serie mensual agregada con ingresos operacionales, costo de ventas (COGS), margen bruto, gastos operacionales (OPEX) y resultado neto.
+  * Función RPC `get_monthly_cash_flow(p_entity_id uuid, p_start_date date, p_end_date date)`: serie mensual agregada de flujos de efectivo netos (cobros, pagos a proveedores/gastos y saldo neto) basada en líneas de diario de cuentas bancarias y de tesorería (`accounts.is_cash = true`).
+  * Función RPC `get_account_type_breakdown(p_entity_id uuid, p_type text, p_start_date date, p_end_date date)`: desglose de cuentas individuales por categoría y rango mensual con monto neto y cálculo porcentual relativo.
+  * Función RPC `get_days_inventory_outstanding(p_entity_id uuid, p_as_of_date date, p_period_days int DEFAULT 365)`: cálculo del Ratio DIO (Días de Rotación de Inventario = Saldo Inventario / COGS Diario) con métricas de stock y costo de ventas.
+  * Función RPC `get_financial_dashboard_summary(p_entity_id uuid, p_as_of_date date)`: cálculo ejecutivo atómico de KPIs IFRS (Activo y Pasivo Corriente, Razón Corriente, Prueba Ácida, Deuda/Patrimonio, Margen Neto, Cuentas por Cobrar y por Pagar, Días DIO, y líneas bancarias pendientes de conciliación).
+  * Registro del módulo `'financial_dashboard'` en el catálogo maestro `public.modules` ('Finanzas') y activación por defecto en `public.company_modules`.
+* **Clasificación de Liquidez en Plan de Cuentas** ([`accounting.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/accounting.tsx)):
+  * Selector en el formulario de creación de cuentas para definir `is_current` (Corriente / No Corriente) en cuentas de Activo y Pasivo.
+  * Nueva columna interactiva "Clasificación Liquidez" en la tabla del catálogo de cuentas con selector reactivo para ajustar en línea la clasificación (`Corriente`, `No Corriente`, `Sin clasificar`) con actualización inmediata en base de datos (`updateAccountLiquidityMutation`).
+* **Navegación y Vistas de Drill-Down Multinivel (Nivel 1, 2 y 3)**:
+  * Diálogo modal [`AccountTypeBreakdownDialog.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/accounting/AccountTypeBreakdownDialog.tsx): Nivel 2 que muestra el desglose analítico de cuentas para una categoría y mes seleccionados en los gráficos, con porcentaje de contribución y botón directo "Ver Libro Mayor".
+  * Drawer de Libro Mayor [`AccountLedgerDrawer.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/accounting/AccountLedgerDrawer.tsx): Nivel 3 optimizado con propiedades `defaultStartDate` y `defaultEndDate` para abrir directamente el rango del mes inspeccionado, permitiendo saltar con un clic al comprobante de origen (`SourceDocumentDialog`).
+* **Página y Dashboard Financiero Ejecutivo** ([`dashboard-financiero.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-financiero.tsx)):
+  * Selector global de período (rango de meses) y fecha de corte.
+  * Gráfico de Estado de Resultados Mensual (Recharts ComposedChart de barras y línea de margen neto) con botones de drill-down rápido por categoría.
+  * Gráfico de Flujo de Caja Operativo Mensual con drill-down a libro mayor de tesorería y bancos.
+  * Tarjetas de Cuentas por Cobrar (Clientes) y Cuentas por Pagar (Proveedores) con saldos al corte y acceso directo a mayor contable.
+  * Indicador de Rotación de Inventarios (Días DIO) con stock promedio valorizado y costo de ventas.
+  * Panel IFRS de Ratios de Liquidez (Razón Corriente, Prueba Ácida), Endeudamiento (Deuda / Patrimonio) y Rentabilidad (Margen Neto), con alerta de auditoría si existen cuentas de balance sin clasificar.
+  * Tarjeta de Alerta de Tesorería con movimientos bancarios pendientes de conciliación y enlace directo al módulo de bancos.
+* **Integración Global de Navegación y Permisos**:
+  * Registro de ruta `/dashboard-financiero` en [`routeTree.gen.ts`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routeTree.gen.ts).
+  * Tarjeta de acceso en el panel principal [`dashboard.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard.tsx).
+  * Acceso directo en cabecera global [`AppHeader.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/layout/AppHeader.tsx).
+  * Configuración y preset contable en modal de módulos [`CompanyModulesModal.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/setup/CompanyModulesModal.tsx).
+
+---
+
 ## [Sprint 38: Órdenes de Compra con Catálogo de Proveedor y Numeración Atómica] - 2026-10-03
 
 ### Añadido

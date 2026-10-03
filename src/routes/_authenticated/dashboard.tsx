@@ -23,6 +23,7 @@ import {
   Landmark,
   FileBadge2,
   Shield,
+  TrendingUp,
 } from "lucide-react";
 
 const moduleConfig: Record<string, { icon: React.ReactNode; path: string; description: string }> = {
@@ -100,6 +101,16 @@ const moduleConfig: Record<string, { icon: React.ReactNode; path: string; descri
     icon: <BarChart3 className="h-5 w-5" />,
     path: "/reports",
     description: "Balance general, estado de resultados y balanza.",
+  },
+  financial_dashboard: {
+    icon: <TrendingUp className="h-5 w-5" />,
+    path: "/dashboard-financiero",
+    description: "Indicadores IFRS, Estado de Resultados mensual, Flujo de Caja y drill-down.",
+  },
+  "financial-dashboard": {
+    icon: <TrendingUp className="h-5 w-5" />,
+    path: "/dashboard-financiero",
+    description: "Indicadores IFRS, Estado de Resultados mensual, Flujo de Caja y drill-down.",
   },
   setup: {
     icon: <Settings className="h-5 w-5" />,

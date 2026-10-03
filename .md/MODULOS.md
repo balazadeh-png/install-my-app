@@ -518,3 +518,24 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Desglose completo de líneas con SKU de catálogo, cantidades, precios unitarios, tasas de IVA y subtotales.
   * Cuadro de observaciones comerciales y de entrega, resumen de totales (Neto, IVA 19% y Total OC) y botón de impresión directa / PDF (`window.print()`).
 
+---
+
+## 32. Dashboard Financiero (Finanzas) con Ratios IFRS, Flujo de Caja & Drill-Down Multinivel ([`/dashboard-financiero`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/dashboard-financiero.tsx))
+* **Clasificación de Liquidez IFRS en Plan de Cuentas (`accounts.is_current`)**:
+  * Extensión del catálogo de cuentas contables con clasificación de liquidez `is_current` (Corriente / No Corriente) en cuentas de Activo y Pasivo.
+  * Edición reactiva e inmediata desde la tabla del Plan de Cuentas mediante selector en línea (`accounting.tsx`).
+* **Visualización Ejecutiva de Alto Nivel (Nivel 1)**:
+  * **Estado de Resultados Mensual**: Gráfico compuesto (Recharts) que desglosa ingresos operacionales, costo de ventas (COGS), margen bruto, gastos operacionales (OPEX) y resultado neto con línea de margen porcentual.
+  * **Flujo de Caja Operativo Mensual**: Gráfico de entradas (cobros a clientes), salidas (pagos de proveedores y gastos) y flujo neto de caja sobre cuentas bancarias (`accounts.is_cash = true`).
+  * **Cuentas por Cobrar & Cuentas por Pagar**: Tarjetas analíticas con saldos pendientes acumulados a la fecha de corte y enlace directo al Libro Mayor contable.
+  * **Rotación de Inventarios (Días DIO)**: Indicador de días de permanencia de existencias basado en stock promedio valorizado sobre costo de venta diario.
+  * **Panel de Ratios Financieros IFRS**: Razón Corriente ($\text{Activo Corriente} / \text{Pasivo Corriente}$), Prueba Ácida ($(\text{Activo Corriente} - \text{Inventario}) / \text{Pasivo Corriente}$), Ratio de Endeudamiento ($\text{Pasivo Total} / \text{Patrimonio}$) y Margen Neto sobre Ventas, complementados con alertas de auditoría ante cuentas no clasificadas.
+  * **Alerta de Conciliación Bancaria**: Movimientos de cartola bancaria no conciliados con enlace directo al módulo de bancos y tesorería.
+* **Desglose Analítico por Categoría (Nivel 2 - `AccountTypeBreakdownDialog`)**:
+  * Modal que desglosa las cuentas contables individuales pertenecientes a una categoría y mes específicos seleccionados desde los gráficos.
+  * Muestra código contable, nombre de cuenta, monto acumulado y porcentaje de participación sobre el total de la categoría.
+* **Trazabilidad a Nivel de Transacción y Comprobante (Nivel 3 - `AccountLedgerDrawer` & `SourceDocumentDialog`)**:
+  * Apertura sincronizada del Drawer de Libro Mayor parametrizado para la cuenta y mes seleccionados en el nivel anterior.
+  * Visualización de movimientos individuales débito/crédito, glosa, saldo progresivo y botón de enlace al comprobante contable original (factura de venta/compra, movimiento de tesorería o asiento de diario).
+
+

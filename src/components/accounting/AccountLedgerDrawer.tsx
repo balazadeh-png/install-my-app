@@ -42,6 +42,8 @@ interface AccountLedgerDrawerProps {
   } | null;
   defaultCostCenterId?: string;
   defaultBusinessUnitId?: string;
+  defaultStartDate?: string;
+  defaultEndDate?: string;
 }
 
 export function AccountLedgerDrawer({
@@ -50,13 +52,15 @@ export function AccountLedgerDrawer({
   account,
   defaultCostCenterId = "ALL",
   defaultBusinessUnitId = "ALL",
+  defaultStartDate,
+  defaultEndDate,
 }: AccountLedgerDrawerProps) {
   const { activeEntityId, activeEntity } = useActiveEntity();
   const baseCurrency = activeEntity?.base_currency_code || "CLP";
 
   const currentYear = new Date().getFullYear();
-  const [startDate, setStartDate] = useState(`${currentYear}-01-01`);
-  const [endDate, setEndDate] = useState(`${currentYear}-12-31`);
+  const [startDate, setStartDate] = useState(defaultStartDate || `${currentYear}-01-01`);
+  const [endDate, setEndDate] = useState(defaultEndDate || `${currentYear}-12-31`);
   const [selectedCostCenter, setSelectedCostCenter] = useState<string>(defaultCostCenterId);
   const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>(defaultBusinessUnitId);
 
@@ -64,7 +68,9 @@ export function AccountLedgerDrawer({
   useEffect(() => {
     if (defaultCostCenterId) setSelectedCostCenter(defaultCostCenterId);
     if (defaultBusinessUnitId) setSelectedBusinessUnit(defaultBusinessUnitId);
-  }, [defaultCostCenterId, defaultBusinessUnitId]);
+    if (defaultStartDate) setStartDate(defaultStartDate);
+    if (defaultEndDate) setEndDate(defaultEndDate);
+  }, [defaultCostCenterId, defaultBusinessUnitId, defaultStartDate, defaultEndDate]);
 
   // Estado para el modal de Documento Fuente
   const [selectedJournalEntryId, setSelectedJournalEntryId] = useState<string | null>(null);

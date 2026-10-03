@@ -17,6 +17,7 @@ import { Route as AuthenticatedAccountingRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAssetsRouteImport } from './routes/_authenticated/assets'
 import { Route as AuthenticatedCashRouteImport } from './routes/_authenticated/cash'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDashboardFinancieroRouteImport } from './routes/_authenticated/dashboard-financiero'
 import { Route as AuthenticatedDashboard3plRouteImport } from './routes/_authenticated/dashboard-3pl'
 import { Route as AuthenticatedDeclaracionesJuradasRouteImport } from './routes/_authenticated/declaraciones-juradas'
 import { Route as AuthenticatedDispatchRouteImport } from './routes/_authenticated/dispatch'
@@ -72,6 +73,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDashboardFinancieroRoute =
+  AuthenticatedDashboardFinancieroRouteImport.update({
+    id: '/dashboard-financiero',
+    path: '/dashboard-financiero',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboard3plRoute =
   AuthenticatedDashboard3plRouteImport.update({
     id: '/dashboard-3pl',
@@ -162,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/assets': typeof AuthenticatedAssetsRoute
   '/cash': typeof AuthenticatedCashRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dashboard-financiero': typeof AuthenticatedDashboardFinancieroRoute
   '/dashboard-3pl': typeof AuthenticatedDashboard3plRoute
   '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
@@ -186,6 +194,7 @@ export interface FileRoutesByTo {
   '/assets': typeof AuthenticatedAssetsRoute
   '/cash': typeof AuthenticatedCashRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dashboard-financiero': typeof AuthenticatedDashboardFinancieroRoute
   '/dashboard-3pl': typeof AuthenticatedDashboard3plRoute
   '/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
   '/dispatch': typeof AuthenticatedDispatchRoute
@@ -213,6 +222,7 @@ export interface FileRoutesById {
   '/_authenticated/assets': typeof AuthenticatedAssetsRoute
   '/_authenticated/cash': typeof AuthenticatedCashRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/dashboard-financiero': typeof AuthenticatedDashboardFinancieroRoute
   '/_authenticated/dashboard-3pl': typeof AuthenticatedDashboard3plRoute
   '/_authenticated/declaraciones-juradas': typeof AuthenticatedDeclaracionesJuradasRoute
   '/_authenticated/dispatch': typeof AuthenticatedDispatchRoute
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/assets'
     | '/cash'
     | '/dashboard'
+    | '/dashboard-financiero'
     | '/dashboard-3pl'
     | '/declaraciones-juradas'
     | '/dispatch'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/assets'
     | '/cash'
     | '/dashboard'
+    | '/dashboard-financiero'
     | '/dashboard-3pl'
     | '/declaraciones-juradas'
     | '/dispatch'
@@ -289,6 +301,7 @@ export interface FileRouteTypes {
     | '/_authenticated/assets'
     | '/_authenticated/cash'
     | '/_authenticated/dashboard'
+    | '/_authenticated/dashboard-financiero'
     | '/_authenticated/dashboard-3pl'
     | '/_authenticated/declaraciones-juradas'
     | '/_authenticated/dispatch'
@@ -372,6 +385,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard-financiero': {
+      id: '/_authenticated/dashboard-financiero'
+      path: '/dashboard-financiero'
+      fullPath: '/dashboard-financiero'
+      preLoaderRoute: typeof AuthenticatedDashboardFinancieroRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard-3pl': {
@@ -494,6 +514,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAssetsRoute: typeof AuthenticatedAssetsRoute
   AuthenticatedCashRoute: typeof AuthenticatedCashRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDashboardFinancieroRoute: typeof AuthenticatedDashboardFinancieroRoute
   AuthenticatedDashboard3plRoute: typeof AuthenticatedDashboard3plRoute
   AuthenticatedDeclaracionesJuradasRoute: typeof AuthenticatedDeclaracionesJuradasRoute
   AuthenticatedDispatchRoute: typeof AuthenticatedDispatchRoute
@@ -514,6 +535,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAssetsRoute: AuthenticatedAssetsRoute,
   AuthenticatedCashRoute: AuthenticatedCashRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDashboardFinancieroRoute: AuthenticatedDashboardFinancieroRoute,
   AuthenticatedDashboard3plRoute: AuthenticatedDashboard3plRoute,
   AuthenticatedDeclaracionesJuradasRoute:
     AuthenticatedDeclaracionesJuradasRoute,

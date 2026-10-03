@@ -206,6 +206,25 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
   * **Seguridad y Visibilidad Multi-Tenant (RLS)**:
     * Staff interno: administración completa de órdenes y líneas mediante `user_has_company_access(auth.uid(), entity_id)` y roles `admin` o `purchasing`.
     * Portal de proveedores: acceso en modo solo lectura (`SELECT`) a sus propias órdenes y líneas emitidas a través de `user_has_party_access(party_id)`.
+* **Dashboard Financiero con Ratios IFRS y Flujo de Caja (Sprint 39)**:
+  * **Clasificación de Liquidez IFRS en Plan de Cuentas (`accounts.is_current`)**:
+    * Soporte explícito para distinguir Activo Corriente / No Corriente y Pasivo Corriente / No Corriente según estándares IFRS, manteniendo consistencia hacia atrás para cuentas previas (`is_current IS NULL`).
+    * Actualización reactiva e inmediata en base de datos desde la interfaz de usuario en `accounting.tsx`.
+  * **Funciones SQL Analíticas y de Agregación Segura (`SECURITY DEFINER`)**:
+    * `get_account_balance_as_of`: cómputo acumulado de saldos a una fecha de corte, respetando la naturaleza deudora/acreedora de cada cuenta contable.
+    * `get_monthly_income_statement`: agregación mensual de ingresos ordinarios, costo de ventas (COGS), margen bruto, gastos operacionales (OPEX) y resultado neto sin recorrer registros línea a línea en el cliente.
+    * `get_monthly_cash_flow`: cálculo de flujos mensuales netos de efectivo analizando transacciones imputadas a cuentas de tesorería y bancos (`accounts.is_cash = true`).
+    * `get_account_type_breakdown`: desglose granular de cuentas individuales que componen cada tipo contable en un mes dado, computando montos netos y participación porcentual.
+    * `get_days_inventory_outstanding`: cálculo de rotación de inventarios IFRS (Días DIO = Saldo de Inventario al corte / Costo de Ventas Diario del período).
+    * `get_financial_dashboard_summary`: cálculo ejecutivo centralizado de KPIs patrimoniales y ratios IFRS (Razón Corriente, Prueba Ácida, Ratio de Endeudamiento, Margen Neto, Cuentas por Cobrar/Pagar, Días DIO y alertas de conciliación bancaria).
+  * **Arquitectura de Drill-Down Multinivel (Nivel 1 $\rightarrow$ Nivel 2 $\rightarrow$ Nivel 3 $\rightarrow$ Documento Origen)**:
+    * **Nivel 1**: Dashboard ejecutivo con gráficos interactivos Recharts y tarjetas KPI.
+    * **Nivel 2**: Diálogo modal `AccountTypeBreakdownDialog` que lista las cuentas contables que componen la barra o categoría seleccionada para ese mes.
+    * **Nivel 3**: Drawer `AccountLedgerDrawer` parametrizado con `defaultStartDate` y `defaultEndDate` para ver los movimientos del Libro Mayor en el rango exacto del mes seleccionado.
+    * **Documento Origen**: Diálogo `SourceDocumentDialog` que muestra la factura de venta/compra, movimiento de tesorería o asiento de diario que originó el registro.
+  * **Gobernanza de Módulos**:
+    * Registro de `financial_dashboard` en `public.modules` con backfill automático en `public.company_modules` y presets de habilitación modular (`ACCOUNTING`).
+
 
 
 
