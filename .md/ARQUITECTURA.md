@@ -194,6 +194,19 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
   * **Portal de Proveedores sobre Infraestructura Existente**:
     * Reutilización de `party_portal_users` y `user_has_party_access` bajo la ruta unificada `_portal/`.
     * Detección por `parties.classification = 'supplier'`: el portal concede permisos de escritura (RLS `FOR ALL`) sobre `supplier_catalog_items` para que el proveedor administre su catálogo de forma autónoma, y modo solo lectura (RLS `FOR SELECT`) sobre `supplier_contracts`.
+* **Órdenes de Compra con Catálogo de Proveedor y Numeración Atómica (Sprint 38)**:
+  * **Modelo de Cabecera y Líneas Transaccionales (`purchase_orders`, `purchase_order_lines`)**:
+    * Cabecera con datos de proveedor, destino (bodega y centro de costos), moneda, observaciones comerciales y estados `draft`, `sent`, `confirmed`, `cancelled`, `closed`.
+    * Detalle de líneas asociado directamente al catálogo del proveedor (`supplier_catalog_items`), persistiendo tipo de ítem (`producto` o `servicio`), cantidad, precio unitario pactado y tasa de IVA.
+  * **Numeración Atómica Concurrente sin Huecos ni Colisiones**:
+    * Reutilización de la función de base de datos `public.get_next_entry_number(_entity_id, 'OC-')` (Sprint 2) que utiliza bloqueo pesimista de fila `FOR UPDATE` sobre `naming_series`.
+    * La asignación ocurre al crear la orden de compra dentro de la función PL/pgSQL `public.create_purchase_order(...)`, garantizando que la creación de cabecera y líneas ocurra en una única transacción atómica (`todo o nada`).
+  * **Preparación Estructural para el 3-Way Match (`purchase_invoices.purchase_order_id`)**:
+    * Incorporación de clave foránea nullable en `purchase_invoices` apuntando a `purchase_orders.id`, dejando dispuesta la relación relacional para el futuro sprint de conciliación tripartita entre Orden de Compra, Recepción de Existencias y Factura de Compra.
+  * **Seguridad y Visibilidad Multi-Tenant (RLS)**:
+    * Staff interno: administración completa de órdenes y líneas mediante `user_has_company_access(auth.uid(), entity_id)` y roles `admin` o `purchasing`.
+    * Portal de proveedores: acceso en modo solo lectura (`SELECT`) a sus propias órdenes y líneas emitidas a través de `user_has_party_access(party_id)`.
+
 
 
 

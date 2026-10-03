@@ -30,9 +30,12 @@ import {
   Package,
   AlertTriangle,
   FileSpreadsheet,
+  Eye,
 } from "lucide-react";
 import { SupplierContractManagerDialog } from "@/components/purchases/SupplierContractManagerDialog";
 import { SupplierCatalogManagerDialog } from "@/components/purchases/SupplierCatalogManagerDialog";
+import { CreatePurchaseOrderDialog } from "@/components/purchases/CreatePurchaseOrderDialog";
+import { ViewPurchaseOrderDialog } from "@/components/purchases/ViewPurchaseOrderDialog";
 
 export const Route = createFileRoute("/_authenticated/purchases")({
   component: PurchasesPage,
@@ -76,6 +79,11 @@ function PurchasesPage() {
   const [catalogSupplier, setCatalogSupplier] = useState<any>(null);
   const [contractDialogOpen, setContractDialogOpen] = useState(false);
   const [catalogDialogOpen, setCatalogDialogOpen] = useState(false);
+
+  // Estados para Órdenes de Compra (Sprint 38)
+  const [createPOOpen, setCreatePOOpen] = useState(false);
+  const [viewPOId, setViewPOId] = useState<string | null>(null);
+  const [viewPOOpen, setViewPOOpen] = useState(false);
 
   // Form State Factura de Compra
   const [invPartyId, setInvPartyId] = useState("");
@@ -121,6 +129,28 @@ function PurchasesPage() {
         .eq("entity_id", activeEntityId)
         .order("name", { ascending: true });
       if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!activeEntityId,
+  });
+
+  const purchaseOrdersQuery = useQuery({
+    queryKey: ["purchase_orders", activeEntityId],
+    queryFn: async () => {
+      if (!activeEntityId) return [];
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select(`
+          *,
+          parties(name, tax_id, commercial_name),
+          warehouses(code, name)
+        `)
+        .eq("entity_id", activeEntityId)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.warn("Error loading purchase orders:", error);
+        return [];
+      }
       return data ?? [];
     },
     enabled: !!activeEntityId,
@@ -249,6 +279,7 @@ function PurchasesPage() {
   const bankAccounts = bankAccountsQuery.data ?? [];
   const currencies = currenciesQuery.data ?? [];
   const purchaseInvoices = purchaseInvoicesQuery.data ?? [];
+  const purchaseOrders = purchaseOrdersQuery.data ?? [];
   const balances = balancesQuery.data ?? [];
 
   // Cálculos dinámicos de líneas de factura
@@ -884,6 +915,17 @@ function PurchasesPage() {
             </DialogContent>
           </Dialog>
 
+          {/* Botón Nueva Orden de Compra (Sprint 38) */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setCreatePOOpen(true)}
+          >
+            <ShoppingCart className="h-3.5 w-3.5 text-primary" />
+            <span>Nueva Orden de Compra</span>
+          </Button>
+
           {/* Dialog Registrar Pago a Proveedor */}
           <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
             <DialogContent className="max-w-md">
@@ -1003,12 +1045,16 @@ function PurchasesPage() {
             <FileText className="h-4 w-4" />
             <span>Facturas de Compra ({purchaseInvoices.length})</span>
           </TabsTrigger>
+          <TabsTrigger value="purchase_orders" className="flex items-center gap-1.5">
+            <ShoppingCart className="h-4 w-4 text-primary" />
+            <span>Órdenes de Compra ({purchaseOrders.length})</span>
+          </TabsTrigger>
           <TabsTrigger value="balances" className="flex items-center gap-1.5">
             <DollarSign className="h-4 w-4" />
             <span>Cuentas por Pagar & Saldos</span>
           </TabsTrigger>
           <TabsTrigger value="suppliers" className="flex items-center gap-1.5">
-            <ShoppingCart className="h-4 w-4" />
+            <Package className="h-4 w-4" />
             <span>Directorio de Proveedores ({suppliers.length})</span>
           </TabsTrigger>
         </TabsList>
@@ -1113,6 +1159,124 @@ function PurchasesPage() {
                           </TableRow>
                         );
                       })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab Órdenes de Compra (Sprint 38) */}
+        <TabsContent value="purchase_orders">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4 text-primary" />
+                    <span>Órdenes de Compra a Proveedores (OC)</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Emisión de pedidos con ítems seleccionados desde el catálogo comercial de proveedores y numeración atómica correlativa.
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={() => setCreatePOOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Nueva Orden de Compra</span>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {purchaseOrders.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <ShoppingCart className="mx-auto h-8 w-8 mb-2 opacity-50 text-primary" />
+                  <p className="text-sm font-medium">No hay órdenes de compra registradas aún.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Genera tu primera orden seleccionando ítems del catálogo de tus suplidores.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 text-xs gap-1.5"
+                    onClick={() => setCreatePOOpen(true)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Crear primera Orden de Compra
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-xs">
+                        <TableHead className="w-[130px]">N° Orden (OC)</TableHead>
+                        <TableHead>Proveedor</TableHead>
+                        <TableHead>Fecha Emisión</TableHead>
+                        <TableHead>Entrega Esperada</TableHead>
+                        <TableHead className="text-right">Neto</TableHead>
+                        <TableHead className="text-right">IVA 19%</TableHead>
+                        <TableHead className="text-right">Total OC</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                        <TableHead className="text-right">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {purchaseOrders.map((po: any) => (
+                        <TableRow key={po.id} className="text-xs">
+                          <TableCell className="font-mono font-bold text-primary">
+                            {po.po_number}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-semibold text-xs">{po.parties?.name}</div>
+                            <div className="text-[11px] text-muted-foreground font-mono">
+                              {po.parties?.tax_id || "Sin RUT"}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{po.issue_date}</TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {po.expected_date || "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            $ {Number(po.subtotal_amount).toLocaleString("es-CL")}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                            $ {Number(po.tax_amount).toLocaleString("es-CL")}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs font-bold">
+                            $ {Number(po.total_amount).toLocaleString("es-CL")} {po.currency_code}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {po.status === "confirmed" ? (
+                              <Badge className="bg-emerald-600 text-white text-[10px]">Confirmada</Badge>
+                            ) : po.status === "sent" ? (
+                              <Badge className="bg-blue-600 text-white text-[10px]">Enviada</Badge>
+                            ) : po.status === "cancelled" ? (
+                              <Badge variant="destructive" className="text-[10px]">Anulada</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">Borrador</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => {
+                                setViewPOId(po.id);
+                                setViewPOOpen(true);
+                              }}
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>Ver / PDF</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
@@ -1317,6 +1481,26 @@ function PurchasesPage() {
         onOpenChange={setCatalogDialogOpen}
         supplier={catalogSupplier}
         entityId={activeEntityId || ""}
+      />
+
+      {/* Diálogos de Órdenes de Compra (Sprint 38) */}
+      <CreatePurchaseOrderDialog
+        open={createPOOpen}
+        onOpenChange={setCreatePOOpen}
+        entityId={activeEntityId || ""}
+        suppliers={suppliers}
+        warehouses={warehouses}
+        costCenters={costCenters}
+        currencies={currencies}
+        onSuccess={(newId) => {
+          setViewPOId(newId);
+          setViewPOOpen(true);
+        }}
+      />
+      <ViewPurchaseOrderDialog
+        open={viewPOOpen}
+        onOpenChange={setViewPOOpen}
+        purchaseOrderId={viewPOId}
       />
     </div>
   );

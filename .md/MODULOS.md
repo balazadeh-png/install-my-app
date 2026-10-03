@@ -496,3 +496,25 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
   * Vista condicional adaptada para terceros con clasificación `'supplier'`:
     * Pestaña "Mi Catálogo": lectura, alta, edición y carga masiva por Excel de sus propios productos/servicios.
     * Pestaña "Mis Contratos": consulta y descarga en PDF de todas sus versiones de contratos y acuerdos comerciales en modo protegido de solo lectura.
+
+---
+
+## 31. Órdenes de Compra con Catálogo de Proveedor & Numeración Atómica ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx))
+* **Ciclo Operativo de Órdenes de Compra (`purchase_orders`, `purchase_order_lines`)**:
+  * Emisión de órdenes de compra con discriminación de proveedor, bodega de destino, centro de costo, fecha esperada de entrega, moneda y observaciones comerciales.
+  * Estados operativos soportados (`po_status`): `draft` (borrador), `sent` (enviada al proveedor), `confirmed` (confirmada/aprobada), `cancelled` (anulada) y `closed` (cerrada por recepción/facturación completa).
+* **Numeración Atómica Concurrente (`get_next_entry_number`)**:
+  * Asignación del número de orden correlativo (`OC-000001`) al momento de la creación mediante la función de base de datos `get_next_entry_number(_entity_id, 'OC-')`.
+  * Bloqueo pesimista de fila `FOR UPDATE` para garantizar secuencias ininterrumpidas y prevenir colisiones numéricas ante solicitudes simultáneas de emisión.
+* **Integración Dinámica con el Catálogo del Proveedor (`supplier_catalog_items`)**:
+  * Formulario de líneas interactivo donde el combo de ítems se filtra de manera estricta al catálogo activo del proveedor seleccionado.
+  * Autocompletado de descripción técnica/comercial, tipo (`producto` o `servicio`) y precio unitario pactado con el proveedor.
+  * Discriminación de tratamiento según si la línea es un producto tangible (con cantidad física para control de existencias) o un servicio/honorario.
+* **Gancho de Preparación para el 3-Way Match (`purchase_invoices.purchase_order_id`)**:
+  * Enlace estructural entre la factura de compra de proveedores y la orden de compra original.
+  * Permite la trazabilidad documental para futura conciliación tripartita entre Orden de Compra, Guía de Recepción y Factura SII.
+* **Vista Detallada e Impresión / PDF (`ViewPurchaseOrderDialog`)**:
+  * Membrete formal con datos tributarios de la empresa compradora y del proveedor destinatario.
+  * Desglose completo de líneas con SKU de catálogo, cantidades, precios unitarios, tasas de IVA y subtotales.
+  * Cuadro de observaciones comerciales y de entrega, resumen de totales (Neto, IVA 19% y Total OC) y botón de impresión directa / PDF (`window.print()`).
+

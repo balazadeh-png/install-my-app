@@ -2,6 +2,25 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 38: Órdenes de Compra con Catálogo de Proveedor y Numeración Atómica] - 2026-10-03
+
+### Añadido
+* **Migración SQL y Modelo de Órdenes de Compra (OC)** ([`20261003000038_sprint38_orden_de_compra.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20261003000038_sprint38_orden_de_compra.sql)):
+  * Tipo enum `public.po_status` con estados `'draft'`, `'sent'`, `'confirmed'`, `'cancelled'`, `'closed'`.
+  * Tabla `public.purchase_orders`: cabecera de orden de compra multiempresa con correlativo atómico `po_number` (único por `entity_id` y `po_number`), proveedor (`party_id`), bodega de destino (`warehouse_id`), centro de costos (`cost_center_id`), fechas de emisión y entrega esperada, moneda y tipo de cambio, observaciones comerciales y montos calculados (neto, IVA y total).
+  * Tabla `public.purchase_order_lines`: detalle de líneas enlazadas con `supplier_catalog_items` (catálogo del proveedor), discriminación de `item_type` (`'producto'` o `'servicio'`), cantidad, precio pactado, tasa de IVA y subtotal de línea.
+  * Columna gancho `purchase_invoices.purchase_order_id` (FK nullable) para permitir la asociación y habilitar el futuro 3-Way Match entre OC y facturación sin alterar registros históricos.
+  * Función RPC transaccional `public.create_purchase_order(...)`: asigna el número de orden de forma atómica mediante `get_next_entry_number(_entity_id, 'OC-')` con bloqueo pesimista `FOR UPDATE`, valida cantidades y precios positivos, calcula subtotales e impuestos e inserta cabecera y líneas en una sola transacción protegida por `SECURITY DEFINER`.
+  * Políticas de Seguridad RLS: permisos completos para el staff interno según la empresa activa (`user_has_company_access`) y permisos de solo lectura para proveedores en el portal sobre sus propias órdenes (`user_has_party_access`).
+* **Componentes de Emisión y Consulta de Órdenes de Compra**:
+  * Diálogo modal [`CreatePurchaseOrderDialog.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/purchases/CreatePurchaseOrderDialog.tsx): formulario de cabecera con selección de proveedor, bodega de recepción, centro de costo, fecha esperada y glosa de observaciones. Selector dinámico de ítems en cada línea filtrado estrictamente al catálogo activo del proveedor seleccionado, prellenando descripción comercial, tipo y precio unitario pactado con recálculo dinámico de subtotal, IVA (19%) y total.
+  * Diálogo modal [`ViewPurchaseOrderDialog.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/purchases/ViewPurchaseOrderDialog.tsx): vista detallada con membrete formal, datos del proveedor y recepción, desglose de líneas con SKU de catálogo, observaciones de despacho, totales y botón de impresión / PDF (`window.print()`).
+* **Integración en Módulo de Compras** ([`purchases.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx)):
+  * Botón de acción rápida "Nueva Orden de Compra" en la cabecera.
+  * Pestaña dedicada "Órdenes de Compra ({count})": listado con número de OC, proveedor, fecha, entrega esperada, montos neto / IVA / total, badge de estado y botón "Ver / PDF".
+
+---
+
 ## [Sprint 37: Gestión de Proveedores, Catálogo y Portal] - 2026-10-03
 
 ### Añadido
