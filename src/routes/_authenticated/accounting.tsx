@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { SourceDocumentDialog } from "@/components/accounting/SourceDocumentDialog";
 import { AccountLedgerDrawer } from "@/components/accounting/AccountLedgerDrawer";
+import { AccountSearchCombobox } from "@/components/accounting/AccountSearchCombobox";
 
 export const Route = createFileRoute("/_authenticated/accounting")({
   component: AccountingPage,
@@ -854,23 +855,12 @@ function AccountingPage() {
                       {computedLines.calculated.map((line, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="p-2">
-                            <Select
+                            <AccountSearchCombobox
+                              accounts={accounts}
                               value={line.account_id}
-                              onValueChange={(val) => handleLineChange(idx, "account_id", val)}
-                            >
-                              <SelectTrigger className="h-8 text-xs font-mono">
-                                <SelectValue placeholder="Seleccionar cuenta" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {accounts
-                                  .filter((a) => !a.is_group)
-                                  .map((acc) => (
-                                    <SelectItem key={acc.id} value={acc.id}>
-                                      {acc.code} - {acc.name} {acc.currency_code ? `(${acc.currency_code})` : ""}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
+                              onSelect={(accId) => handleLineChange(idx, "account_id", accId)}
+                              placeholder="Seleccionar cuenta..."
+                            />
                           </TableCell>
 
                           {/* Centro de Costo */}
