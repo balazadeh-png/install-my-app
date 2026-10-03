@@ -237,10 +237,17 @@ function DeclaracionesJuradasPage() {
       toast.error("No hay datos generados para descargar");
       return;
     }
+    // Neutralize spreadsheet formula prefixes and escape quotes so a saved
+    // label cannot execute as a formula when the CSV is opened in Excel/Sheets.
+    const csvSafe = (value: unknown): string => {
+      let s = String(value ?? "").replace(/"/g, '""');
+      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+      return s;
+    };
     const headers = "Campo_Oficial;Valor_Calculado_CLP";
     const fields = (currentDj?.field_schema as any[]) || [];
     const rows = fields
-      .map((f) => `"${f.label}";"${Number(currentGen.generated_values[f.key] || 0)}"`)
+      .map((f) => `"${csvSafe(f.label)}";"${csvSafe(Number(currentGen.generated_values[f.key] || 0))}"`)
       .join("\n");
 
     const blob = new Blob([`${headers}\n${rows}`], { type: "text/csv;charset=utf-8;" });

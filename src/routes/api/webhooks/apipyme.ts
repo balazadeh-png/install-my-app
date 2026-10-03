@@ -25,14 +25,25 @@ export const Route = createFileRoute("/api/webhooks/apipyme")({
     handlers: {
       POST: async ({ request }: { request: Request }) => {
     try {
-      // 1. Validar Webhook Secret
-      const expectedSecret =
-        process.env["APIPYME_WEBHOOK_SECRET"] ||
-        process.env["VITE_APIPYME_WEBHOOK_SECRET"];
+      // 1. Validar Webhook Secret — obligatorio: si no está configurado en el
+      // servidor, se rechaza la llamada (nunca se omite la verificación).
+      const expectedSecret = process.env["APIPYME_WEBHOOK_SECRET"];
 
-      const providedSecret = request.headers.get("X-Webhook-Secret");
+      if (!expectedSecret) {
+        console.error("APIPYME_WEBHOOK_SECRET is not configured; rejecting webhook call");
+        return new Response(JSON.stringify({ error: "Webhook not configured" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
 
-      if (expectedSecret && providedSecret !== expectedSecret) {
+      const providedSecret = request.headers.get("X-Webhook-Secret") ?? "";
+
+      const { createHmac, timingSafeEqual } = await import("crypto");
+      const expectedDigest = createHmac("sha256", expectedSecret).update("webhook").digest();
+      const providedDigest = createHmac("sha256", providedSecret).update("webhook").digest();
+
+      if (!timingSafeEqual(expectedDigest, providedDigest)) {
         return new Response(JSON.stringify({ error: "Unauthorized webhook" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },

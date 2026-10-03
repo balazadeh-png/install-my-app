@@ -146,6 +146,18 @@ export const assignAdminIfFirst = createServerFn({ method: "POST" })
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    // Bootstrap only: allow self-promotion solely when no admin exists yet.
+    // Otherwise any signed-in user without a role could grant themselves admin.
+    const { count: adminCount, error: countError } = await supabaseAdmin
+      .from("user_roles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "admin");
+
+    if (countError) throw new Error(countError.message);
+    if ((adminCount ?? 0) > 0) {
+      return { assigned: false };
+    }
+
     const { error } = await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: userId, role: "admin" as AppRole });
