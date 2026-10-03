@@ -3063,6 +3063,7 @@ export type Database = {
           tax_amount: number
           total_amount: number
           warehouse_id: string | null
+          updated_at: string
         }
         Insert: {
           business_unit_id?: string | null
@@ -3084,6 +3085,7 @@ export type Database = {
           tax_amount?: number
           total_amount?: number
           warehouse_id?: string | null
+          updated_at?: string
         }
         Update: {
           business_unit_id?: string | null
@@ -3105,6 +3107,7 @@ export type Database = {
           tax_amount?: number
           total_amount?: number
           warehouse_id?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -3553,6 +3556,7 @@ export type Database = {
           tax_amount: number
           total_amount: number
           warehouse_id: string | null
+          updated_at: string
         }
         Insert: {
           adjustment_of_invoice_id?: string | null
@@ -3576,6 +3580,7 @@ export type Database = {
           tax_amount?: number
           total_amount?: number
           warehouse_id?: string | null
+          updated_at?: string
         }
         Update: {
           adjustment_of_invoice_id?: string | null
@@ -3599,6 +3604,7 @@ export type Database = {
           tax_amount?: number
           total_amount?: number
           warehouse_id?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
