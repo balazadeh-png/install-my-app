@@ -12,16 +12,28 @@ import { Badge } from "@/components/ui/badge";
 import { Package, Truck, ShoppingCart, Search, Printer, Eye, MapPin, Building2, AlertTriangle, ExternalLink, Calendar, Sparkles, TrendingDown, RefreshCw, ShieldCheck } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClientStockoutAlerts } from "@/components/portal/ClientStockoutAlerts";
+import { SupplierPortalView } from "@/components/portal/SupplierPortalView";
 
 export const Route = createFileRoute("/_portal/portal")({
   head: () => ({
     meta: [
-      { title: "Portal de Clientes 3PL — EasyERP" },
-      { name: "description", content: "Consulta de inventario en custodia, guías de despacho y pedidos multicanal en tiempo real." },
+      { title: "Portal Externo — EasyERP" },
+      { name: "description", content: "Portal para clientes 3PL y proveedores comerciales en tiempo real." },
     ],
   }),
-  component: CustomerPortalPage,
+  component: PortalMainPage,
 });
+
+function PortalMainPage() {
+  const { activeParty } = usePortal();
+
+  // Si es un proveedor, mostrar vista exclusiva de Catálogo y Contratos
+  if (activeParty?.classification === "supplier") {
+    return <SupplierPortalView activeParty={activeParty} />;
+  }
+
+  return <CustomerPortalPage />;
+}
 
 function CustomerPortalPage() {
   const { activeParty } = usePortal();

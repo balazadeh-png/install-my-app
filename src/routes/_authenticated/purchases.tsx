@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   ShoppingCart,
@@ -26,7 +27,12 @@ import {
   CheckCircle,
   Receipt,
   CreditCard,
+  Package,
+  AlertTriangle,
+  FileSpreadsheet,
 } from "lucide-react";
+import { SupplierContractManagerDialog } from "@/components/purchases/SupplierContractManagerDialog";
+import { SupplierCatalogManagerDialog } from "@/components/purchases/SupplierCatalogManagerDialog";
 
 export const Route = createFileRoute("/_authenticated/purchases")({
   component: PurchasesPage,
@@ -63,6 +69,13 @@ function PurchasesPage() {
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [supplierRequiresContract, setSupplierRequiresContract] = useState(false);
+
+  // Diálogos de Gestión de Proveedores (Sprint 37)
+  const [contractSupplier, setContractSupplier] = useState<any>(null);
+  const [catalogSupplier, setCatalogSupplier] = useState<any>(null);
+  const [contractDialogOpen, setContractDialogOpen] = useState(false);
+  const [catalogDialogOpen, setCatalogDialogOpen] = useState(false);
 
   // Form State Factura de Compra
   const [invPartyId, setInvPartyId] = useState("");
@@ -103,7 +116,7 @@ function PurchasesPage() {
       if (!activeEntityId) return [];
       const { data, error } = await supabase
         .from("parties")
-        .select("*, contacts(*)")
+        .select("*, contacts(*), supplier_contracts(id, version_number, is_current, file_name)")
         .eq("classification", "supplier")
         .eq("entity_id", activeEntityId)
         .order("name", { ascending: true });
@@ -306,6 +319,7 @@ function PurchasesPage() {
           commercial_name: commercialName.trim() || null,
           tax_id: taxId.trim() || null,
           classification: "supplier",
+          requires_contract: supplierRequiresContract,
           enabled: true,
         })
         .select()
@@ -335,6 +349,7 @@ function PurchasesPage() {
       setContactName("");
       setContactEmail("");
       setContactPhone("");
+      setSupplierRequiresContract(false);
     },
     onError: (err: any) => {
       toast.error(err.message || "Error al registrar proveedor");
@@ -595,6 +610,22 @@ function PurchasesPage() {
                       />
                     </div>
                   </div>
+                </div>
+
+                <div className="border-t pt-3 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="supplierRequiresContract" className="text-xs font-semibold cursor-pointer">
+                      ¿Requiere Contrato Firmado?
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Se alertará como pendiente si el proveedor no tiene un contrato o anexo PDF vigente cargado.
+                    </p>
+                  </div>
+                  <Switch
+                    id="supplierRequiresContract"
+                    checked={supplierRequiresContract}
+                    onCheckedChange={setSupplierRequiresContract}
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -1150,9 +1181,9 @@ function PurchasesPage() {
         <TabsContent value="suppliers">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Directorio de Proveedores</CardTitle>
+              <CardTitle className="text-base font-semibold">Directorio de Proveedores & Catálogos</CardTitle>
               <CardDescription>
-                Registro de suplidores con RUT y datos de contacto.
+                Registro de suplidores comerciales, acuerdos/contratos formalizados y catálogo de productos y servicios.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1165,27 +1196,102 @@ function PurchasesPage() {
                 <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[140px]">RUT</TableHead>
-                        <TableHead>Razón Social</TableHead>
+                      <TableRow className="text-xs">
+                        <TableHead className="w-[120px]">RUT</TableHead>
+                        <TableHead>Razón Social / Fantasía</TableHead>
                         <TableHead>Contacto</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Teléfono</TableHead>
+                        <TableHead>Email / Fono</TableHead>
+                        <TableHead className="text-center">Contrato Formal</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
+                        <TableHead className="text-right">Gestión</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {suppliers.map((s) => {
+                      {suppliers.map((s: any) => {
                         const primaryContact = s.contacts?.[0];
+                        const currentContract = s.supplier_contracts?.find((c: any) => c.is_current);
+
                         return (
-                          <TableRow key={s.id}>
+                          <TableRow key={s.id} className="text-xs">
                             <TableCell className="font-mono text-xs font-semibold">{s.tax_id || "-"}</TableCell>
-                            <TableCell className="text-xs font-semibold">{s.name}</TableCell>
+                            <TableCell>
+                              <div className="font-semibold text-xs">{s.name}</div>
+                              {s.commercial_name && (
+                                <div className="text-[11px] text-muted-foreground italic">
+                                  {s.commercial_name}
+                                </div>
+                              )}
+                            </TableCell>
                             <TableCell className="text-xs text-muted-foreground">{primaryContact?.first_name || "-"}</TableCell>
-                            <TableCell className="text-xs font-mono">{primaryContact?.email || "-"}</TableCell>
-                            <TableCell className="text-xs font-mono">{primaryContact?.phone || "-"}</TableCell>
+                            <TableCell>
+                              <div className="text-xs font-mono">{primaryContact?.email || "—"}</div>
+                              {primaryContact?.phone && (
+                                <div className="text-[10px] text-muted-foreground font-mono">{primaryContact.phone}</div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {s.requires_contract ? (
+                                currentContract ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] gap-1 cursor-pointer hover:bg-emerald-500/20"
+                                    onClick={() => {
+                                      setContractSupplier(s);
+                                      setContractDialogOpen(true);
+                                    }}
+                                  >
+                                    <CheckCircle className="h-3 w-3" />
+                                    <span>Vigente (v{currentContract.version_number})</span>
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="destructive"
+                                    className="text-[10px] gap-1 cursor-pointer hover:opacity-90"
+                                    onClick={() => {
+                                      setContractSupplier(s);
+                                      setContractDialogOpen(true);
+                                    }}
+                                  >
+                                    <AlertTriangle className="h-3 w-3" />
+                                    <span>Pendiente</span>
+                                  </Badge>
+                                )
+                              ) : (
+                                <Badge variant="secondary" className="text-[10px] text-muted-foreground">
+                                  Opcional
+                                </Badge>
+                              )}
+                            </TableCell>
                             <TableCell className="text-center">
                               <span className={`inline-block h-2 w-2 rounded-full ${s.enabled ? "bg-emerald-500" : "bg-red-500"}`} />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => {
+                                    setCatalogSupplier(s);
+                                    setCatalogDialogOpen(true);
+                                  }}
+                                >
+                                  <Package className="h-3.5 w-3.5 text-primary" />
+                                  <span>Catálogo</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => {
+                                    setContractSupplier(s);
+                                    setContractDialogOpen(true);
+                                  }}
+                                >
+                                  <FileText className="h-3.5 w-3.5 text-purple-600" />
+                                  <span>Contratos</span>
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -1198,6 +1304,20 @@ function PurchasesPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Diálogos de Gestión de Proveedores (Sprint 37) */}
+      <SupplierContractManagerDialog
+        open={contractDialogOpen}
+        onOpenChange={setContractDialogOpen}
+        supplier={contractSupplier}
+        entityId={activeEntityId || ""}
+      />
+      <SupplierCatalogManagerDialog
+        open={catalogDialogOpen}
+        onOpenChange={setCatalogDialogOpen}
+        supplier={catalogSupplier}
+        entityId={activeEntityId || ""}
+      />
     </div>
   );
 }

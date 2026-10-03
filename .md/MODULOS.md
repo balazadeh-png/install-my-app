@@ -475,6 +475,24 @@ Este documento describe en detalle cada uno de los módulos operativos integrado
 * **Panel de Control para el Operador Logístico**:
   * Pestaña "Quiebres AI" en el dashboard 3PL para que el operador audite los productos críticos de todos sus clientes y dispare recalculaciones en tiempo real.
 
+---
 
-
-
+## 30. Compras & Gestión de Proveedores, Catálogo y Portal ([`/purchases`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx) y [`/portal`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_portal/portal.tsx))
+* **Directorio de Proveedores y Requisito Formal de Contrato (`parties.requires_contract`)**:
+  * Marcaje por proveedor para identificar quiénes requieren obligatoriamente un contrato o anexo vigente en PDF.
+  * Alertas en la lista de compras que señalan proveedores con contrato pendiente.
+* **Historial Versionado de Contratos en PDF (`supplier_contracts`) & Supabase Storage**:
+  * Bucket privado `supplier-contracts` con ruta `{entity_id}/{party_id}/{timestamp}-{nombre_archivo}`.
+  * Historial inmutable de versiones de contratos con `version_number`, fecha, notas comerciales, usuario creador y flag `is_current`.
+  * Descarga segura de contratos en PDF mediante URLs firmadas temporales (1 hora).
+* **Catálogo Propio por Proveedor (`supplier_catalog_items`)**:
+  * Separación arquitectónica entre el catálogo del proveedor y el maestro interno de artículos (`items`).
+  * Cada proveedor posee sus SKUs, descripciones, tipo (`producto` o `servicio`), precios unitarios en CLP/USD/EUR/UF y unidades de medida.
+  * Enlace opcional a ítem interno (`linked_item_id`) para integración automatizada con compras e inventario.
+  * Políticas de borrado lógico: los ítems del catálogo se desactivan (`active = false`), nunca se eliminan, para preservar la integridad de órdenes y compras previas.
+  * Carga masiva por planillas Excel / CSV con pre-validación de filas y reporte de inconsistencias antes de confirmar el upsert.
+* **Portal Autónomo de Proveedores (`_portal/`)**:
+  * Reutilización de la infraestructura de portal existente (`party_portal_users`, `user_has_party_access`).
+  * Vista condicional adaptada para terceros con clasificación `'supplier'`:
+    * Pestaña "Mi Catálogo": lectura, alta, edición y carga masiva por Excel de sus propios productos/servicios.
+    * Pestaña "Mis Contratos": consulta y descarga en PDF de todas sus versiones de contratos y acuerdos comerciales en modo protegido de solo lectura.

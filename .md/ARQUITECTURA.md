@@ -182,6 +182,18 @@ Sistema ERP integral para contabilidad y gestión administrativa enfocado en emp
   * **Componentes de Alerta y Portal Predictivo (`ClientStockoutAlerts.tsx` y `portal.tsx`)**:
     * Alertas flotantes críticas (`Alert variant="destructive"`) en el portal del cliente con descarte individual o masivo.
     * Pestaña analítica "Predicción AI" en el portal de clientes y pestaña "Quiebres AI" en el panel del operador 3PL (`dashboard-3pl.tsx`).
+* **Gestión de Proveedores, Catálogo y Portal (Sprint 37)**:
+  * **Catálogo Propio Desacoplado (`supplier_catalog_items`)**:
+    * Separación conceptual estricta: los productos/servicios ofrecidos por un proveedor no contaminan el maestro interno de artículos (`items`), permitiendo que múltiples proveedores ofrezcan el mismo insumo con SKUs, descripciones y precios disímiles.
+    * Enlace opcional `linked_item_id` hacia `items` para habilitar el matching futuro en inventario y facturación de compra.
+    * Políticas de no-borrado: los ítems se desactivan (`active = false`), garantizando integridad referencial con órdenes históricas.
+  * **Almacenamiento y Versionado de Contratos en PDF (`supplier_contracts`)**:
+    * Primer uso de **Supabase Storage** con bucket privado `supplier-contracts`.
+    * Convención de ruta `{entity_id}/{party_id}/{timestamp}-{nombre_archivo}` con políticas RLS basadas en `user_has_company_access` (staff interno, rol `admin` o `purchasing`) y `user_has_party_access` (portal de proveedores, solo lectura).
+    * Registro de versiones inmutables con control de vigencia atómica (`is_current`).
+  * **Portal de Proveedores sobre Infraestructura Existente**:
+    * Reutilización de `party_portal_users` y `user_has_party_access` bajo la ruta unificada `_portal/`.
+    * Detección por `parties.classification = 'supplier'`: el portal concede permisos de escritura (RLS `FOR ALL`) sobre `supplier_catalog_items` para que el proveedor administre su catálogo de forma autónoma, y modo solo lectura (RLS `FOR SELECT`) sobre `supplier_contracts`.
 
 
 

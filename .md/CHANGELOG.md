@@ -2,6 +2,29 @@
 
 Todos los cambios notables, nuevas funcionalidades y mejoras en el proyecto se registran en este documento.
 
+## [Sprint 37: Gestión de Proveedores, Catálogo y Portal] - 2026-10-03
+
+### Añadido
+* **Migración SQL y Modelo de Proveedores & Catálogo** ([`20261003000037_sprint37_gestion_proveedores_catalogo_portal.sql`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/supabase/migrations/20261003000037_sprint37_gestion_proveedores_catalogo_portal.sql)):
+  * Columna `requires_contract boolean DEFAULT false` en la tabla `public.parties`.
+  * Tipo enum `public.catalog_item_type` con valores `'producto'` y `'servicio'`.
+  * Tabla `public.supplier_catalog_items`: catálogo independiente por proveedor con SKU (`supplier_sku`), nombre, descripción, tipo, precio unitario, moneda, unidad de medida (`uom`), vinculación opcional a ítem interno (`linked_item_id`) y estado activo/inactivo (con restricción única por `party_id` y `supplier_sku`).
+  * Tabla `public.supplier_contracts`: historial de versiones de contratos en PDF con número de versión correlativo (`version_number`), ruta y nombre de archivo en Supabase Storage, notas comerciales, flag de vigencia actual (`is_current`) y usuario responsable.
+  * Bucket privado de Supabase Storage `supplier-contracts` con convención de ruta `{entity_id}/{party_id}/{timestamp}-{nombre_archivo}` y políticas RLS: staff interno con `user_has_company_access` y roles `admin` o `purchasing`; portal de proveedores con lectura protegida vía `user_has_party_access`.
+  * Políticas RLS en tablas: staff gestiona por empresa; proveedores en el portal gestionan su propio catálogo (lectura, alta y edición) y leen sus contratos en modo solo lectura.
+  * Registro del módulo `'suppliers'` en el catálogo maestro `public.modules` ('Operaciones').
+* **Gestión de Contratos y Catálogos en Compras** ([`purchases.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_authenticated/purchases.tsx)):
+  * En la pestaña Directorio de Proveedores: indicador visual de estado de contrato (`Vigente (vN)`, `Pendiente` o `Opcional`) con enlace directo a gestión de acuerdos.
+  * Diálogo modal [`SupplierContractManagerDialog.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/purchases/SupplierContractManagerDialog.tsx): toggle de requerimiento formal de contrato, historial completo de versiones con notas y descarga segura de PDF mediante URL firmada (1 hora de vigencia), y subida de nuevas versiones PDF versionadas automáticamente.
+  * Diálogo modal [`SupplierCatalogManagerDialog.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/purchases/SupplierCatalogManagerDialog.tsx): buscador reactivo, alta manual con discriminación de producto/servicio y vinculación a ítem de inventario interno, activación/desactivación de ítems (sin borrado destructivo para proteger historial de órdenes), y carga masiva mediante planillas Excel/CSV con pre-validación exhaustiva que reporta filas válidas e inconsistencias (SKU vacío, precio negativo o duplicados) antes de confirmar el upsert.
+* **Portal de Proveedores Reutilizado** ([`_portal/route.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_portal/route.tsx), [`_portal/portal.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/routes/_portal/portal.tsx) y [`SupplierPortalView.tsx`](file:///c:/Users/kbala/Box/My%20Canvases/Portal_Contabilidad/install-my-app/src/components/portal/SupplierPortalView.tsx)):
+  * Detección automática de tipo de tercero (`parties.classification = 'supplier'`).
+  * Encabezado y navegación adaptados mostrando el rol de Proveedor Oficial y la Razón Social de la empresa compradora.
+  * Pestaña "Mi Catálogo": edición completa y autónoma por parte del proveedor de sus propios productos/servicios, alta manual y carga masiva por Excel/CSV.
+  * Pestaña "Mis Contratos": visualización y descarga en PDF de contratos y anexos en modo seguro de solo lectura.
+
+---
+
 ## [Sprint 33: Configuración Granular de Módulos por Empresa] - 2026-09-29
 
 ### Añadido

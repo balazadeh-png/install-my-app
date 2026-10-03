@@ -20,6 +20,8 @@ export interface PortalParty {
   name: string;
   tax_id: string | null;
   entity_id: string;
+  classification?: string | null;
+  requires_contract?: boolean | null;
   entities?: {
     business_name: string;
     tax_id: string | null;
@@ -63,6 +65,8 @@ function PortalLayout() {
             name,
             tax_id,
             entity_id,
+            classification,
+            requires_contract,
             entities(business_name, tax_id)
           )
         `)
@@ -92,7 +96,7 @@ function PortalLayout() {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Accediendo al Portal Cliente 3PL...</p>
+          <p className="text-sm text-muted-foreground">Accediendo al Portal...</p>
         </div>
       </div>
     );
@@ -102,7 +106,7 @@ function PortalLayout() {
     return <Navigate to="/auth" />;
   }
 
-  // Si el usuario autenticado no tiene asignado ningún cliente 3PL
+  // Si el usuario autenticado no tiene asignado ningún cliente o proveedor
   if (availableParties.length === 0) {
     return (
       <div className="min-h-screen bg-muted/20 flex flex-col justify-center items-center p-6">
@@ -110,12 +114,12 @@ function PortalLayout() {
           <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center">
             <ShieldAlert className="h-6 w-6" />
           </div>
-          <h2 className="text-xl font-bold">Portal de Clientes 3PL</h2>
+          <h2 className="text-xl font-bold">Portal Externo EasyERP</h2>
           <p className="text-sm text-muted-foreground">
-            Tu cuenta de usuario (<strong>{user?.email}</strong>) no tiene acceso asignado a ningún cliente 3PL.
+            Tu cuenta de usuario (<strong>{user?.email}</strong>) no tiene acceso asignado a ningún cliente o proveedor registrado.
           </p>
           <p className="text-xs text-muted-foreground bg-muted p-3 rounded-lg text-left">
-            Si eres cliente de nuestro servicio de bodegaje o transporte, contacta a tu operador logístico para que vincule tu correo a tu ficha de cliente.
+            Si eres cliente de bodegaje/transporte o proveedor de bienes y servicios, contacta a tu contraparte para que vincule tu correo a tu ficha de empresa.
           </p>
           <div className="pt-2 flex flex-col gap-2">
             <Button variant="outline" size="sm" onClick={() => signOut()}>
@@ -132,6 +136,7 @@ function PortalLayout() {
   }
 
   const activeParty = availableParties.find((p) => p.id === selectedPartyId) || availableParties[0];
+  const isSupplier = activeParty?.classification === "supplier";
 
   return (
     <PortalContext.Provider
@@ -142,7 +147,7 @@ function PortalLayout() {
       }}
     >
       <div className="min-h-screen bg-background flex flex-col">
-        {/* Header exclusivo del Portal Cliente */}
+        {/* Header exclusivo del Portal */}
         <header className="sticky top-0 z-30 border-b bg-card/80 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-4">
             <Link to="/portal" className="flex items-center gap-2.5">
@@ -150,14 +155,17 @@ function PortalLayout() {
                 <Package className="h-5 w-5" />
               </div>
               <div>
-                <span className="font-bold text-sm tracking-tight block">Portal Cliente 3PL</span>
+                <span className="font-bold text-sm tracking-tight block">
+                  {isSupplier ? "Portal de Proveedores" : "Portal Cliente 3PL"}
+                </span>
                 <span className="text-[10px] text-muted-foreground block -mt-1">
-                  Operador: {activeParty?.entities?.business_name || "Servicio Logístico 3PL"}
+                  {isSupplier ? "Comprador: " : "Operador: "}
+                  {activeParty?.entities?.business_name || (isSupplier ? "EasyERP Compras" : "Servicio Logístico 3PL")}
                 </span>
               </div>
             </Link>
 
-            {/* Selector de Cliente si tiene acceso a más de una empresa cliente */}
+            {/* Selector si tiene acceso a más de una empresa */}
             {availableParties.length > 1 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -168,7 +176,7 @@ function PortalLayout() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56 text-xs">
-                  <DropdownMenuLabel>Tus Cuentas Cliente</DropdownMenuLabel>
+                  <DropdownMenuLabel>Tus Cuentas Asociadas</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {availableParties.map((p) => (
                     <DropdownMenuItem
@@ -195,7 +203,7 @@ function PortalLayout() {
             <div className="text-right hidden md:block">
               <span className="text-xs font-medium block">{user?.email}</span>
               <span className="text-[10px] text-muted-foreground font-medium block truncate max-w-[180px]">
-                {activeParty?.name || "Cliente 3PL"}
+                {activeParty?.name || (isSupplier ? "Proveedor" : "Cliente 3PL")}
               </span>
             </div>
             <Button
